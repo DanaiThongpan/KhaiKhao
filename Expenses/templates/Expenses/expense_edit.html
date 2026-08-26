@@ -1,0 +1,63 @@
+{% load static %}
+<!DOCTYPE html>
+<html lang="th">
+<head>
+    <meta charset="UTF-8">
+    <title>แก้ไขรายจ่าย - KhaiKhao POS</title>
+    <link rel="stylesheet" href="{% static 'css/style.css' %}">
+    <style>
+        /* สไตล์ฟอร์มแก้ไข (ใช้พื้นฐานเดียวกับหน้าหลัก) */
+        body { font-family: sans-serif; background: #f3f4f6; margin: 0; padding: 20px; }
+        .edit-container { max-width: 600px; margin: 50px auto; background: white; padding: 30px; border-radius: 12px; box-shadow: 0 2px 10px rgba(0,0,0,0.05); }
+        h2 { margin-top: 0; color: #111827; }
+        .form-group { margin-bottom: 15px; display: flex; flex-direction: column; }
+        .form-group label { margin-bottom: 5px; font-weight: 600; font-size: 14px; }
+        .form-group input, .form-group select, .form-group textarea { padding: 10px; border: 1px solid #d1d5db; border-radius: 8px; font-size: 15px; }
+        .form-actions { margin-top: 25px; display: flex; justify-content: flex-end; gap: 10px; }
+        .btn { padding: 10px 20px; border: none; border-radius: 8px; cursor: pointer; font-weight: bold; text-decoration: none; }
+        .btn-cancel { background: #f3f4f6; color: #374151; }
+        .btn-save { background: #f59e0b; color: white; }
+    </style>
+</head>
+<body>
+
+<div class="edit-container">
+    <h2>✎ แก้ไขรายจ่าย</h2>
+    <p style="color: #6b7280; margin-bottom: 25px;">(หมายเหตุ: การแก้ไขนี้จะไม่ส่งผลกับข้อมูลใน Google Calendar)</p>
+
+    <form method="POST">
+        {% csrf_token %}
+        <div class="form-group">
+            <label>รายการรายจ่าย</label>
+            <input type="text" name="name" value="{{ expense.name }}" required>
+        </div>
+        <div class="form-group">
+            <label>จำนวนเงิน</label>
+            <input type="number" name="amount" step="0.01" value="{{ expense.amount }}" required>
+        </div>
+        <div class="form-group">
+            <label>วันที่รายจ่าย</label>
+            <input type="date" name="expense_date" value="{{ expense.expense_date|date:'Y-m-d' }}" required>
+        </div>
+        <div class="form-group">
+            <label>หมวดหมู่</label>
+            <select name="category" required>
+                {% for value, label in categories %}
+                    <option value="{{ value }}" {% if expense.category == value %}selected{% endif %}>{{ label }}</option>
+                {% endfor %}
+            </select>
+        </div>
+        <div class="form-group">
+            <label>รายละเอียด</label>
+            <textarea name="description">{% if expense.description %}{{ expense.description }}{% endif %}</textarea>
+        </div>
+
+        <div class="form-actions">
+            <a href="{% url 'expenses:home' %}" class="btn btn-cancel">ยกเลิก</a>
+            <button type="submit" class="btn btn-save">บันทึกการแก้ไข</button>
+        </div>
+    </form>
+</div>
+
+</body>
+</html>

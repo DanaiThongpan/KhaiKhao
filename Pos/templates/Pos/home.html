@@ -1,0 +1,481 @@
+{% load static %}
+<!DOCTYPE html>
+<html lang="th">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>KhaiKhao POS - หน้าหลัก</title>
+    <link rel="stylesheet" href="{% static 'css/style.css' %}">
+    <style>
+        /* =====================================================
+           CSS เพิ่มเติมเฉพาะหน้า POS (เพื่อเพิ่มตะกร้าด้านขวา)
+        ===================================================== */
+        .main {
+            width: calc(100% - 250px - 350px) !important;
+            margin-right: 350px;
+        }
+
+        .cart-sidebar {
+            width: 350px;
+            position: fixed;
+            top: 0;
+            right: 0;
+            bottom: 0;
+            background: white;
+            border-left: 1px solid #e5e7eb;
+            display: flex;
+            flex-direction: column;
+            box-shadow: -4px 0 15px rgba(0,0,0,0.03);
+            z-index: 10;
+        }
+
+        .cart-header { padding: 20px; border-bottom: 1px solid #e5e7eb; background: #f9fafb; }
+        .cart-header h2 { margin: 0; font-size: 20px; }
+        .cart-items { flex: 1; overflow-y: auto; padding: 15px; }
+        .cart-item { display: flex; justify-content: space-between; align-items: center; padding-bottom: 15px; margin-bottom: 15px; border-bottom: 1px solid #f3f4f6; }
+        .cart-item-info h4 { margin: 0 0 5px 0; font-size: 15px; }
+        
+        .qty-controls { display: flex; align-items: center; gap: 10px; }
+        .qty-btn { background: #f3f4f6; border: none; border-radius: 6px; width: 25px; height: 25px; cursor: pointer; font-weight: bold; }
+        .qty-btn:hover { background: #e5e7eb; }
+        
+        .cart-footer { padding: 20px; border-top: 1px solid #e5e7eb; background: #fff; }
+        .summary-row { display: flex; justify-content: space-between; font-size: 18px; font-weight: bold; margin-bottom: 15px; }
+        .btn-checkout { width: 100%; padding: 15px; background: #16a34a; color: white; border: none; border-radius: 8px; font-size: 16px; font-weight: bold; cursor: pointer; }
+        .btn-checkout:disabled { background: #9ca3af; cursor: not-allowed; }
+
+        .product-card { cursor: pointer; }
+        .product-card:active { transform: scale(0.95); }
+
+        /* =====================================================
+           [ใหม่] CSS สำหรับปุ่มหมวดหมู่ (Category Tabs)
+        ===================================================== */
+        .category-tabs {
+            display: flex;
+            gap: 10px;
+            overflow-x: auto;
+            padding-bottom: 10px;
+        }
+        .category-tabs::-webkit-scrollbar { height: 6px; }
+        .category-tabs::-webkit-scrollbar-thumb { background: #d1d5db; border-radius: 10px; }
+        
+        .cat-tab {
+            padding: 10px 22px;
+            background: white;
+            border: 1px solid #e5e7eb;
+            border-radius: 25px;
+            font-size: 15px;
+            font-weight: bold;
+            color: #4b5563;
+            cursor: pointer;
+            white-space: nowrap;
+            transition: all 0.2s;
+            box-shadow: 0 1px 2px rgba(0,0,0,0.02);
+        }
+        .cat-tab:hover { background: #f9fafb; border-color: #d1d5db; }
+        .cat-tab.active { background: #16a34a; color: white; border-color: #16a34a; }
+
+        @media (max-width: 1100px) {
+            .main { width: calc(100% - 70px - 300px) !important; margin-right: 300px; margin-left: 70px; }
+            .cart-sidebar { width: 300px; }
+        }
+        /* =====================================================
+        CSS ตกแต่งชื่อร้านให้โดดเด่น
+        ===================================================== */
+        .shop-title-box {
+            display: inline-block;
+            background: linear-gradient(135deg, #f0fdf4 0%, #dcfce7 100%);
+            border: 1px solid #bbf7d0;
+            padding: 6px 15px;
+            border-radius: 8px;
+            margin-top: 5px;
+        }
+        
+        .shop-name-text {
+            font-size: 20px;
+            font-weight: 800;
+            color: #15803d; /* สีเขียวเข้มพรีเมียม */
+            letter-spacing: 0.5px;
+            margin: 0;
+            text-shadow: 0 1px 1px rgba(0,0,0,0.05);
+        }
+    </style>
+</head>
+<body>
+
+<div style="display: none;">
+    {% csrf_token %}
+</div>
+
+<div class="app">
+
+    <!-- =====================================================
+         1. SIDEBAR
+    ====================================================== -->
+    <aside class="sidebar">
+        <div class="logo">
+            <h2>KhaiKhao</h2>
+            <span>POS</span>
+        </div>
+
+        <nav class="menu">
+            <a href="{% url 'pos:home' %}" class="menu-item active"><span>🏠</span><span>หน้าหลัก</span></a>
+            <a href="{% url 'expenses:home' %}" class="menu-item"><span>💵</span><span>บันทึกรายจ่าย</span></a>
+            <a href="#" class="menu-item"><span>📦</span><span>สินค้า</span></a>
+            <a href="#" class="menu-item"><span>🛒</span><span>สต๊อกของใช้</span></a>
+            <a href="#" class="menu-item"><span>📊</span><span>รายงาน</span></a>
+        </nav>
+
+        <div class="sidebar-bottom">
+            {% if request.user.is_authenticated %}
+            <div class="user-profile" style="padding: 10px 15px; margin-bottom: 10px; border-bottom: 1px solid #eee;">
+                <div style="font-size: 0.9em; color: #666;">เข้าสู่ระบบโดย:</div>
+                <div style="font-weight: bold; color: #fff; margin-top: 5px;">👤 {{ request.user.username }}</div>
+                <div style="font-size: 0.8em; color: #888;">(บทบาท: {{ request.user.get_role_display }})</div>
+            </div>
+            {% endif %}
+            <a href="{% url 'logout' %}" class="menu-item"><span>🚪</span><span>ออกจากระบบ</span></a>
+        </div>
+    </aside>
+
+    <!-- =====================================================
+         2. MAIN
+    ====================================================== -->
+    <main class="main">
+
+        <header class="header">
+            <div>
+                <h1>รายการสินค้า</h1>
+                <div class="shop-title-box">
+                    <p class="shop-name-text">
+                        {% if request.user.username == 'P184' %}
+                            🔥 ร้านทอดเป่า P184
+                        {% elif request.user.username == 'M053' %}
+                            🐷 ร้านเรื่องของหมู M053
+                        {% else %}
+                            🛒 ร้านค้าทั่วไป
+                        {% endif %}
+                    </p>
+                </div>
+            </div>
+            <div class="header-right">
+                <span class="shop-status">● เปิดให้บริการ</span>
+            </div>
+        </header>
+
+        <!-- SUMMARY -->
+        <section class="summary">
+            <div class="summary-card"><div class="summary-icon">📦</div><div><span>สินค้าทั้งหมด</span><strong>{{ products|length }}</strong><small>รายการ</small></div></div>
+            <div class="summary-card"><div class="summary-icon">📂</div><div><span>หมวดหมู่</span><strong>{{ categories|length }}</strong><small>หมวดหมู่</small></div></div>
+            <div class="summary-card"><div class="summary-icon">💰</div><div><span>ยอดขายวันนี้</span><strong style="color: #16a34a;">฿{{ daily_sales|floatformat:2 }}</strong><small>บาท</small></div></div>
+        </section>
+
+        <!-- =================================================
+             SEARCH & CATEGORY TABS [ปรับปรุงใหม่]
+        ================================================== -->
+        <section class="toolbar" style="display: block; margin-bottom: 25px;">
+            <div class="search-box" style="width: 100%; max-width: 400px; margin-bottom: 15px;">
+                <span>🔍</span>
+                <input type="text" id="searchInput" placeholder="ค้นหาชื่อสินค้า หรือรหัสสินค้า...">
+            </div>
+
+            <!-- ปุ่มหมวดหมู่แบบ Tabs -->
+            <div class="category-tabs" id="categoryTabs">
+                <button class="cat-tab active" data-category="">ทั้งหมด</button>
+                {% for category in categories %}
+                    <button class="cat-tab" data-category="{{ category.name }}">{{ category.name }}</button>
+                {% endfor %}
+            </div>
+        </section>
+
+        <!-- =================================================
+             PRODUCTS
+        ================================================== -->
+        <section class="products-section">
+            {% for category in categories %}
+                <div class="category-section">
+                    <div class="category-header">
+                        <div>
+                            <h2>{{ category.name }}</h2>
+                            <span>{{ category.products.count }} รายการ</span>
+                        </div>
+                    </div>
+
+                    <div class="products-grid">
+                        {% for product in category.products.all %}
+                            {% if product.is_active %}
+                                <article class="product-card" 
+                                         data-name="{{ product.name }}" 
+                                         data-code="{{ product.code }}" 
+                                         data-category="{{ category.name }}"
+                                         onclick="addToCart('{{ product.id }}', '{{ product.name }}', {{ product.selling_price }})">
+                                    
+                                    <div class="product-image">
+                                        {% if product.image %}
+                                            <img src="{{ product.image.url }}" alt="{{ product.name }}">
+                                        {% else %}
+                                            <div class="no-image">
+                                                <span>🍱</span>
+                                                <small>ไม่มีรูปภาพ</small>
+                                            </div>
+                                        {% endif %}
+                                    </div>
+
+                                    <div class="product-content">
+                                        <div class="product-code">{{ product.code }}</div>
+                                        <h3>{{ product.name }}</h3>
+                                        
+                                        {% if product.description %}
+                                            <p class="description">{{ product.description }}</p>
+                                        {% endif %}
+
+                                        <div class="product-bottom">
+                                            <div class="price">฿{{ product.selling_price }}</div>
+                                            <div class="stock">
+                                                {% if product.stock_quantity > 0 %}
+                                                    <span class="stock-ok">สต๊อก {{ product.stock_quantity }}</span>
+                                                {% else %}
+                                                    <span class="stock-empty">สินค้าหมด</span>
+                                                {% endif %}
+                                            </div>
+                                        </div>
+                                    </div>
+                                </article>
+                            {% endif %}
+                        {% empty %}
+                            <div class="empty">ยังไม่มีสินค้า</div>
+                        {% endfor %}
+                    </div>
+                </div>
+            {% endfor %}
+        </section>
+    </main>
+
+    <!-- =====================================================
+         3. CART SIDEBAR
+    ====================================================== -->
+    <aside class="cart-sidebar">
+        <div class="cart-header">
+            <h2>ตะกร้าสินค้า</h2>
+            <small style="color: #6b7280;">ออเดอร์ปัจจุบัน</small>
+        </div>
+
+        <div class="cart-items" id="cartContainer">
+            <div style="text-align: center; color: #9ca3af; margin-top: 50px;">
+                <div style="font-size: 40px; margin-bottom: 10px;">🛒</div>
+                ยังไม่มีสินค้าในตะกร้า
+            </div>
+        </div>
+
+        <div class="cart-footer">
+            <div class="summary-row">
+                <span>ยอดรวมสุทธิ:</span>
+                <span id="grandTotal" style="color: #16a34a;">฿0.00</span>
+            </div>
+            <button class="btn-checkout" id="btnCheckout" onclick="processCheckout()" disabled>
+                รับชำระเงิน
+            </button>
+        </div>
+    </aside>
+
+</div>
+
+<!-- =====================================================
+     SCRIPTS
+====================================================== -->
+<script>
+    // -----------------------------------------------------
+    // FILTER PRODUCTS (อัปเดตเพื่อรองรับปุ่ม Tabs)
+    // -----------------------------------------------------
+    const searchInput = document.getElementById("searchInput");
+    const catTabs = document.querySelectorAll(".cat-tab");
+    const categorySections = document.querySelectorAll(".category-section");
+    
+    let currentCategory = ""; // เก็บค่าหมวดหมู่ปัจจุบันที่ถูกเลือก
+
+    // จัดการเมื่อกดปุ่มหมวดหมู่
+    catTabs.forEach(tab => {
+        tab.addEventListener("click", () => {
+            // ลบสถานะ active จากปุ่มทั้งหมด
+            catTabs.forEach(t => t.classList.remove("active"));
+            // เพิ่มสถานะ active ให้ปุ่มที่คลิก
+            tab.classList.add("active");
+            // อัปเดตตัวกรอง
+            currentCategory = tab.dataset.category;
+            filterProducts();
+        });
+    });
+
+    function filterProducts() {
+        const search = searchInput.value.toLowerCase().trim();
+        let totalVisible = 0;
+
+        categorySections.forEach(section => {
+            const cards = section.querySelectorAll(".product-card");
+            let visibleInCategory = 0;
+
+            cards.forEach(card => {
+                const name = card.dataset.name.toLowerCase();
+                const code = card.dataset.code.toLowerCase();
+                const cardCategory = card.dataset.category;
+
+                const matchSearch = name.includes(search) || code.includes(search);
+                // กรองจากปุ่มที่กด ถ้า currentCategory ว่าง (ปุ่ม"ทั้งหมด") ก็ให้ผ่านหมด
+                const matchCategory = !currentCategory || cardCategory === currentCategory;
+
+                if (matchSearch && matchCategory) {
+                    card.style.display = "";
+                    visibleInCategory++;
+                    totalVisible++;
+                } else {
+                    card.style.display = "none";
+                }
+            });
+
+            // ซ่อนหรือแสดงหมวดหมู่นั้นๆ
+            if (visibleInCategory > 0) {
+                section.style.display = "";
+            } else {
+                section.style.display = "none";
+            }
+        });
+
+        let noResult = document.getElementById("noResult");
+        if (totalVisible === 0) {
+            if (!noResult) {
+                noResult = document.createElement("div");
+                noResult.id = "noResult";
+                noResult.className = "empty";
+                noResult.innerHTML = `
+                    <div style="font-size: 40px;">🔍</div>
+                    <h3>ไม่พบสินค้าที่ค้นหา</h3>
+                    <p>ลองค้นหาด้วยชื่อสินค้า หรือรหัสสินค้าอื่น</p>
+                `;
+                document.querySelector(".products-section").appendChild(noResult);
+            }
+        } else {
+            if (noResult) {
+                noResult.remove();
+            }
+        }
+    }
+
+    searchInput.addEventListener("input", filterProducts);
+
+    // -----------------------------------------------------
+    // CART SYSTEM
+    // -----------------------------------------------------
+    let cart = []; 
+
+    function addToCart(id, name, price) {
+        const existingItem = cart.find(item => item.id === id);
+        if (existingItem) {
+            existingItem.qty += 1;
+        } else {
+            cart.push({ id: id, name: name, price: parseFloat(price), qty: 1 });
+        }
+        renderCart();
+    }
+
+    function updateQty(id, change) {
+        const item = cart.find(item => item.id === id);
+        if (item) {
+            item.qty += change;
+            if (item.qty <= 0) cart = cart.filter(cartItem => cartItem.id !== id);
+            renderCart();
+        }
+    }
+
+    function removeItem(id) {
+        cart = cart.filter(item => item.id !== id);
+        renderCart();
+    }
+
+    function renderCart() {
+        const container = document.getElementById('cartContainer');
+        const grandTotalEl = document.getElementById('grandTotal');
+        const btnCheckout = document.getElementById('btnCheckout');
+
+        if (cart.length === 0) {
+            container.innerHTML = `
+                <div style="text-align: center; color: #9ca3af; margin-top: 50px;">
+                    <div style="font-size: 40px; margin-bottom: 10px;">🛒</div>
+                    ยังไม่มีสินค้าในตะกร้า
+                </div>`;
+            grandTotalEl.innerText = '฿0.00';
+            btnCheckout.disabled = true;
+            return;
+        }
+
+        container.innerHTML = '';
+        let totalPrice = 0;
+
+        cart.forEach(item => {
+            const itemTotal = item.price * item.qty;
+            totalPrice += itemTotal;
+
+            container.innerHTML += `
+                <div class="cart-item">
+                    <div class="cart-item-info">
+                        <h4>${item.name}</h4>
+                        <div class="qty-controls">
+                            <button class="qty-btn" onclick="updateQty('${item.id}', -1)">-</button>
+                            <span>${item.qty}</span>
+                            <button class="qty-btn" onclick="updateQty('${item.id}', 1)">+</button>
+                        </div>
+                    </div>
+                    <div style="text-align: right;">
+                        <div style="font-weight: bold; margin-bottom: 5px;">฿${itemTotal.toLocaleString(undefined, {minimumFractionDigits: 2})}</div>
+                        <span onclick="removeItem('${item.id}')" style="color: #ef4444; font-size: 12px; cursor: pointer;">ลบ</span>
+                    </div>
+                </div>
+            `;
+        });
+
+        grandTotalEl.innerText = `฿${totalPrice.toLocaleString(undefined, {minimumFractionDigits: 2})}`;
+        btnCheckout.disabled = false;
+    }
+
+    // -----------------------------------------------------
+    // PROCESS CHECKOUT
+    // -----------------------------------------------------
+    function processCheckout() {
+        if (cart.length === 0) return;
+
+        const btnCheckout = document.getElementById('btnCheckout');
+        btnCheckout.disabled = true;
+        btnCheckout.innerText = "⏳ กำลังบันทึก...";
+
+        const csrftoken = document.querySelector('[name=csrfmiddlewaretoken]').value;
+
+        fetch("{% url 'pos:checkout' %}", {
+            method: "POST",
+            headers: {
+                "Content-Type": "application/json",
+                "X-CSRFToken": csrftoken
+            },
+            body: JSON.stringify({ cart: cart })
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (data.status === "success") {
+                alert(data.message + "\nเลขที่บิล: " + data.receipt);
+                cart = [];
+                window.location.reload(); 
+            } else {
+                alert("เกิดข้อผิดพลาด: " + data.message);
+            }
+        })
+        .catch(error => {
+            console.error("Error:", error);
+            alert("เชื่อมต่อเซิร์ฟเวอร์ไม่สำเร็จ");
+        })
+        .finally(() => {
+            btnCheckout.disabled = false;
+            btnCheckout.innerText = "รับชำระเงิน";
+        });
+    }
+</script>
+
+</body>
+</html>

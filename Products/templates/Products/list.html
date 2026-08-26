@@ -1,0 +1,355 @@
+{% load static %}
+<!DOCTYPE html>
+<html lang="th">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>KhaiKhao POS - จัดการสินค้า</title>
+    <link rel="stylesheet" href="{% static 'css/style.css' %}">
+    <style>
+        /* CSS เฉพาะสำหรับปุ่มจัดการสินค้า */
+        .header-actions {
+            display: flex;
+            gap: 10px;
+        }
+
+        .btn-primary {
+            background-color: #3b82f6;
+            color: white;
+            padding: 10px 20px;
+            border-radius: 8px;
+            text-decoration: none;
+            font-weight: bold;
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+            transition: background 0.2s;
+        }
+
+        .btn-primary:hover {
+            background-color: #2563eb;
+        }
+
+        .btn-secondary {
+            background-color: #f3f4f6;
+            color: #374151;
+            padding: 10px 20px;
+            border-radius: 8px;
+            text-decoration: none;
+            font-weight: bold;
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+            border: 1px solid #d1d5db;
+            transition: background 0.2s;
+        }
+
+        .btn-secondary:hover {
+            background-color: #e5e7eb;
+        }
+
+        /* เพิ่มเอฟเฟกต์ปุ่มแก้ไขที่การ์ดสินค้า */
+        .product-card {
+            position: relative;
+        }
+        
+        .product-actions {
+            position: absolute;
+            top: 10px;
+            right: 10px;
+            display: flex;
+            gap: 5px;
+            opacity: 0;
+            transition: opacity 0.2s;
+        }
+
+        .product-card:hover .product-actions {
+            opacity: 1;
+        }
+
+        .action-btn {
+            background: white;
+            border: 1px solid #e5e7eb;
+            width: 32px;
+            height: 32px;
+            border-radius: 6px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            cursor: pointer;
+            color: #374151;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+            text-decoration: none;
+        }
+        
+        .action-btn:hover {
+            background: #f3f4f6;
+        }
+
+        .action-btn.edit:hover { color: #3b82f6; }
+        .action-btn.delete:hover { color: #ef4444; }
+    </style>
+</head>
+<body>
+
+<div class="app">
+
+    <!-- =====================================================
+         SIDEBAR
+    ====================================================== -->
+    <aside class="sidebar">
+        <div class="logo">
+            <h2>KhaiKhao</h2>
+            <span>POS</span>
+        </div>
+
+        <nav class="menu">
+            <!-- เปลี่ยนคลาส active มาไว้ที่เมนูสินค้าแทนหน้าหลัก -->
+            <a href="{% url 'pos:home' %}" class="menu-item">
+                <span>🏠</span>
+                <span>หน้าหลัก</span>
+            </a>
+            <a href="{% url 'expenses:home' %}" class="menu-item">
+                <span>💵</span>
+                <span>บันทึกรายจ่าย</span>
+            </a>
+            <a href="{% url 'products:list' %}" class="menu-item active">
+                <span>📦</span>
+                <span>สินค้า</span>
+            </a>
+            <a href="#" class="menu-item">
+                <span>🛒</span>
+                <span>สต๊อกของใช้</span>
+            </a>
+            <a href="#" class="menu-item">
+                <span>📊</span>
+                <span>รายงาน</span>
+            </a>
+        </nav>
+
+        <div class="sidebar-bottom">
+            {% if request.user.is_authenticated %}
+            <div class="user-profile" style="padding: 10px 15px; margin-bottom: 10px; border-bottom: 1px solid #374151;">
+                <div style="font-size: 0.9em; color: #9ca3af;">เข้าสู่ระบบโดย:</div>
+                <div style="font-weight: bold; color: #fff; margin-top: 5px;">
+                    👤 {{ request.user.username }}
+                </div>
+                <div style="font-size: 0.8em; color: #9ca3af; margin-top: 2px;">
+                    (บทบาท: {{ request.user.get_role_display }})
+                </div>
+            </div>
+            {% endif %}
+
+            <a href="{% url 'logout' %}" class="menu-item">
+                <span>🚪</span>
+                <span>ออกจากระบบ</span>
+            </a>
+        </div>
+    </aside>
+
+    <!-- =====================================================
+         MAIN
+    ====================================================== -->
+    <main class="main">
+
+        <!-- HEADER (ปรับใหม่สำหรับหน้าจัดการสินค้า) -->
+        <header class="header">
+            <div>
+                <h1>จัดการรายการสินค้า</h1>
+                <p>แก้ไขข้อมูล เพิ่มสินค้า หรือหมวดหมู่</p>
+            </div>
+            
+            <div class="header-actions">
+                <a href="#" class="btn-secondary">
+                    <span>📂</span> จัดการหมวดหมู่
+                </a>
+                <a href="#" class="btn-primary">
+                    <span>➕</span> เพิ่มสินค้าใหม่
+                </a>
+            </div>
+        </header>
+
+        <!-- =================================================
+             SUMMARY
+        ================================================== -->
+        <section class="summary">
+            <div class="summary-card">
+                <div class="summary-icon">📦</div>
+                <div>
+                    <span>สินค้าทั้งหมด</span>
+                    <strong>{{ products|length }}</strong>
+                    <small>รายการ</small>
+                </div>
+            </div>
+
+            <div class="summary-card">
+                <div class="summary-icon">📂</div>
+                <div>
+                    <span>หมวดหมู่</span>
+                    <strong>{{ categories|length }}</strong>
+                    <small>หมวดหมู่</small>
+                </div>
+            </div>
+
+            <div class="summary-card">
+                <div class="summary-icon">⚠️</div>
+                <div>
+                    <span>สินค้าใกล้หมด</span>
+                    <strong>0</strong> <!-- ตัวเลขสมมติ คุณสามารถเขียน Filter ใน Views เพื่อดึงสินค้าน้อยกว่า 5 ชิ้นมาแสดงได้ -->
+                    <small>รายการ</small>
+                </div>
+            </div>
+        </section>
+
+        <!-- =================================================
+             SEARCH
+        ================================================== -->
+        <section class="toolbar">
+            <div class="search-box">
+                <span>🔍</span>
+                <input type="text" id="searchInput" placeholder="ค้นหาชื่อสินค้า หรือรหัสสินค้า...">
+            </div>
+
+            <select id="categoryFilter">
+                <option value="">ทุกหมวดหมู่</option>
+                {% for category in categories %}
+                    <option value="{{ category.name }}">{{ category.name }}</option>
+                {% endfor %}
+            </select>
+        </section>
+
+        <!-- =================================================
+             PRODUCTS
+        ================================================== -->
+        <section class="products-section">
+            {% for category in categories %}
+                <div class="category-section">
+                    <div class="category-header">
+                        <div>
+                            <h2>{{ category.name }}</h2>
+                            <span>{{ category.products.count }} รายการ</span>
+                        </div>
+                    </div>
+
+                    <div class="products-grid">
+                        {% for product in category.products.all %}
+                            {% if product.is_active %}
+                                <article class="product-card" data-name="{{ product.name }}" data-code="{{ product.code }}" data-category="{{ category.name }}">
+                                    
+                                    <!-- ส่วนที่เพิ่มใหม่: ปุ่มแก้ไข/ลบ จะแสดงเมื่อเอาเมาส์ชี้ไปที่การ์ด -->
+                                    <div class="product-actions">
+                                        <a href="#" class="action-btn edit" title="แก้ไขสินค้า">✏️</a>
+                                        <a href="#" class="action-btn delete" title="ลบสินค้า">🗑️</a>
+                                    </div>
+
+                                    <!-- IMAGE -->
+                                    <div class="product-image">
+                                        {% if product.image %}
+                                            <img src="{{ product.image.url }}" alt="{{ product.name }}">
+                                        {% else %}
+                                            <div class="no-image">
+                                                <span>🍱</span>
+                                                <small>ไม่มีรูปภาพ</small>
+                                            </div>
+                                        {% endif %}
+                                    </div>
+
+                                    <!-- CONTENT -->
+                                    <div class="product-content">
+                                        <div class="product-code">{{ product.code }}</div>
+                                        <h3>{{ product.name }}</h3>
+                                        
+                                        {% if product.description %}
+                                            <p class="description">{{ product.description }}</p>
+                                        {% endif %}
+
+                                        <div class="product-bottom">
+                                            <div class="price">฿{{ product.selling_price }}</div>
+                                            <div class="stock">
+                                                {% if product.stock_quantity > 0 %}
+                                                    <span class="stock-ok">สต๊อก {{ product.stock_quantity }}</span>
+                                                {% else %}
+                                                    <span class="stock-empty" style="color: #ef4444; font-weight:bold;">หมด</span>
+                                                {% endif %}
+                                            </div>
+                                        </div>
+                                    </div>
+                                </article>
+                            {% endif %}
+                        {% empty %}
+                            <div class="empty">ยังไม่มีสินค้าในหมวดหมู่นี้</div>
+                        {% endfor %}
+                    </div>
+                </div>
+            {% endfor %}
+        </section>
+    </main>
+</div>
+
+<!-- =====================================================
+     SEARCH SCRIPT (เหมือนเดิม)
+====================================================== -->
+<script>
+    const searchInput = document.getElementById("searchInput");
+    const categoryFilter = document.getElementById("categoryFilter");
+    const categorySections = document.querySelectorAll(".category-section");
+
+    function filterProducts() {
+        const search = searchInput.value.toLowerCase().trim();
+        const category = categoryFilter.value;
+        let totalVisible = 0;
+
+        categorySections.forEach(section => {
+            const cards = section.querySelectorAll(".product-card");
+            let visibleInCategory = 0;
+
+            cards.forEach(card => {
+                const name = card.dataset.name.toLowerCase();
+                const code = card.dataset.code.toLowerCase();
+                const cardCategory = card.dataset.category;
+
+                const matchSearch = name.includes(search) || code.includes(search);
+                const matchCategory = !category || cardCategory === category;
+
+                if (matchSearch && matchCategory) {
+                    card.style.display = "";
+                    visibleInCategory++;
+                    totalVisible++;
+                } else {
+                    card.style.display = "none";
+                }
+            });
+
+            if (visibleInCategory > 0) {
+                section.style.display = "";
+            } else {
+                section.style.display = "none";
+            }
+        });
+
+        let noResult = document.getElementById("noResult");
+        if (totalVisible === 0) {
+            if (!noResult) {
+                noResult = document.createElement("div");
+                noResult.id = "noResult";
+                noResult.className = "empty";
+                noResult.innerHTML = `
+                    <div style="font-size: 40px;">🔍</div>
+                    <h3>ไม่พบสินค้าที่ค้นหา</h3>
+                    <p>ลองค้นหาด้วยชื่อสินค้า หรือรหัสสินค้าอื่น</p>
+                `;
+                document.querySelector(".products-section").appendChild(noResult);
+            }
+        } else {
+            if (noResult) {
+                noResult.remove();
+            }
+        }
+    }
+
+    searchInput.addEventListener("input", filterProducts);
+    categoryFilter.addEventListener("change", filterProducts);
+</script>
+
+</body>
+</html>
