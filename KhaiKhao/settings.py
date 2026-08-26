@@ -41,6 +41,7 @@ INSTALLED_APPS = [
     'Products',
     'Pos',
     'Expenses',
+    'Reports',
 ]
 
 MIDDLEWARE = [
@@ -132,3 +133,4 @@ STATICFILES_DIRS = [
 DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
 
 AUTH_USER_MODEL = 'Accounts.User'
+DATA_UPLOAD_MAX_NUMBER_FIELDS = 5000

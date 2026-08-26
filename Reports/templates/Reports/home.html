@@ -1,0 +1,197 @@
+{% load static %}
+<!DOCTYPE html>
+<html lang="th">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>รายงานยอดขาย - KhaiKhao POS</title>
+    <link rel="stylesheet" href="{% static 'css/style.css' %}">
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <style>
+        body { background: #f3f4f6; font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; margin: 0; }
+        .main-container { margin-left: 250px; padding: 30px; }
+        .report-header { background: white; padding: 20px 30px; border-radius: 12px; box-shadow: 0 2px 5px rgba(0,0,0,0.05); margin-bottom: 25px; }
+        
+        .filter-tabs { display: flex; gap: 10px; margin-bottom: 15px; }
+        .filter-btn { padding: 8px 16px; background: #f3f4f6; border: 1px solid #d1d5db; border-radius: 20px; text-decoration: none; color: #4b5563; font-weight: bold; font-size: 14px; transition: all 0.2s; }
+        .filter-btn:hover { background: #e5e7eb; }
+        .filter-btn.active { background: #16a34a; color: white; border-color: #16a34a; }
+
+        .chart-container { background: white; padding: 25px; border-radius: 12px; box-shadow: 0 2px 5px rgba(0,0,0,0.05); margin-bottom: 25px; }
+        .chart-container h3 { margin-top: 0; color: #374151; font-size: 18px; margin-bottom: 15px; }
+
+        .report-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(450px, 1fr)); gap: 20px; }
+        .report-card { background: white; padding: 20px; border-radius: 12px; box-shadow: 0 2px 5px rgba(0,0,0,0.05); margin-bottom: 20px; }
+        .report-card h3 { margin-top: 0; color: #374151; border-bottom: 2px solid #f3f4f6; padding-bottom: 10px; font-size: 18px; }
+        table { width: 100%; border-collapse: collapse; margin-top: 10px; }
+        th, td { padding: 12px; text-align: left; border-bottom: 1px solid #f3f4f6; font-size: 14px; }
+        th { color: #6b7280; font-weight: 600; background: #f9fafb; }
+        td { color: #1f2937; }
+        .amount { color: #16a34a; font-weight: bold; text-align: right; }
+        .total-box { background: #dcfce7; border: 1px solid #bbf7d0; padding: 15px 25px; border-radius: 10px; color: #166534; font-size: 18px; font-weight: bold; margin-bottom: 25px; display: inline-block; }
+    </style>
+</head>
+<body>
+
+<div class="app">
+    <!-- SIDEBAR -->
+    <aside class="sidebar">
+        <div class="logo">
+            <h2>KhaiKhao</h2>
+            <span>POS</span>
+        </div>
+        <nav class="menu">
+            <a href="{% url 'pos:home' %}" class="menu-item"><span>🏠</span><span>หน้าหลัก</span></a>
+            <a href="{% url 'expenses:home' %}" class="menu-item"><span>💵</span><span>บันทึกรายจ่าย</span></a>
+            <a href="{% url 'products:list' %}" class="menu-item"><span>📦</span><span>สินค้า</span></a>
+            <a href="#" class="menu-item"><span>🛒</span><span>สต๊อกของใช้</span></a>
+            <a href="{% url 'reports:home' %}" class="menu-item active"><span>📊</span><span>รายงาน</span></a>
+        </nav>
+        <div class="sidebar-bottom">
+            {% if request.user.is_authenticated %}
+            <div class="user-profile" style="padding: 10px 15px; margin-bottom: 10px; border-bottom: 1px solid #eee;">
+                <div style="font-size: 0.9em; color: #666;">เข้าสู่ระบบโดย:</div>
+                <div style="font-weight: bold; color: #fff; margin-top: 5px;">👤 {{ request.user.username }}</div>
+            </div>
+            {% endif %}
+            <a href="{% url 'logout' %}" class="menu-item"><span>🚪</span><span>ออกจากระบบ</span></a>
+        </div>
+    </aside>
+
+    <!-- CONTENT -->
+    <div class="main-container">
+        <div class="report-header">
+            <h1 style="margin: 0; font-size: 24px;">📊 รายงานยอดขาย</h1>
+            <p style="margin: 5px 0 0 0; color: #6b7280;">สถิติข้อมูลของ 
+                {% if request.user.username == 'P184' %}ร้านทอดเป่า P184{% else %}ร้านเรื่องของหมู M053{% endif %}
+            </p>
+        </div>
+
+        <div>
+            <div class="total-box">
+                💰 ยอดขายสะสมรวมทั้งหมด: ฿{{ grand_total|floatformat:2 }} บาท
+            </div>
+        </div>
+
+        <!-- กราฟวิเคราะห์พร้อมปุ่มกรอง -->
+        <div class="chart-container">
+            <h3>📈 {{ chart_label }}</h3>
+            <div class="filter-tabs">
+                <a href="?filter=day" class="filter-btn {% if filter_type == 'day' %}active{% endif %}">📅 รายวัน</a>
+                <a href="?filter=month" class="filter-btn {% if filter_type == 'month' %}active{% endif %}">📈 รายเดือน</a>
+                <a href="?filter=year" class="filter-btn {% if filter_type == 'year' %}active{% endif %}">🏆 รายปี</a>
+            </div>
+            <div style="position: relative; height: 320px; width: 100%;">
+                <canvas id="salesChart"></canvas>
+            </div>
+        </div>
+
+        <!-- ตารางรายงาน 4 ช่อง -->
+        <div class="report-grid">
+            <div class="report-card">
+                <h3>📅 ยอดขายรายวัน (10 วันล่าสุด)</h3>
+                <table>
+                    <thead><tr><th>วันที่</th><th style="text-align: right;">ยอดขาย (บาท)</th></tr></thead>
+                    <tbody>
+                        {% for row in daily_sales %}
+                        <tr><td>{{ row.period|date:"d M Y" }}</td><td class="amount">฿{{ row.total|floatformat:2 }}</td></tr>
+                        {% empty %}
+                        <tr><td colspan="2" style="text-align: center; color: #9ca3af;">ยังไม่มีข้อมูลการขาย</td></tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+
+            <div class="report-card">
+                <h3>📆 ยอดขายรายสัปดาห์</h3>
+                <table>
+                    <thead><tr><th>สัปดาห์เริ่มต้นวันที่</th><th style="text-align: right;">ยอดขาย (บาท)</th></tr></thead>
+                    <tbody>
+                        {% for row in weekly_sales %}
+                        <tr><td>{{ row.period|date:"d M Y" }}</td><td class="amount">฿{{ row.total|floatformat:2 }}</td></tr>
+                        {% empty %}
+                        <tr><td colspan="2" style="text-align: center; color: #9ca3af;">ยังไม่มีข้อมูลการขาย</td></tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+
+            <div class="report-card">
+                <h3>📈 ยอดขายรายเดือน</h3>
+                <table>
+                    <thead><tr><th>เดือน/ปี</th><th style="text-align: right;">ยอดขาย (บาท)</th></tr></thead>
+                    <tbody>
+                        {% for row in monthly_sales %}
+                        <tr><td>{{ row.period|date:"F Y" }}</td><td class="amount">฿{{ row.total|floatformat:2 }}</td></tr>
+                        {% empty %}
+                        <tr><td colspan="2" style="text-align: center; color: #9ca3af;">ยังไม่มีข้อมูลการขาย</td></tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+
+            <div class="report-card">
+                <h3>🏆 ยอดขายรายปี</h3>
+                <table>
+                    <thead><tr><th>ปี</th><th style="text-align: right;">ยอดขาย (บาท)</th></tr></thead>
+                    <tbody>
+                        {% for row in yearly_sales %}
+                        <tr><td>{{ row.period|date:"Y" }}</td><td class="amount">฿{{ row.total|floatformat:2 }}</td></tr>
+                        {% empty %}
+                        <tr><td colspan="2" style="text-align: center; color: #9ca3af;">ยังไม่มีข้อมูลการขาย</td></tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Script วาดกราฟ -->
+<script>
+    const labels = [
+        {% for row in chart_data %}
+            "{% if filter_type == 'year' %}{{ row.period|date:'Y' }}{% elif filter_type == 'month' %}{{ row.period|date:'M Y' }}{% else %}{{ row.period|date:'d M' }}{% endif %}",
+        {% endfor %}
+    ];
+
+    const dataValues = [
+        {% for row in chart_data %}
+            {{ row.total|default:0 }},
+        {% endfor %}
+    ];
+
+    const ctx = document.getElementById('salesChart').getContext('2d');
+    new Chart(ctx, {
+        type: 'bar',
+        data: {
+            labels: labels,
+            datasets: [{
+                label: 'ยอดขาย (บาท)',
+                data: dataValues,
+                backgroundColor: 'rgba(22, 163, 74, 0.25)',
+                borderColor: 'rgba(22, 163, 74, 1)',
+                borderWidth: 2,
+                borderRadius: 6
+            }]
+        },
+        options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            scales: {
+                y: {
+                    beginAtZero: true,
+                    ticks: {
+                        callback: function(value) { return '฿' + value.toLocaleString(); }
+                    }
+                }
+            },
+            plugins: {
+                legend: { display: false }
+            }
+        }
+    });
+</script>
+
+</body>
+</html>
