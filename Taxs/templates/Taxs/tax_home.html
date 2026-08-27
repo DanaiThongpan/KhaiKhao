@@ -1,0 +1,253 @@
+{% load static %}
+<!DOCTYPE html>
+<html lang="th">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>แดชบอร์ดวางแผนภาษี - KhaiKhao POS</title>
+    <link rel="stylesheet" href="{% static 'css/style.css' %}">
+    <style>
+        .tax-container { max-width: 1100px; margin: 0 auto; }
+        .tax-card { background: white; border-radius: 16px; padding: 25px 30px; box-shadow: 0 2px 10px rgba(0,0,0,0.04); margin-bottom: 25px; }
+        .tax-card h2 { margin-top: 0; color: #1f2937; font-size: 20px; border-bottom: 2px solid #f3f4f6; padding-bottom: 12px; }
+        
+        /* Dashboard Grid Cards */
+        .dash-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 20px; margin-bottom: 20px; }
+        .dash-box { background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 14px; padding: 20px; position: relative; overflow: hidden; }
+        .dash-box span { display: block; color: #64748b; font-size: 14px; margin-bottom: 8px; font-weight: 500; }
+        .dash-box strong { font-size: 26px; color: #0f172a; font-weight: 800; }
+        .dash-box.highlight { background: linear-gradient(135deg, #f0fdf4 0%, #dcfce7 100%); border-color: #bbf7d0; }
+        .dash-box.highlight strong { color: #15803d; }
+        .dash-box.warning { background: linear-gradient(135deg, #fffbeb 0%, #fef3c7 100%); border-color: #fde68a; }
+        .dash-box.warning strong { color: #b45309; }
+
+        /* Progress Bar Styles */
+        .progress-section { background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 14px; padding: 20px; margin-bottom: 20px; }
+        .progress-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px; font-size: 14px; font-weight: 600; color: #374151; }
+        .progress-track { background: #e2e8f0; border-radius: 10px; height: 16px; width: 100%; overflow: hidden; position: relative; }
+        .progress-fill { background: linear-gradient(90deg, #16a34a 0%, #22c55e 100%); height: 100%; border-radius: 10px; transition: width 0.4s ease; }
+        .progress-fill.taxable { background: linear-gradient(90deg, #f97316 0%, #dc2626 100%); } /* เปลี่ยนสีเป็นส้ม/แดงเมื่อถึงจุดเสียภาษี */
+        .progress-labels { display: flex; justify-content: space-between; margin-top: 8px; font-size: 12px; color: #64748b; }
+
+        .form-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; margin-top: 15px; }
+        .form-group { display: flex; flex-direction: column; gap: 8px; }
+        .form-group.full { grid-column: span 2; }
+        .form-group label { font-weight: 600; color: #374151; font-size: 14px; }
+        .form-group input { width: 100%; padding: 12px 15px; border: 1px solid #d1d5db; border-radius: 8px; font-size: 15px; box-sizing: border-box; outline: none; }
+        .form-group input:focus { border-color: #16a34a; box-shadow: 0 0 0 3px rgba(22, 163, 74, 0.1); }
+        
+        .btn-action { background: #16a34a; color: white; padding: 12px 22px; border: none; border-radius: 8px; font-weight: bold; cursor: pointer; font-size: 15px; transition: background 0.2s; display: inline-flex; align-items: center; gap: 8px; }
+        .btn-action:hover { background: #15803d; }
+        .btn-secondary { background: #3b82f6; }
+        .btn-secondary:hover { background: #2563eb; }
+
+        table { width: 100%; border-collapse: collapse; margin-top: 10px; }
+        th, td { padding: 12px; text-align: left; border-bottom: 1px solid #f3f4f6; font-size: 14px; }
+        th { color: #6b7280; background: #f9fafb; font-weight: 600; }
+        td { color: #1f2937; }
+
+        .shop-title-box { display: inline-block; background: linear-gradient(135deg, #f0fdf4 0%, #dcfce7 100%); border: 1px solid #bbf7d0; padding: 6px 15px; border-radius: 8px; margin-top: 5px; }
+        .shop-name-text { font-size: 20px; font-weight: 800; color: #15803d; margin: 0; }
+    </style>
+</head>
+<body>
+
+<div class="app">
+    <!-- SIDEBAR -->
+    <aside class="sidebar">
+        <div class="logo">
+            <h2>KhaiKhao</h2>
+            <span>POS</span>
+        </div>
+        <nav class="menu">
+            <a href="{% url 'pos:home' %}" class="menu-item"><span>🏠</span><span>หน้าหลัก</span></a>
+            <a href="{% url 'expenses:home' %}" class="menu-item"><span>💵</span><span>บันทึกรายจ่าย</span></a>
+            <a href="{% url 'products:list' %}" class="menu-item"><span>📦</span><span>สินค้า</span></a>
+            <a href="#" class="menu-item"><span>🛒</span><span>สต๊อกของใช้</span></a>
+            <a href="{% url 'reports:home' %}" class="menu-item"><span>📊</span><span>รายงาน</span></a>
+            <a href="{% url 'tax:home' %}" class="menu-item active"><span>📑</span><span>คำนวณภาษี</span></a>
+        </nav>
+        <div class="sidebar-bottom">
+            {% if request.user.is_authenticated %}
+            <div class="user-profile" style="padding: 10px 15px; margin-bottom: 10px; border-bottom: 1px solid #374151;">
+                <div style="font-size: 0.9em; color: #9ca3af;">เข้าสู่ระบบโดย:</div>
+                <div style="font-weight: bold; color: #fff; margin-top: 5px;">👤 {{ request.user.username }}</div>
+            </div>
+            {% endif %}
+            <a href="{% url 'logout' %}" class="menu-item"><span>🚪</span><span>ออกจากระบบ</span></a>
+        </div>
+    </aside>
+
+    <!-- MAIN CONTENT -->
+    <main class="main">
+        <header class="header">
+            <div>
+                <h1 style="margin: 0; font-size: 24px;">📑 แดชบอร์ดภาษีและสเต็ปการเสียภาษี</h1>
+                <div class="shop-title-box">
+                    <p class="shop-name-text">
+                        {% if request.user.username == 'P184' %}🔥 ร้านทอดเป่า P184{% else %}🐷 ร้านเรื่องของหมู M053{% endif %}
+                    </p>
+                </div>
+            </div>
+            <div class="header-right">
+                <span class="shop-status">● ตัดรอบภาษีปี {{ current_year }}</span>
+            </div>
+        </header>
+
+        <div class="tax-container" style="padding-top: 10px;">
+            
+            {% if messages %}
+                {% for message in messages %}
+                    <div style="background: #dcfce7; color: #166534; padding: 12px 15px; border-radius: 8px; margin-bottom: 20px; font-weight: 500;">
+                        {{ message }}
+                    </div>
+                {% endfor %}
+            {% endif %}
+
+            <!-- SECTION 1: REAL-TIME TAX DASHBOARD & PROGRESS STEP -->
+            <div class="tax-card">
+                <h2>📈 สถานะภาษีจากยอดขายจริง (Real-time ปี {{ current_year }})</h2>
+                <p style="color: #6b7280; font-size: 14px; margin-top: 5px;">ติดตามสเต็ปยอดขายปัจจุบัน เทียบกับเป้าเพดานที่เริ่มต้องเสียภาษี (สุทธิ 150,000 บาท)</p>
+                
+                <!-- VISUAL PROGRESS STEP -->
+                <div class="progress-section" style="margin-top: 20px;">
+                    <div class="progress-header">
+                        <span>🎯 สเต็ปเข้าสู่จุดเริ่มต้นเสียภาษี</span>
+                        <span id="progressPercentText">0%</span>
+                    </div>
+                    <div class="progress-track">
+                        <div id="progressBarFill" class="progress-fill" style="width: 0%;"></div>
+                    </div>
+                    <div class="progress-labels">
+                        <span>฿0 (เริ่มต้นปี)</span>
+                        <span>จุดเริ่มเสียภาษี (ยอดขาย ~฿525,000)</span>
+                    </div>
+                </div>
+
+                <div class="dash-grid">
+                    <div class="dash-box">
+                        <span>ยอดขายสะสมจริงปีนี้</span>
+                        <strong>฿{{ realtime_sales|floatformat:2 }}</strong>
+                    </div>
+                    <div class="dash-box warning">
+                        <span>ยอดขายอีกเท่าไหร่ถึงจะเริ่มเสียภาษี</span>
+                        <strong>฿{{ sales_until_tax|floatformat:2 }}</strong>
+                        <small style="color: #92400e; display: block; margin-top: 4px;">(เพดานยกเว้นสุทธิ 150,000 แรก)</small>
+                    </div>
+                    <div class="dash-box highlight">
+                        <span>ประมาณการภาษีที่ต้องจ่ายคร่าวๆ</span>
+                        <strong>฿{{ realtime_tax|floatformat:2 }}</strong>
+                        <small style="color: #166534; display: block; margin-top: 4px;">จากเงินได้สุทธิ ฿{{ realtime_net_income|floatformat:2 }}</small>
+                    </div>
+                </div>
+
+                <form method="POST" style="margin-top: 15px; text-align: right;">
+                    {% csrf_token %}
+                    <input type="hidden" name="tax_year" value="{{ current_year }}">
+                    <input type="hidden" name="total_income" value="{{ realtime_sales }}">
+                    <input type="hidden" name="deduction" value="{{ total_deduction_default }}">
+                    <button type="submit" name="save_record" class="btn-action">💾 บันทึกผลประเมินเรียลไทม์นี้เป็นประวัติ</button>
+                </form>
+            </div>
+
+            <!-- SECTION 2: CUSTOM TAX SIMULATOR -->
+            <div class="tax-card">
+                <h2>🧮 ฟังก์ชันคำนวณจำลองเอง (Tax Simulator)</h2>
+                <p style="color: #6b7280; font-size: 14px; margin-top: 5px;">ใช้ทดลองคำนวณภาษีล่วงหน้าด้วยรายได้และค่าลดหย่อนที่คุณกำหนดเอง</p>
+                
+                <form method="POST">
+                    {% csrf_token %}
+                    <div class="form-grid">
+                        <div class="form-group">
+                            <label for="sim_income">ประมาณการรายได้ทั้งปี (บาท)</label>
+                            <input type="number" id="sim_income" name="sim_income" step="0.01" placeholder="เช่น 600000" required>
+                        </div>
+                        <div class="form-group">
+                            <label for="sim_deduction">ประมาณการค่าใช้จ่าย + ค่าลดหย่อนรวม (บาท)</label>
+                            <input type="number" id="sim_deduction" name="sim_deduction" step="0.01" placeholder="เช่น 200000" required>
+                        </div>
+                    </div>
+                    <div style="margin-top: 20px; text-align: right;">
+                        <button type="submit" name="simulate" class="btn-action btn-secondary">🔍 คำนวณจำลองสถานการณ์</button>
+                    </div>
+                </form>
+
+                {% if sim_result %}
+                <div style="background: #eff6ff; border: 1px solid #bfdbfe; border-radius: 12px; padding: 20px; margin-top: 20px;">
+                    <h3 style="margin-top: 0; color: #1e40af; font-size: 16px;">📌 ผลลัพธ์การคำนวณจำลอง</h3>
+                    <div style="display: flex; justify-content: space-between; padding: 6px 0; color: #1e3a8a;">
+                        <span>รายได้ที่กรอก:</span> <strong>฿{{ sim_result.income|floatformat:2 }}</strong>
+                    </div>
+                    <div style="display: flex; justify-content: space-between; padding: 6px 0; color: #1e3a8a;">
+                        <span>หักค่าใช้จ่าย/ลดหย่อน:</span> <strong>- ฿{{ sim_result.deduction|floatformat:2 }}</strong>
+                    </div>
+                    <div style="display: flex; justify-content: space-between; padding: 6px 0; color: #1e3a8a;">
+                        <span>เงินได้สุทธิ:</span> <strong>฿{{ sim_result.net|floatformat:2 }}</strong>
+                    </div>
+                    <div style="display: flex; justify-content: space-between; padding: 8px 0; color: #1d4ed8; border-top: 1px dashed #bfdbfe; margin-top: 5px; font-size: 18px; font-weight: bold;">
+                        <span>ภาษีที่ต้องจ่ายตามกฎหมาย:</span> <strong style="color: #dc2626;">฿{{ sim_result.tax|floatformat:2 }}</strong>
+                    </div>
+                </div>
+                {% endif %}
+            </div>
+
+            <!-- SECTION 3: HISTORY -->
+            <div class="tax-card">
+                <h2>📋 ประวัติการบันทึกภาษี</h2>
+                <table>
+                    <thead>
+                        <tr>
+                            <th>ปีภาษี</th>
+                            <th>รายได้รวม</th>
+                            <th>เงินได้สุทธิ</th>
+                            <th style="text-align: right;">ภาษีที่ต้องชำระ</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for record in history %}
+                        <tr>
+                            <td>{{ record.tax_year }}</td>
+                            <td>฿{{ record.total_income|floatformat:2 }}</td>
+                            <td>฿{{ record.net_income|floatformat:2 }}</td>
+                            <td style="text-align: right; font-weight: bold; color: #dc2626;">฿{{ record.tax_to_pay|floatformat:2 }}</td>
+                        </tr>
+                        {% empty %}
+                        <tr>
+                            <td colspan="4" style="text-align: center; color: #9ca3af; padding: 25px;">ยังไม่มีประวัติการบันทึก</td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+
+        </div>
+    </main>
+</div>
+
+<!-- JAVASCRIPT FOR DYNAMIC PROGRESS BAR -->
+<script>
+    document.addEventListener("DOMContentLoaded", function() {
+        // ยอดขายปัจจุบันและเป้าหมายจุดเริ่มเสียภาษี (~525,000 บาท ตามสูตรหักเหมา 60% + ลดหย่อน 60k)
+        const currentSales = {{ realtime_sales|default:0 }};
+        const taxLimitTarget = 525000; 
+
+        let percent = (currentSales / taxLimitTarget) * 100;
+        if (percent > 100) percent = 100;
+
+        const progressBar = document.getElementById("progressBarFill");
+        const progressText = document.getElementById("progressPercentText");
+
+        progressBar.style.width = percent.toFixed(1) + "%";
+        progressText.innerText = percent.toFixed(1) + "% ของเพดานเริ่มเสียภาษี";
+
+        // ถ้าทะลุเพดานแล้ว ให้เปลี่ยนแถบเป็นสีแดงเตือน
+        if (currentSales >= taxLimitTarget) {
+            progressBar.classList.add("taxable");
+            progressText.innerText = "🚨 ทะลุเพดานยกเว้นภาษีแล้ว (เริ่มเข้าข่ายต้องเสียภาษี)";
+            progressText.style.color = "#dc2626";
+        }
+    });
+</script>
+
+</body>
+</html>

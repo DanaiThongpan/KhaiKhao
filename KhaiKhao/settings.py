@@ -42,6 +42,7 @@ INSTALLED_APPS = [
     'Pos',
     'Expenses',
     'Reports',
+    'Taxs',
 ]
 
 MIDDLEWARE = [
