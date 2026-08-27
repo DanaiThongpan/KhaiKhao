@@ -1,0 +1,47 @@
+{% load static %}
+<!DOCTYPE html>
+<html lang="th">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{{ title }} - KhaiKhao POS</title>
+    <style>
+        body { background: #f3f4f6; font-family: sans-serif; margin: 0; padding: 20px; }
+        .form-container { max-width: 600px; margin: 20px auto; background: white; padding: 30px; border-radius: 12px; box-shadow: 0 4px 6px rgba(0,0,0,0.05); }
+        h2 { margin-top: 0; color: #111827; }
+        .form-group { margin-bottom: 15px; }
+        .form-group label { display: block; font-weight: bold; margin-bottom: 5px; color: #374151; }
+        .form-control { width: 100%; padding: 10px; border: 1px solid #d1d5db; border-radius: 8px; font-size: 15px; box-sizing: border-box; }
+        .form-control:focus { outline: none; border-color: #3b82f6; box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.1); }
+        .btn-submit { width: 100%; background: #3b82f6; color: white; border: none; padding: 12px; border-radius: 8px; font-size: 16px; font-weight: bold; cursor: pointer; margin-top: 15px; transition: 0.2s;}
+        .btn-submit:hover { background: #2563eb; }
+        .back-link { display: inline-block; margin-bottom: 20px; color: #6b7280; text-decoration: none; font-weight: bold; }
+        .back-link:hover { color: #374151; }
+        .helptext { font-size: 12px; color: #6b7280; margin-top: 4px; display: block; }
+    </style>
+</head>
+<body>
+    <div class="form-container">
+        <a href="{% url 'products:list' %}" class="back-link">← กลับไปหน้ารายการสินค้า</a>
+        <h2>{{ title }}</h2>
+        
+        <!-- ต้องมี enctype="multipart/form-data" เพื่อให้อัปโหลดรูปได้ -->
+        <form method="POST" enctype="multipart/form-data">
+            {% csrf_token %}
+            {% for field in form %}
+                <div class="form-group">
+                    <label>{{ field.label }}</label>
+                    {{ field }}
+                    {% if field.help_text %}
+                        <span class="helptext">{{ field.help_text }}</span>
+                    {% endif %}
+                    {% if field.errors %}
+                        <small style="color: #ef4444; font-weight: bold;">{{ field.errors.0 }}</small>
+                    {% endif %}
+                </div>
+            {% endfor %}
+            <button type="submit" class="btn-submit">💾 บันทึกข้อมูล</button>
+        </form>
+    </div>
+</body>
+</html>

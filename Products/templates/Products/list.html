@@ -121,7 +121,7 @@
                 <span>🛒</span>
                 <span>สต๊อกของใช้</span>
             </a>
-            <a href="#" class="menu-item">
+            <a href="{% url 'reports:home' %}" class="menu-item">
                 <span>📊</span>
                 <span>รายงาน</span>
             </a>
@@ -152,7 +152,7 @@
     ====================================================== -->
     <main class="main">
 
-        <!-- HEADER (ปรับใหม่สำหรับหน้าจัดการสินค้า) -->
+        <!-- HEADER -->
         <header class="header">
             <div>
                 <h1>จัดการรายการสินค้า</h1>
@@ -160,10 +160,12 @@
             </div>
             
             <div class="header-actions">
-                <a href="#" class="btn-secondary">
+                <!-- ✅ แก้ไขลิงก์จัดการหมวดหมู่ -->
+                <a href="{% url 'products:category_manage' %}" class="btn-secondary">
                     <span>📂</span> จัดการหมวดหมู่
                 </a>
-                <a href="#" class="btn-primary">
+                <!-- ✅ แก้ไขลิงก์เพิ่มสินค้าใหม่ -->
+                <a href="{% url 'products:create' %}" class="btn-primary">
                     <span>➕</span> เพิ่มสินค้าใหม่
                 </a>
             </div>
@@ -195,7 +197,7 @@
                 <div class="summary-icon">⚠️</div>
                 <div>
                     <span>สินค้าใกล้หมด</span>
-                    <strong>0</strong> <!-- ตัวเลขสมมติ คุณสามารถเขียน Filter ใน Views เพื่อดึงสินค้าน้อยกว่า 5 ชิ้นมาแสดงได้ -->
+                    <strong>0</strong> 
                     <small>รายการ</small>
                 </div>
             </div>
@@ -236,10 +238,10 @@
                             {% if product.is_active %}
                                 <article class="product-card" data-name="{{ product.name }}" data-code="{{ product.code }}" data-category="{{ category.name }}">
                                     
-                                    <!-- ส่วนที่เพิ่มใหม่: ปุ่มแก้ไข/ลบ จะแสดงเมื่อเอาเมาส์ชี้ไปที่การ์ด -->
+                                    <!-- ✅ แก้ไขลิงก์ปุ่ม แก้ไข และ ลบ -->
                                     <div class="product-actions">
-                                        <a href="#" class="action-btn edit" title="แก้ไขสินค้า">✏️</a>
-                                        <a href="#" class="action-btn delete" title="ลบสินค้า">🗑️</a>
+                                        <a href="{% url 'products:edit' product.pk %}" class="action-btn edit" title="แก้ไขสินค้า">✏️</a>
+                                        <a href="{% url 'products:delete' product.pk %}" class="action-btn delete" title="ลบสินค้า" onclick="return confirm('คุณแน่ใจหรือไม่ว่าต้องการลบสินค้า: {{ product.name }}?');">🗑️</a>
                                     </div>
 
                                     <!-- IMAGE -->
@@ -287,7 +289,7 @@
 </div>
 
 <!-- =====================================================
-     SEARCH SCRIPT (เหมือนเดิม)
+     SEARCH SCRIPT
 ====================================================== -->
 <script>
     const searchInput = document.getElementById("searchInput");

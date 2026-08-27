@@ -1,32 +1,21 @@
+import json
 from django.shortcuts import render
+from django.http import JsonResponse
 from django.utils import timezone
 from django.db.models import Sum, Prefetch
 from django.contrib.auth.decorators import login_required
 from Products.models import Product, ProductCategory
-from .models import Order
+from .models import Order, OrderItem
+from datetime import datetime
 
-# บังคับให้ต้องล็อกอินก่อนถึงจะเข้าหน้านี้ได้ 
-# (เพื่อป้องกัน Error เวลาค้นหาของที่เป็นของ request.user)
 @login_required 
 def home(request):
-    # 1. กรองเฉพาะ "สินค้า" ที่สร้างโดยคนที่กำลังล็อกอิน
-    my_products = Product.objects.filter(
-        is_active=True,
-        created_by=request.user
-    )
+    my_products = Product.objects.filter(is_active=True, created_by=request.user)
 
-    # 2. กรองเฉพาะ "หมวดหมู่" ที่สร้างโดยคนที่กำลังล็อกอิน
-    # พร้อมทั้งนำสินค้า (จากข้อ 1) มายัดใส่หมวดหมู่ให้ตรงกัน
     raw_categories = ProductCategory.objects.filter(
-        is_active=True,
-        created_by=request.user
-    ).prefetch_related(
-        Prefetch("products", queryset=my_products)
-    )
+        is_active=True, created_by=request.user
+    ).prefetch_related(Prefetch("products", queryset=my_products))
 
-    # ==========================================
-    # 3. จัดเรียงหมวดหมู่ (ดันหมวดที่ระบุไปไว้หลังสุด)
-    # ==========================================
     def sort_category(category):
         back_keywords = ["topping", "ท็อปปิ้ง", "กับข้าว", "เครื่องดื่ม", "เพิ่มเติม"]
         for keyword in back_keywords:
@@ -38,35 +27,34 @@ def home(request):
     categories.sort(key=lambda c: (sort_category(c), c.name))
 
     # ==========================================
-    # 4. คำนวณยอดขายของ "วันนี้" (กรองเอาเฉพาะบิลที่ User คนนี้เป็นคนขาย)
+    # ส่วนที่เพิ่ม: รับค่าวันที่จาก HTML เพื่อค้นหาตาม created_at
     # ==========================================
-    today = timezone.localdate()
+    selected_date_str = request.GET.get('date') # รับวันที่มาจากหน้าเว็บ
+    if selected_date_str:
+        # ถ้ามีการเลือกวันที่ ให้แปลงข้อความเป็น Date
+        selected_date = datetime.strptime(selected_date_str, '%Y-%m-%d').date()
+    else:
+        # ถ้าไม่ได้เลือก ให้ใช้วันที่ปัจจุบัน
+        selected_date = timezone.localdate()
+
+    # กรองยอดขาย (ตัดยอด) ตาม created_at ที่เลือก
     daily_sales = Order.objects.filter(
-        created_at__date=today,
-        created_by=request.user  # <--- เพิ่มเงื่อนไขตรงนี้
+        created_at__date=selected_date,  # <--- ค้นหาจากวันที่สร้างบิล
+        created_by=request.user
     ).aggregate(total=Sum('total_amount'))['total'] or 0
 
     context = {
         "categories": categories,
-        "products": my_products, # ส่งรายการสินค้าของตัวเองไปนับจำนวน
+        "products": my_products, 
         "daily_sales": daily_sales,
+        "selected_date": selected_date, # ส่งวันที่กลับไปแสดงบน HTML
     }
 
-    return render(
-        request,
-        "Pos/home.html",
-        context
-    )
-# (ส่วนฟังก์ชัน process_checkout ปล่อยไว้เหมือนเดิมครับ)
+    return render(request, "Pos/home.html", context)
 
-import json
-from django.http import JsonResponse
-from django.utils.crypto import get_random_string
-from .models import Order, OrderItem
-from Products.models import Product
-
-# (ฟังก์ชัน home เดิมปล่อยไว้เหมือนเดิมครับ)
-
+# ==========================================
+# 2. ระบบชำระเงิน ตัดสต๊อก และรันเลขบิลรายวัน
+# ==========================================
 def process_checkout(request):
     if request.method == "POST":
         try:
@@ -76,15 +64,41 @@ def process_checkout(request):
             if not cart_items:
                 return JsonResponse({"status": "error", "message": "ตะกร้าว่างเปล่า"}, status=400)
 
-            receipt_number = "INV-" + get_random_string(8).upper()
+            # -----------------------------------------------------
+            # ระบบรันเลขที่บิลรายวัน (INV-YYYYMMDD-XXXX)
+            # -----------------------------------------------------
+            local_now = timezone.localtime()
+            date_str = local_now.strftime('%Y%m%d') # เช่น 20260827
+            prefix = f"INV-{date_str}-"
+            
+            # ค้นหาบิลล่าสุดของวันนี้
+            last_order = Order.objects.filter(
+                receipt_number__startswith=prefix
+            ).order_by('-receipt_number').first()
+
+            if last_order:
+                # เอา 4 หลักสุดท้ายมาบวก 1
+                last_number = int(last_order.receipt_number.split('-')[-1])
+                new_number = last_number + 1
+            else:
+                # ถ้ายังไม่มีบิลเลย เริ่มที่ 1
+                new_number = 1
+                
+            receipt_number = f"{prefix}{new_number:04d}" # ตัวอย่าง: INV-20260827-0001
+            # -----------------------------------------------------
+
+            # คำนวณยอดรวมสุทธิ
             total_amount = sum(item['price'] * item['qty'] for item in cart_items)
 
+            # สร้างหัวบิล (Order)
+            # created_at จะถูกสร้างอัตโนมัติตาม auto_now_add=True ใน models.py
             order = Order.objects.create(
                 receipt_number=receipt_number,
                 total_amount=total_amount,
                 created_by=request.user if request.user.is_authenticated else None
             )
 
+            # บันทึกสินค้าในตะกร้า (OrderItem) และตัดสต๊อก
             for item in cart_items:
                 product = Product.objects.get(id=item['id'])
                 qty = item['qty']
@@ -101,7 +115,12 @@ def process_checkout(request):
                 product.stock_quantity -= qty
                 product.save()
 
-            return JsonResponse({"status": "success", "message": "บันทึกบิลสำเร็จ!", "receipt": receipt_number})
+            return JsonResponse({
+                "status": "success", 
+                "message": "บันทึกบิลและตัดสต๊อกสำเร็จ!", 
+                "receipt": receipt_number
+            })
+            
         except Exception as e:
             return JsonResponse({"status": "error", "message": str(e)}, status=500)
     
