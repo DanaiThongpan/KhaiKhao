@@ -88,6 +88,27 @@
 
         .action-btn.edit:hover { color: #3b82f6; }
         .action-btn.delete:hover { color: #ef4444; }
+
+        /* =====================================================
+           CSS ตกแต่งชื่อร้านให้โดดเด่น (สอดคล้องกับหน้าอื่นๆ)
+        ===================================================== */
+        .shop-title-box {
+            display: inline-block;
+            background: linear-gradient(135deg, #f0fdf4 0%, #dcfce7 100%);
+            border: 1px solid #bbf7d0;
+            padding: 6px 15px;
+            border-radius: 8px;
+            margin-top: 8px;
+        }
+        
+        .shop-name-text {
+            font-size: 20px;
+            font-weight: 800;
+            color: #15803d; 
+            letter-spacing: 0.5px;
+            margin: 0;
+            text-shadow: 0 1px 1px rgba(0,0,0,0.05);
+        }
     </style>
 </head>
 <body>
@@ -156,15 +177,26 @@
         <header class="header">
             <div>
                 <h1>จัดการรายการสินค้า</h1>
-                <p>แก้ไขข้อมูล เพิ่มสินค้า หรือหมวดหมู่</p>
+                <!-- เพิ่มกล่องชื่อร้านให้แสดงตามบัญชีที่ล็อกอิน -->
+                <div class="shop-title-box">
+                    <p class="shop-name-text">
+                        {% if request.user.username == 'P184' %}
+                            🔥 ร้านทอดเป่า P184
+                        {% elif request.user.username == 'M053' %}
+                            🐷 ร้านเรื่องของหมู M053
+                        {% else %}
+                            🛒 ร้านค้าทั่วไป
+                        {% endif %}
+                    </p>
+                </div>
             </div>
             
             <div class="header-actions">
-                <!-- ✅ แก้ไขลิงก์จัดการหมวดหมู่ -->
+                <!-- ✅ ลิงก์จัดการหมวดหมู่ -->
                 <a href="{% url 'products:category_manage' %}" class="btn-secondary">
                     <span>📂</span> จัดการหมวดหมู่
                 </a>
-                <!-- ✅ แก้ไขลิงก์เพิ่มสินค้าใหม่ -->
+                <!-- ✅ ลิงก์เพิ่มสินค้าใหม่ -->
                 <a href="{% url 'products:create' %}" class="btn-primary">
                     <span>➕</span> เพิ่มสินค้าใหม่
                 </a>
@@ -238,7 +270,7 @@
                             {% if product.is_active %}
                                 <article class="product-card" data-name="{{ product.name }}" data-code="{{ product.code }}" data-category="{{ category.name }}">
                                     
-                                    <!-- ✅ แก้ไขลิงก์ปุ่ม แก้ไข และ ลบ -->
+                                    <!-- ✅ ลิงก์ปุ่ม แก้ไข และ ลบ -->
                                     <div class="product-actions">
                                         <a href="{% url 'products:edit' product.pk %}" class="action-btn edit" title="แก้ไขสินค้า">✏️</a>
                                         <a href="{% url 'products:delete' product.pk %}" class="action-btn delete" title="ลบสินค้า" onclick="return confirm('คุณแน่ใจหรือไม่ว่าต้องการลบสินค้า: {{ product.name }}?');">🗑️</a>

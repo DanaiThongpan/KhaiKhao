@@ -88,6 +88,8 @@ class Expense(models.Model):
         verbose_name="แก้ไขล่าสุด"
     )
 
+    is_paid = models.BooleanField(default=True, verbose_name="จ่ายแล้ว")
+
     # =====================================================
     # Meta
     # =====================================================

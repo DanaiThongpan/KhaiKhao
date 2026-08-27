@@ -1,19 +1,16 @@
-# ============================================================
-# Expenses/views.py
-# ============================================================
 import traceback
-from datetime import datetime
+from datetime import datetime, timedelta
 
-from django.shortcuts import render, redirect
+from django.shortcuts import render, redirect, get_object_or_404
 from django.contrib import messages
+from django.utils import timezone
+from django.db.models import Sum
+from django.contrib.auth.decorators import login_required
 
 from .models import Expense
-# นำเข้าฟังก์ชันจาก google_calendar.py
-# (สมมติว่าไฟล์ google_calendar.py อยู่ในโฟลเดอร์เดียวกับ views.py)
-# from .google_calendar import create_expense_event
-# แก้ไขบรรทัด import google_calendar ให้มี 3 ตัวนี้
 from .google_calendar import create_expense_event, update_expense_event, delete_expense_event
 
+@login_required
 def expense_home(request):
 
     if request.method == "POST":
@@ -22,8 +19,10 @@ def expense_home(request):
         expense_date = request.POST.get("expense_date", "").strip()
         category = request.POST.get("category", "").strip()
         description = request.POST.get("description", "").strip()
+        
+        is_paid_str = request.POST.get("is_paid", "True")
+        is_paid = (is_paid_str == "True")
 
-        # Validation เบื้องต้น
         if not name or not amount or not expense_date or not category:
             messages.error(request, "กรุณากรอกข้อมูลที่จำเป็นให้ครบถ้วน")
             return redirect("expenses:home")
@@ -41,26 +40,21 @@ def expense_home(request):
             messages.error(request, "รูปแบบวันที่ไม่ถูกต้อง")
             return redirect("expenses:home")
 
-        # บันทึกลง Database
         try:
-            user = request.user if request.user.is_authenticated else None
             expense = Expense.objects.create(
                 name=name,
                 amount=amount_value,
                 expense_date=expense_date_obj,
                 category=category,
                 description=description,
-                created_by=user
+                is_paid=is_paid,
+                created_by=request.user
             )
         except Exception as e:
             messages.error(request, f"บันทึกรายจ่ายลงระบบไม่สำเร็จ: {e}")
             return redirect("expenses:home")
 
-        # ====================================================
-        # ส่งเข้า Google Calendar ผ่าน Bot
-        # ====================================================
         try:
-            # เรียกใช้ฟังก์ชันที่เราเขียนแยกไว้
             created_event = create_expense_event(expense)
             event_id = created_event.get("id")
 
@@ -76,36 +70,53 @@ def expense_home(request):
             print("=" * 70)
             traceback.print_exc()
             print("=" * 70)
-            messages.warning(
-                request,
-                "บันทึกรายจ่ายลงระบบแล้ว แต่ส่งเข้าปฏิทินไม่สำเร็จ (ดู log ใน Terminal)"
-            )
+            messages.warning(request, "บันทึกรายจ่ายลงระบบแล้ว แต่ส่งเข้าปฏิทินไม่สำเร็จ")
 
         return redirect("expenses:home")
 
-    # GET Request
-    expenses = Expense.objects.all().order_by("-expense_date", "-id")
-    categories = Expense.CATEGORY_CHOICES
-    total_expense = sum(expense.amount for expense in expenses)
+    # ====================================================
+    # GET Request 
+    # ====================================================
+    expenses = Expense.objects.filter(created_by=request.user).order_by("-expense_date", "-id")
+    today = timezone.now().date()
+
+    # ดึงบิลค้างจ่ายและคำนวณวันคงเหลือ
+    upcoming_limit = today + timedelta(days=3)
+    upcoming_bills_qs = expenses.filter(
+        is_paid=False, 
+        expense_date__lte=upcoming_limit
+    ).order_by('expense_date')
+
+    upcoming_bills = list(upcoming_bills_qs)
+    for bill in upcoming_bills:
+        bill.days_left = (bill.expense_date - today).days
+        bill.overdue_days = abs(bill.days_left)
+
+    # ตัวกรองข้อมูล 
+    filter_type = request.GET.get('filter', 'all')
+    if filter_type == 'this_week':
+        start_of_week = today - timedelta(days=today.weekday())
+        expenses = expenses.filter(expense_date__gte=start_of_week)
+    elif filter_type == 'this_month':
+        expenses = expenses.filter(expense_date__year=today.year, expense_date__month=today.month)
+
+    total_expense = expenses.aggregate(total=Sum('amount'))['total'] or 0
 
     context = {
         "expenses": expenses,
-        "categories": categories,
+        "categories": Expense.CATEGORY_CHOICES,
         "total_expense": total_expense,
         "google_connected": True,
+        "upcoming_bills": upcoming_bills,
+        "today": today,
     }
 
     return render(request, "Expenses/expense.html", context)
 
-from django.shortcuts import render, redirect, get_object_or_404
-from django.contrib import messages
-from .models import Expense
 
-# (โค้ดเก่าที่มีอยู่แล้ว เช่น expense_home ปล่อยไว้เหมือนเดิมครับ)
-
+@login_required
 def expense_edit(request, expense_id):
-    expense = get_object_or_404(Expense, id=expense_id)
-
+    expense = get_object_or_404(Expense, id=expense_id, created_by=request.user)
     if request.method == "POST":
         expense.name = request.POST.get('name')
         expense.amount = float(request.POST.get('amount'))
@@ -114,11 +125,7 @@ def expense_edit(request, expense_id):
         expense.description = request.POST.get('description')
 
         expense.save()
-
-        # === เพิ่มบรรทัดนี้ 1 บรรทัดครับ ===
-        # เพื่อแปลงวันที่แบบข้อความ ให้กลายเป็นวันที่แบบ Date Object
         expense.refresh_from_db()
-        # ============================
 
         if expense.google_event_id:
             update_expense_event(expense)
@@ -126,25 +133,32 @@ def expense_edit(request, expense_id):
         messages.success(request, f"แก้ไขรายการ '{expense.name}' เรียบร้อยแล้ว!")
         return redirect('expenses:home')
 
-    context = {
+    return render(request, 'Expenses/expense_edit.html', {
         'expense': expense,
         'categories': Expense.CATEGORY_CHOICES,
-    }
-    return render(request, 'Expenses/expense_edit.html', context)
+    })
 
+
+@login_required
 def expense_delete(request, expense_id):
-    expense = get_object_or_404(Expense, id=expense_id)
+    expense = get_object_or_404(Expense, id=expense_id, created_by=request.user)
     name = expense.name
-
-    # ----- เพิ่ม 1 บรรทัดนี้: เก็บ ID ปฏิทินไว้ก่อนที่ข้อมูลในเว็บจะถูกลบ -----
     event_id_to_delete = expense.google_event_id
-
     expense.delete()
 
-    # ----- เพิ่มส่วนนี้: สั่งลบใน Google Calendar -----
     if event_id_to_delete:
         delete_expense_event(event_id_to_delete)
-    # --------------------------------------------
 
     messages.success(request, f"ลบรายการ '{name}' เรียบร้อยแล้ว!")
+    return redirect('expenses:home')
+
+
+@login_required
+def expense_toggle_status(request, expense_id):
+    expense = get_object_or_404(Expense, id=expense_id, created_by=request.user)
+    expense.is_paid = not expense.is_paid
+    expense.save()
+    
+    status_text = "จ่ายแล้ว" if expense.is_paid else "ยังไม่จ่าย"
+    messages.success(request, f"เปลี่ยนสถานะ '{expense.name}' เป็น '{status_text}' เรียบร้อย!")
     return redirect('expenses:home')

@@ -48,15 +48,15 @@ def user_login(request):
             # ================================================
             # เช็คว่าเป็น Admin หรือ Superuser หรือไม่
             if user.is_superuser or getattr(user, 'role', '') == "admin":
-                return redirect("/products")  # เปลี่ยน URL ไปหน้า dashboard ของ admin ได้
+                return redirect("/")  # เปลี่ยน URL ไปหน้า dashboard ของ admin ได้
             
             # เช็คว่าเป็น Owner หรือไม่
             elif getattr(user, 'role', '') == "owner":
-                return redirect("/products")  # เปลี่ยน URL ไปหน้า dashboard ของ owner ได้
+                return redirect("/")  # เปลี่ยน URL ไปหน้า dashboard ของ owner ได้
                 
             # เช็คว่าเป็น Employee หรือไม่
             elif getattr(user, 'role', '') == "employee":
-                return redirect("/products")  # เปลี่ยน URL ไปหน้า dashboard ของ employee ได้
+                return redirect("/")  # เปลี่ยน URL ไปหน้า dashboard ของ employee ได้
 
             # หากไม่ตรงกับสิทธิ์ใดเลย (กันเหนียว)
             else:
