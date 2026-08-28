@@ -2,17 +2,17 @@ from django.contrib.auth.models import AbstractBaseUser, BaseUserManager, Permis
 from django.db import models
 
 class UserManager(BaseUserManager):
-    def create_user(self, username, password=None, role="owner"):
+    def create_user(self, username, password=None, role="owner", **extra_fields):
         if not username:
             raise ValueError("กรุณาระบุชื่อผู้ใช้")
 
-        user = self.model(username=username, role=role)
+        user = self.model(username=username, role=role, **extra_fields)
         user.set_password(password)
         user.save(using=self._db)
         return user
 
-    def create_superuser(self, username, password=None):
-        user = self.create_user(username=username, password=password, role="admin")
+    def create_superuser(self, username, password=None, **extra_fields):
+        user = self.create_user(username=username, password=password, role="admin", **extra_fields)
         user.is_staff = True
         user.is_superuser = True
         user.is_active = True
@@ -31,6 +31,14 @@ class User(AbstractBaseUser, PermissionsMixin):
     username = models.CharField(max_length=150, unique=True, verbose_name="ชื่อผู้ใช้")
     role = models.CharField(max_length=20, choices=ROLE_CHOICES, default="owner", verbose_name="บทบาท")
 
+    # [เพิ่มใหม่] ข้อมูลบัญชีธนาคารและพร้อมเพย์ของแต่ละร้าน
+    bank_name = models.CharField(max_length=100, blank=True, null=True, verbose_name="ชื่อธนาคาร")
+    bank_account_number = models.CharField(max_length=50, blank=True, null=True, verbose_name="เลขที่บัญชีธนาคาร")
+    bank_account_name = models.CharField(max_length=150, blank=True, null=True, verbose_name="ชื่อบัญชี (เจ้าของบัญชี)")
+    
+    # รองรับพร้อมเพย์ / แม่มณี (ใช้เบอร์มือถือ หรือ เลขประจำตัวผู้เสียภาษี)
+    promptpay_number = models.CharField(max_length=50, blank=True, null=True, verbose_name="หมายเลขพร้อมเพย์ (เบอร์โทร / เลขผู้เสียภาษี)")
+
     # สถานะและสิทธิ์การเข้าถึง (Django Admin)
     is_active = models.BooleanField(default=True, verbose_name="เปิดใช้งาน")
     is_staff = models.BooleanField(default=False, verbose_name="เจ้าหน้าที่ระบบ")
@@ -42,7 +50,7 @@ class User(AbstractBaseUser, PermissionsMixin):
     REQUIRED_FIELDS = []
 
     def __str__(self):
-        return self.username
+        return f"{self.username} ({self.get_role_display()})"
 
     # ========================================================
     # Permissions (จำเป็นสำหรับการใช้งาน Django Admin)

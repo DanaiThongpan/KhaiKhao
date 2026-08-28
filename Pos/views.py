@@ -63,12 +63,13 @@ def home(request):
         "daily_sales": daily_sales,
         "selected_date": selected_date,
         "unpaid_expenses": unpaid_expenses,
+        "shop_promptpay": request.user.promptpay_number or "",  # <--- [เพิ่มเข้ามา] ดึงเบอร์พร้อมเพย์ของ User ที่ Login อยู่
     }
 
     return render(request, "Pos/home.html", context)
 
 # =====================================================
-# API สำหรับ Modal เทียบรายได้-รายจ่าย
+# API สำหรับ Modal เทียบรายได้-รายจ่าย (แสดงเฉพาะบิลค้างจ่าย)
 # =====================================================
 @login_required
 def api_compare_profit(request):
@@ -91,21 +92,19 @@ def api_compare_profit(request):
         created_by=request.user
     ).aggregate(total=Sum('total_amount'))['total'] or 0
     
-    # 2. [อัปเดต] ดึงรายจ่ายใน "ช่วงวันที่เลือก" หรือ "บิลที่ยังไม่จ่าย(ค้างจ่าย)ทั้งหมด"
+    # 2. [อัปเดต] ดึงเฉพาะรายจ่ายที่ "ยังไม่จ่าย" (is_paid=False) เท่านั้น
     expenses_qs = Expense.objects.filter(
-        Q(expense_date__gte=start_dt, expense_date__lte=end_dt) | Q(is_paid=False)
-    ).distinct().order_by('expense_date')
+        is_paid=False
+    ).order_by('expense_date')
     
     expenses_list = []
     for exp in expenses_qs:
-        # เพิ่มข้อความบอกสถานะให้รู้ว่าอันไหนค้าง อันไหนจ่ายแล้ว
-        status_text = "ค้างจ่าย" if not exp.is_paid else "จ่ายแล้ว"
         expenses_list.append({
             'id': exp.id,
             'name': exp.name,
             'amount': float(exp.amount),
             'date': exp.expense_date.strftime('%d/%m/%Y'),
-            'category': f"{exp.get_category_display()} ({status_text})"
+            'category': f"{exp.get_category_display()} (ยังไม่จ่าย)"
         })
         
     return JsonResponse({

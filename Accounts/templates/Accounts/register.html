@@ -59,7 +59,7 @@
 
             width: 100%;
 
-            max-width: 450px;
+            max-width: 500px;
 
             background: #ffffff;
 
@@ -168,6 +168,27 @@
 
 
         /* =====================================================
+           Section Divider / Heading
+        ====================================================== */
+
+        .section-title {
+
+            font-size: 15px;
+
+            font-weight: 700;
+
+            color: #111;
+
+            margin: 25px 0 15px 0;
+
+            border-bottom: 2px solid #eee;
+
+            padding-bottom: 5px;
+
+        }
+
+
+        /* =====================================================
            Error
         ====================================================== */
 
@@ -247,6 +268,8 @@
             cursor: pointer;
 
             transition: 0.2s;
+
+            margin-top: 10px;
 
         }
 
@@ -499,6 +522,155 @@
                     <div class="error">
 
                         {% for error in form.password_confirm.errors %}
+
+                            {{ error }}
+
+                        {% endfor %}
+
+                    </div>
+
+                {% endif %}
+
+            </div>
+
+
+            <!-- =================================================
+                 Bank & PromptPay Information Section
+            ================================================== -->
+
+            <div class="section-title">
+                ข้อมูลบัญชีธนาคารและพร้อมเพย์ (สำหรับรับเงินร้านค้า)
+            </div>
+
+
+            <!-- =================================================
+                 Bank Name
+            ================================================== -->
+
+            <div class="form-group">
+
+                <label
+                    for="{{ form.bank_name.id_for_label }}"
+                >
+
+                    {{ form.bank_name.label }}
+
+                </label>
+
+
+                {{ form.bank_name }}
+
+
+                {% if form.bank_name.errors %}
+
+                    <div class="error">
+
+                        {% for error in form.bank_name.errors %}
+
+                            {{ error }}
+
+                        {% endfor %}
+
+                    </div>
+
+                {% endif %}
+
+            </div>
+
+
+            <!-- =================================================
+                 Bank Account Number
+            ================================================== -->
+
+            <div class="form-group">
+
+                <label
+                    for="{{ form.bank_account_number.id_for_label }}"
+                >
+
+                    {{ form.bank_account_number.label }}
+
+                </label>
+
+
+                {{ form.bank_account_number }}
+
+
+                {% if form.bank_account_number.errors %}
+
+                    <div class="error">
+
+                        {% for error in form.bank_account_number.errors %}
+
+                            {{ error }}
+
+                        {% endfor %}
+
+                    </div>
+
+                {% endif %}
+
+            </div>
+
+
+            <!-- =================================================
+                 Bank Account Name
+            ================================================== -->
+
+            <div class="form-group">
+
+                <label
+                    for="{{ form.bank_account_name.id_for_label }}"
+                >
+
+                    {{ form.bank_account_name.label }}
+
+                </label>
+
+
+                {{ form.bank_account_name }}
+
+
+                {% if form.bank_account_name.errors %}
+
+                    <div class="error">
+
+                        {% for error in form.bank_account_name.errors %}
+
+                            {{ error }}
+
+                        {% endfor %}
+
+                    </div>
+
+                {% endif %}
+
+            </div>
+
+
+            <!-- =================================================
+                 PromptPay Number
+            ================================================== -->
+
+            <div class="form-group">
+
+                <label
+                    for="{{ form.promptpay_number.id_for_label }}"
+                >
+
+                    {{ form.promptpay_number.label }}
+
+                </label>
+
+
+                {{ form.promptpay_number }}
+
+
+                {% if form.promptpay_number.errors %}
+
+                    <div class="error">
+
+                        {% for error in form.promptpay_number.errors %}
 
                             {{ error }}
 

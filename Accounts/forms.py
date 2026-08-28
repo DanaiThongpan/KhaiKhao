@@ -47,10 +47,18 @@ class RegisterForm(forms.ModelForm):
         fields = [
             "username",
             "role",
+            "bank_name",
+            "bank_account_number",
+            "bank_account_name",
+            "promptpay_number",
         ]
 
         labels = {
             "username": "ชื่อผู้ใช้",
+            "bank_name": "ชื่อธนาคาร",
+            "bank_account_number": "เลขที่บัญชีธนาคาร",
+            "bank_account_name": "ชื่อบัญชี (เจ้าของบัญชี)",
+            "promptpay_number": "หมายเลขพร้อมเพย์ / แม่มณี (เบอร์โทร หรือ เลขผู้เสียภาษี)",
         }
 
         widgets = {
@@ -61,11 +69,37 @@ class RegisterForm(forms.ModelForm):
                     "autocomplete": "username",
                 }
             ),
+            "bank_name": forms.TextInput(
+                attrs={
+                    "class": "form-input",
+                    "placeholder": "เช่น กสิกรไทย, ไทยพาณิชย์",
+                }
+            ),
+            "bank_account_number": forms.TextInput(
+                attrs={
+                    "class": "form-input",
+                    "placeholder": "กรอกเลขที่บัญชีธนาคาร",
+                }
+            ),
+            "bank_account_name": forms.TextInput(
+                attrs={
+                    "class": "form-input",
+                    "placeholder": "กรอกชื่อ-นามสกุล เจ้าของบัญชี",
+                }
+            ),
+            "promptpay_number": forms.TextInput(
+                attrs={
+                    "class": "form-input",
+                    "placeholder": "กรอกเบอร์มือถือ หรือ เลขผู้เสียภาษี สำหรับ QR พร้อมเพย์",
+                }
+            ),
         }
 
     # ========================================================
     # Username
     # ========================================================
+
+    fn = clean_username = lambda self: self.cleaned_data.get("username") # (ย่อเพื่อความสะอาด)
 
     def clean_username(self):
 

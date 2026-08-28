@@ -6,6 +6,8 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>KhaiKhao POS - หน้าหลัก</title>
     <link rel="stylesheet" href="{% static 'css/style.css' %}">
+    <!-- ไลบรารีสำหรับสร้าง QR Code (PromptPay / Maemanee) -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
     <style>
         /* =====================================================
            CSS โครงสร้างพื้นฐาน
@@ -150,10 +152,10 @@
             <div>
                 <h1>รายการสินค้า</h1>
                 <div class="shop-title-box">
-                    <p class="shop-name-text">
+                    <p class="shop-name-text" id="shopNameDisplay">
                         {% if request.user.username == 'P184' %}🔥 ร้านทอดเป่า P184
                         {% elif request.user.username == 'M053' %}🐷 ร้านเรื่องของหมู M053
-                        {% else %}🛒 ร้านค้าทั่วไป{% endif %}
+                        {% else %}🛒 ร้าน {{ request.user.username }}{% endif %}
                     </p>
                 </div>
             </div>
@@ -269,7 +271,7 @@
         <div class="cart-items" id="cartContainer"><div style="text-align: center; color: #9ca3af; margin-top: 50px;"><div style="font-size: 40px; margin-bottom: 10px;">🛒</div>ยังไม่มีสินค้าในตะกร้า</div></div>
         <div class="cart-footer">
             <div class="summary-row"><span>ยอดรวมสุทธิ:</span><span id="grandTotal" style="color: #16a34a;">฿0.00</span></div>
-            <button class="btn-checkout" id="btnCheckout" onclick="processCheckout()" disabled>รับชำระเงิน</button>
+            <button class="btn-checkout" id="btnCheckout" onclick="openQrModal()" disabled>รับชำระเงิน (QR พร้อมเพย์/แม่มณี)</button>
         </div>
     </aside>
 
@@ -339,11 +341,71 @@
 </div>
 
 <!-- =====================================================
-     SCRIPTS
+     MODAL สำหรับแสดง QR Code พร้อมเพย์/แม่มณี และเลือกรูปแบบบิล
 ====================================================== -->
+<div id="qrModal" class="modal-overlay" style="display: none;">
+    <div class="modal-content" style="max-width: 420px; text-align: center; padding: 20px;">
+        <div class="modal-header" style="border: none; padding-bottom: 0;">
+            <h3 style="margin: 0; width: 100%;">📱 ชำระเงินผ่าน QR พร้อมเพย์ / แม่มณี</h3>
+            <button onclick="closeQrModal()" style="background:none; border:none; font-size:22px; cursor:pointer; color:#64748b;">✖</button>
+        </div>
+        <div class="modal-body">
+            <p style="color: #64748b; margin-bottom: 10px;">ยอดชำระสุทธิ: <strong id="qrTotalText" style="color: #16a34a; font-size: 22px;">฿0.00</strong></p>
+            
+            <!-- พื้นที่แสดงรูป QR Code -->
+            <div id="qrcode" style="display: flex; justify-content: center; margin: 10px 0;"></div>
+            
+            <p style="font-size: 12px; color: #d97706; margin: 5px 0 10px 0;">⚠️ กรุณาตรวจสอบยอดเงินในแอปธนาคารก่อนกดยืนยัน</p>
+
+            <!-- ตัวเลือกระหว่าง ปริ้นกระดาษ หรือ แสดงหน้าจอ -->
+            <div style="background: #f8fafc; border: 1px solid #e2e8f0; padding: 12px; border-radius: 8px; margin: 15px 0; text-align: left;">
+                <label style="font-size: 13px; font-weight: bold; color: #334151; display: block; margin-bottom: 8px;">🖨️ เลือกรูปแบบการออกบิลหลังชำระเงิน:</label>
+                <div style="display: flex; gap: 15px;">
+                    <label style="cursor: pointer; font-size: 14px; display: flex; align-items: center; gap: 5px;">
+                        <input type="radio" name="billType" value="print" checked style="accent-color: #16a34a;"> ปริ้นท์กระดาษ (มี QR)
+                    </label>
+                    <label style="cursor: pointer; font-size: 14px; display: flex; align-items: center; gap: 5px;">
+                        <input type="radio" name="billType" value="screen" style="accent-color: #16a34a;"> แสดงบนหน้าจอ
+                    </label>
+                </div>
+            </div>
+
+            <button onclick="confirmQRPayment()" style="width: 100%; padding: 14px; background: #16a34a; color: white; border: none; border-radius: 8px; font-weight: bold; font-size: 16px; cursor: pointer;">✅ ยืนยันการชำระเงินแล้ว</button>
+        </div>
+    </div>
+</div>
+
+<!-- =====================================================
+     MODAL สำหรับแสดงบิลบนหน้าจอ
+====================================================== -->
+<div id="screenBillModal" class="modal-overlay" style="display: none;">
+    <div class="modal-content" style="max-width: 400px; padding: 25px; text-align: center;">
+        <div style="font-size: 45px; margin-bottom: 10px;">🎉</div>
+        <h3 style="margin: 0 0 5px 0; color: #16a34a;">ชำระเงินสำเร็จ!</h3>
+        <p style="color: #64748b; font-size: 14px; margin-bottom: 20px;">เลขที่ใบเสร็จ: <strong id="billReceiptNum" style="color: #1f2937;">-</strong></p>
+        
+        <div id="billItemsSummary" style="background: #f8fafc; border: 1px dashed #cbd5e1; border-radius: 8px; padding: 15px; text-align: left; max-height: 200px; overflow-y: auto; margin-bottom: 20px; font-size: 14px;">
+            <!-- รายการสินค้าในบิล -->
+        </div>
+        
+        <div style="display: flex; justify-content: space-between; font-weight: bold; font-size: 16px; margin-bottom: 20px; padding: 0 5px;">
+            <span>ยอดรวมทั้งสิ้น:</span>
+            <span id="billGrandTotal" style="color: #16a34a;">฿0.00</span>
+        </div>
+
+        <button onclick="closeScreenBill()" style="width: 100%; padding: 12px; background: #2563eb; color: white; border: none; border-radius: 8px; font-weight: bold; cursor: pointer;">ปิดหน้าต่าง / เริ่มขายใหม่</button>
+    </div>
+</div>
+
+<!-- =====================================================
+     SCRIPTS
+===================================================== -->
 <script>
+    // ดึงหมายเลขพร้อมเพย์/แม่มณีเฉพาะของร้านที่ Login อยู่จาก Django Context
+    const PROMPTPAY_ID = "{{ shop_promptpay }}"; 
+
     // -----------------------------------------------------
-    // 1. ระบบ MODAL เทียบกำไร เลือกวันที่ กราฟสแตก และปุ่มล้างค่า
+    // 1. ระบบ MODAL เทียบกำไร
     // -----------------------------------------------------
     function openCompareModal() {
         document.getElementById('compareModal').style.display = 'flex';
@@ -366,12 +428,10 @@
         .then(data => {
             if(data.error) { alert(data.error); return; }
             
-            // อัปเดตยอดขาย
             const salesEl = document.getElementById('modalSalesAmount');
             salesEl.dataset.sales = data.sales_total;
             salesEl.innerText = data.sales_total.toLocaleString(undefined, {minimumFractionDigits: 2});
             
-            // อัปเดตรายการรายจ่าย
             const listContainer = document.getElementById('expenseListContainer');
             listContainer.innerHTML = '';
             
@@ -408,7 +468,6 @@
         calculateCompare();
     }
 
-    // ฟังก์ชันล้างค่า (เอาติ๊กออกทั้งหมด)
     function clearCalculations() {
         const expCheckboxes = document.querySelectorAll('.exp-check');
         expCheckboxes.forEach(cb => { cb.checked = false; });
@@ -462,11 +521,6 @@
         }
     }
 
-    window.addEventListener('click', function(event) {
-        const modal = document.getElementById('compareModal');
-        if (event.target === modal) closeCompareModal();
-    });
-
     // -----------------------------------------------------
     // 2. NOTIFICATION POPUP (แจ้งเตือนบิลค้าง)
     // -----------------------------------------------------
@@ -475,14 +529,19 @@
     document.addEventListener('click', function(event) {
         const wrapper = document.querySelector('.notification-wrapper');
         const popup = document.getElementById('notiPopup');
+        const compareModal = document.getElementById('compareModal');
+        const qrModal = document.getElementById('qrModal');
+        const screenBillModal = document.getElementById('screenBillModal');
+
         if (wrapper && !wrapper.contains(event.target)) { popup.classList.remove('show'); }
+        if (event.target === compareModal) closeCompareModal();
+        if (event.target === qrModal) closeQrModal();
+        if (event.target === screenBillModal) closeScreenBill();
     });
 
     function markAsPaid(expenseId) {
         if(!confirm("ยืนยันว่าชำระบิลนี้เรียบร้อยแล้วใช่หรือไม่?")) return;
         const csrftoken = document.querySelector('[name=csrfmiddlewaretoken]').value;
-        
-        // ให้ Django สร้าง URL ให้อัตโนมัติ (ใส่ 999999 ไว้เป็นตัวแทน แล้วค่อยแทนที่ด้วย ID จริง)
         let url = "{% url 'pos:mark_paid' 999999 %}".replace('999999', expenseId);
 
         fetch(url, {
@@ -498,9 +557,243 @@
             else { alert("เกิดข้อผิดพลาด: " + data.message); }
         }).catch(err => alert("เชื่อมต่อไม่สำเร็จ"));
     }
+    // -----------------------------------------------------
+    // 3. PROMPTPAY & SCB MAEMANEE (BILLER ID) PAYLOAD
+    // -----------------------------------------------------
+    function generatePromptPayPayload(target, amount) {
+        function tlv(tag, value) {
+            let length = String(value.length).padStart(2, '0');
+            return tag + length + value;
+        }
+
+        let cleanTarget = target.replace(/[^0-9]/g, '');
+        let merchantAccount = '';
+
+        // แยกระบบสร้างโค้ดตามความยาวของไอดีร้านค้า
+        if (cleanTarget.length === 10) {
+            // ระบบที่ 1: พร้อมเพย์เบอร์มือถือ (Tag 29)
+            let formattedPhone = '0066' + cleanTarget.substring(1);
+            let targetTag = tlv('01', formattedPhone);
+            merchantAccount = tlv('29', tlv('00', 'A000000677010111') + targetTag);
+            
+        } else if (cleanTarget.length === 15) {
+            // แม่มณี / SCB Bill Payment
+            const aid = tlv('00', 'A000000677010112');
+            // Biller ID ของร้าน
+            const billerId = tlv('01', '010753600010286');
+            // Reference 1
+            const ref1 = tlv('02', cleanTarget);
+            // Reference 2
+            const ref2 = tlv('03', 'SCB');
+            merchantAccount = tlv(
+                '30',
+                aid + billerId + ref1 + ref2
+            );
+        } else {
+            // ระบบที่ 3: พร้อมเพย์บัตรประชาชน / นิติบุคคล (13 หลัก)
+            let targetTag = tlv('02', cleanTarget);
+            merchantAccount = tlv('29', tlv('00', 'A000000677010111') + targetTag);
+        }
+
+        let country = tlv('58', 'TH');
+        let currency = tlv('53', '764'); // เงินบาท (THB)
+        
+        let amountStr = '';
+        let initiationMethod = '11'; // โหมดสร้าง QR ซ้ำได้
+        
+        // ถ้าระบุยอดเงิน จะเพิ่ม Tag 54 และตั้งค่าเป็นจ่ายครั้งเดียว (Dynamic)
+        if (amount > 0) {
+            amountStr = tlv('54', amount.toFixed(2));
+            initiationMethod = '12'; 
+        }
+
+        let payloadFormat = tlv('00', '01');
+        let initMethodTag = tlv('01', initiationMethod);
+
+        // รวมโครงสร้างข้อมูลทั้งหมด (รวม Tag 30 ของ SCB เข้ามาด้วย)
+        let data = payloadFormat + initMethodTag + merchantAccount + currency + amountStr + country + '6304';
+        
+        // คำนวณ Checksum CRC16 ท้ายสุด
+        function crc16(text) {
+            let crc = 0xFFFF;
+            for (let c = 0; c < text.length; c++) {
+                crc ^= text.charCodeAt(c) << 8;
+                for (let i = 0; i < 8; i++) {
+                    if (crc & 0x8000) { crc = (crc << 1) ^ 0x1021; } 
+                    else { crc = crc << 1; }
+                    crc &= 0xFFFF;
+                }
+            }
+            return crc.toString(16).toUpperCase().padStart(4, '0');
+        }
+
+        return data + crc16(data);
+    }
+
+    function openQrModal() {
+        if (cart.length === 0) return;
+
+        if (!PROMPTPAY_ID || PROMPTPAY_ID.trim() === "") {
+            alert("⚠️ กรุณาตั้งค่าหมายเลขพร้อมเพย์ หรือ รหัสร้านค้าแม่มณี (15 หลัก) ในบัญชีของคุณ");
+            return;
+        }
+
+        let totalPrice = cart.reduce((sum, item) => sum + (item.price * item.qty), 0);
+        
+        document.getElementById('qrTotalText').innerText = '฿' + totalPrice.toLocaleString(undefined, {minimumFractionDigits: 2});
+        document.getElementById('qrModal').style.display = 'flex';
+
+        // สร้าง QR Code ด้วย qrcode.min.js ในเครื่อง (ไม่ต้องผ่าน API นอก จะได้ไม่เจอปัญหารูปไม่โหลด)
+        document.getElementById('qrcode').innerHTML = "";
+        let payload = generatePromptPayPayload(PROMPTPAY_ID, totalPrice);
+
+        new QRCode(document.getElementById("qrcode"), {
+            text: payload,
+            width: 200,
+            height: 200,
+        });
+    }
+
+    function closeQrModal() {
+        document.getElementById('qrModal').style.display = 'none';
+    }
+
+    function confirmQRPayment() {
+        const selectedBillType = document.querySelector('input[name="billType"]:checked').value;
+        
+        let qrContainer = document.getElementById('qrcode');
+        let qrImgElement = qrContainer ? (qrContainer.querySelector('img') || qrContainer.querySelector('canvas')) : null;
+        let qrDataUrl = '';
+        if (qrImgElement) {
+            qrDataUrl = qrImgElement.tagName === 'CANVAS' ? qrImgElement.toDataURL('image/png') : qrImgElement.src;
+        }
+
+        closeQrModal();
+
+        const currentCart = [...cart];
+        const totalPrice = currentCart.reduce((sum, item) => sum + (item.price * item.qty), 0);
+        const shopName = document.getElementById('shopNameDisplay').innerText.trim();
+
+        const btnCheckout = document.getElementById('btnCheckout');
+        btnCheckout.disabled = true; btnCheckout.innerText = "⏳ กำลังบันทึก...";
+
+        fetch("{% url 'pos:checkout' %}", {
+            method: "POST", 
+            headers: { 
+                "Content-Type": "application/json", 
+                "X-CSRFToken": document.querySelector('[name=csrfmiddlewaretoken]').value 
+            }, 
+            body: JSON.stringify({ cart: currentCart })
+        })
+        .then(async response => {
+            const text = await response.text();
+            try {
+                return JSON.parse(text);
+            } catch (e) {
+                throw new Error("Server response is not JSON: " + text);
+            }
+        })
+        .then(data => {
+            if (data.status === "success") {
+                const receiptNo = data.receipt;
+                cart = []; 
+
+                if (selectedBillType === 'print') {
+                    triggerPrintReceipt(receiptNo, currentCart, totalPrice, qrDataUrl, shopName);
+                    window.location.href = "{% url 'pos:home' %}";
+                } else {
+                    showScreenBill(receiptNo, currentCart, totalPrice);
+                }
+            } else { 
+                alert("เกิดข้อผิดพลาด: " + data.message); 
+                btnCheckout.disabled = false; 
+                btnCheckout.innerText = "รับชำระเงิน (QR พร้อมเพย์/แม่มณี)"; 
+            }
+        })
+        .catch(error => { 
+            console.error("Checkout error:", error);
+            alert("เชื่อมต่อไม่สำเร็จหรือเกิดข้อผิดพลาดที่ระบบเซิร์ฟเวอร์"); 
+            btnCheckout.disabled = false; 
+            btnCheckout.innerText = "รับชำระเงิน (QR พร้อมเพย์/แม่มณี)"; 
+        });
+    }
+
+    function triggerPrintReceipt(receiptNo, items, total, qrDataUrl, shopName) {
+        let printWindow = window.open('', '_blank', 'width=400,height=600');
+        let htmlContent = `
+            <html>
+            <head>
+                <title>ใบเสร็จรับเงิน - ${receiptNo}</title>
+                <style>
+                    body { font-family: 'Courier New', Courier, monospace; font-size: 12px; width: 280px; margin: 0 auto; padding: 10px; color: #000; }
+                    .center { text-align: center; }
+                    .line { border-bottom: 1px dashed #000; margin: 8px 0; }
+                    .flex { display: flex; justify-content: space-between; }
+                </style>
+            </head>
+            <body onload="window.print(); window.close();">
+                <div class="center">
+                    <h3 style="margin:0;">${shopName}</h3>
+                    <p style="margin:2px 0;">ใบเสร็จรับเงิน / Receipt</p>
+                </div>
+                <div class="line"></div>
+                <div>เลขที่บิล: ${receiptNo}</div>
+                <div>วันที่: ${new Date().toLocaleString('th-TH')}</div>
+                <div class="line"></div>
+                <div>
+        `;
+        
+        items.forEach(item => {
+            htmlContent += `<div class="flex"><span>${item.name} x${item.qty}</span><span>฿${(item.price * item.qty).toFixed(2)}</span></div>`;
+        });
+
+        htmlContent += `
+                </div>
+                <div class="line"></div>
+                <div class="flex" style="font-weight: bold; font-size: 14px;">
+                    <span>ยอดรวมสุทธิ:</span>
+                    <span>฿${total.toFixed(2)}</span>
+                </div>
+                <div class="line"></div>
+                <div class="center" style="margin: 10px 0;">
+                    ${qrDataUrl ? `<img src="${qrDataUrl}" alt="QR Code" style="width: 100px; height: 100px;" /><br>` : ''}
+                    <small style="font-size: 10px; color: #555;">สแกนตรวจสอบข้อมูลบิล</small>
+                </div>
+                <div class="line"></div>
+                <div class="center" style="margin-top: 10px;">ขอบคุณที่ใช้บริการค่ะ/ครับ 🙏</div>
+            </body>
+            </html>
+        `;
+        
+        printWindow.document.write(htmlContent);
+        printWindow.document.close();
+    }
+
+    function showScreenBill(receiptNo, items, total) {
+        document.getElementById('billReceiptNum').innerText = receiptNo;
+        document.getElementById('billGrandTotal').innerText = '฿' + total.toLocaleString(undefined, {minimumFractionDigits: 2});
+        
+        let container = document.getElementById('billItemsSummary');
+        container.innerHTML = '';
+        items.forEach(item => {
+            container.innerHTML += `
+                <div style="display: flex; justify-content: space-between; margin-bottom: 5px;">
+                    <span>${item.name} (x${item.qty})</span>
+                    <strong>฿${(item.price * item.qty).toLocaleString(undefined, {minimumFractionDigits: 2})}</strong>
+                </div>
+            `;
+        });
+
+        document.getElementById('screenBillModal').style.display = 'flex';
+    }
+
+    function closeScreenBill() {
+        document.getElementById('screenBillModal').style.display = 'none';
+        window.location.href = "{% url 'pos:home' %}";
+    }
 
     // -----------------------------------------------------
-    // 3. FILTER PRODUCTS & CART
+    // 4. FILTER PRODUCTS & CART
     // -----------------------------------------------------
     const searchInput = document.getElementById("searchInput");
     const catTabs = document.querySelectorAll(".cat-tab");
@@ -566,19 +859,4 @@
         grandTotalEl.innerText = `฿${totalPrice.toLocaleString(undefined, {minimumFractionDigits: 2})}`;
         btnCheckout.disabled = false;
     }
-
-    function processCheckout() {
-        if (cart.length === 0) return;
-        const btnCheckout = document.getElementById('btnCheckout');
-        btnCheckout.disabled = true; btnCheckout.innerText = "⏳ กำลังบันทึก...";
-        fetch("{% url 'pos:checkout' %}", {
-            method: "POST", headers: { "Content-Type": "application/json", "X-CSRFToken": document.querySelector('[name=csrfmiddlewaretoken]').value }, body: JSON.stringify({ cart: cart })
-        }).then(response => response.json()).then(data => {
-            if (data.status === "success") { alert(data.message + "\nเลขที่บิล: " + data.receipt); cart = []; window.location.href = "{% url 'pos:home' %}"; } 
-            else { alert("เกิดข้อผิดพลาด: " + data.message); btnCheckout.disabled = false; btnCheckout.innerText = "รับชำระเงิน"; }
-        }).catch(error => { alert("เชื่อมต่อไม่สำเร็จ"); btnCheckout.disabled = false; btnCheckout.innerText = "รับชำระเงิน"; });
-    }
 </script>
-
-</body>
-</html>

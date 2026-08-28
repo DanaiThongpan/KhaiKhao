@@ -25,7 +25,8 @@ SECRET_KEY = 'django-insecure-*7v=$4j2smtjtsm&g&l2xx-hzh2yjemi5b%00cpkk3sz#t!f6c
 # SECURITY WARNING: don't run with debug turned on in production!
 DEBUG = True
 
-ALLOWED_HOSTS = []
+# เพิ่มโดเมนของ PythonAnywhere และค่าพื้นฐานสำหรับรันในเครื่อง
+ALLOWED_HOSTS = ['danaith64.pythonanywhere.com', '127.0.0.1', 'localhost']
 
 
 # Application definition
@@ -113,6 +114,7 @@ AUTH_PASSWORD_VALIDATORS = [
 
 LANGUAGE_CODE = 'en-us'
 
+# ตั้งค่าโซนเวลาเป็นเวลาประเทศไทย (Asia/Bangkok)
 TIME_ZONE = 'UTC'
 
 USE_I18N = True
@@ -128,6 +130,10 @@ STATIC_URL = 'static/'
 STATICFILES_DIRS = [
     BASE_DIR / "static",
 ]
+
+# เส้นทางจัดเก็บไฟล์ Static สำหรับขึ้นเซิร์ฟเวอร์ (PythonAnywhere)
+STATIC_ROOT = BASE_DIR / 'staticfiles'
+
 # Default primary key field type
 # https://docs.djangoproject.com/en/4.2/ref/settings/#default-auto-field
 

@@ -14,6 +14,8 @@ class CustomUserAdmin(UserAdmin):
     list_display = (
         "username",
         "role",
+        "bank_name",
+        "promptpay_number",
         "is_active",
         "is_staff",
         "is_superuser",
@@ -22,6 +24,7 @@ class CustomUserAdmin(UserAdmin):
 
     list_filter = (
         "role",
+        "bank_name",
         "is_active",
         "is_staff",
         "is_superuser",
@@ -29,6 +32,8 @@ class CustomUserAdmin(UserAdmin):
 
     search_fields = (
         "username",
+        "bank_account_number",
+        "promptpay_number",
     )
 
     ordering = (
@@ -50,6 +55,17 @@ class CustomUserAdmin(UserAdmin):
             {
                 "fields": (
                     "role",
+                )
+            }
+        ),
+        (
+            "ข้อมูลบัญชีธนาคารและพร้อมเพย์",
+            {
+                "fields": (
+                    "bank_name",
+                    "bank_account_number",
+                    "bank_account_name",
+                    "promptpay_number",
                 )
             }
         ),
@@ -85,6 +101,10 @@ class CustomUserAdmin(UserAdmin):
                     "password1",
                     "password2",
                     "role",
+                    "bank_name",
+                    "bank_account_number",
+                    "bank_account_name",
+                    "promptpay_number",
                     "is_active",
                     "is_staff",
                     "is_superuser",
