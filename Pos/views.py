@@ -1,12 +1,14 @@
 import json
+from datetime import datetime
 from django.shortcuts import render
 from django.http import JsonResponse
 from django.utils import timezone
 from django.db.models import Sum, Prefetch
 from django.contrib.auth.decorators import login_required
+from django.db.models import Sum, Prefetch, Q
 from Products.models import Product, ProductCategory
+from Expenses.models import Expense  # <--- ดึงโมเดลรายจ่ายที่คุณสร้างมาใช้
 from .models import Order, OrderItem
-from datetime import datetime
 
 @login_required 
 def home(request):
@@ -26,35 +28,109 @@ def home(request):
     categories = list(raw_categories)
     categories.sort(key=lambda c: (sort_category(c), c.name))
 
-    # ==========================================
-    # ส่วนที่เพิ่ม: รับค่าวันที่จาก HTML เพื่อค้นหาตาม created_at
-    # ==========================================
-    selected_date_str = request.GET.get('date') # รับวันที่มาจากหน้าเว็บ
+    # รับค่าวันที่จาก HTML เพื่อค้นหายอดขาย
+    selected_date_str = request.GET.get('date') 
     if selected_date_str:
-        # ถ้ามีการเลือกวันที่ ให้แปลงข้อความเป็น Date
         selected_date = datetime.strptime(selected_date_str, '%Y-%m-%d').date()
     else:
-        # ถ้าไม่ได้เลือก ให้ใช้วันที่ปัจจุบัน
         selected_date = timezone.localdate()
 
-    # กรองยอดขาย (ตัดยอด) ตาม created_at ที่เลือก
+    # กรองยอดขายตามวันที่เลือก
     daily_sales = Order.objects.filter(
-        created_at__date=selected_date,  # <--- ค้นหาจากวันที่สร้างบิล
+        created_at__date=selected_date,
         created_by=request.user
     ).aggregate(total=Sum('total_amount'))['total'] or 0
+
+    # =====================================================
+    # ดึงบิลค้างจ่าย (สำหรับโชว์ในกระดิ่งแจ้งเตือน)
+    # =====================================================
+    today = timezone.localdate()
+    raw_unpaid = Expense.objects.filter(is_paid=False).order_by('expense_date')
+    unpaid_expenses = []
+    
+    for exp in raw_unpaid:
+        days_diff = (exp.expense_date - today).days
+        unpaid_expenses.append({
+            'id': exp.id,
+            'name': exp.name,
+            'amount': exp.amount,
+            'days_left': days_diff,
+        })
 
     context = {
         "categories": categories,
         "products": my_products, 
         "daily_sales": daily_sales,
-        "selected_date": selected_date, # ส่งวันที่กลับไปแสดงบน HTML
+        "selected_date": selected_date,
+        "unpaid_expenses": unpaid_expenses,
     }
 
     return render(request, "Pos/home.html", context)
 
-# ==========================================
-# 2. ระบบชำระเงิน ตัดสต๊อก และรันเลขบิลรายวัน
-# ==========================================
+# =====================================================
+# API สำหรับ Modal เทียบรายได้-รายจ่าย
+# =====================================================
+@login_required
+def api_compare_profit(request):
+    start_date_str = request.GET.get('start')
+    end_date_str = request.GET.get('end')
+    
+    if not start_date_str or not end_date_str:
+        return JsonResponse({'error': 'กรุณาระบุวันที่ให้ครบถ้วน'}, status=400)
+        
+    try:
+        start_dt = datetime.strptime(start_date_str, '%Y-%m-%d').date()
+        end_dt = datetime.strptime(end_date_str, '%Y-%m-%d').date()
+    except ValueError:
+        return JsonResponse({'error': 'รูปแบบวันที่ไม่ถูกต้อง'}, status=400)
+        
+    # 1. ดึงยอดขายในช่วงวันที่เลือก
+    sales = Order.objects.filter(
+        created_at__date__gte=start_dt,
+        created_at__date__lte=end_dt,
+        created_by=request.user
+    ).aggregate(total=Sum('total_amount'))['total'] or 0
+    
+    # 2. [อัปเดต] ดึงรายจ่ายใน "ช่วงวันที่เลือก" หรือ "บิลที่ยังไม่จ่าย(ค้างจ่าย)ทั้งหมด"
+    expenses_qs = Expense.objects.filter(
+        Q(expense_date__gte=start_dt, expense_date__lte=end_dt) | Q(is_paid=False)
+    ).distinct().order_by('expense_date')
+    
+    expenses_list = []
+    for exp in expenses_qs:
+        # เพิ่มข้อความบอกสถานะให้รู้ว่าอันไหนค้าง อันไหนจ่ายแล้ว
+        status_text = "ค้างจ่าย" if not exp.is_paid else "จ่ายแล้ว"
+        expenses_list.append({
+            'id': exp.id,
+            'name': exp.name,
+            'amount': float(exp.amount),
+            'date': exp.expense_date.strftime('%d/%m/%Y'),
+            'category': f"{exp.get_category_display()} ({status_text})"
+        })
+        
+    return JsonResponse({
+        'sales_total': float(sales),
+        'expenses': expenses_list
+    })
+# =====================================================
+# API มาร์ครายจ่ายว่า "จ่ายแล้ว"
+# =====================================================
+@login_required
+def mark_expense_paid(request, expense_id):
+    if request.method == "POST":
+        try:
+            exp = Expense.objects.get(id=expense_id)
+            exp.is_paid = True
+            exp.save()
+            return JsonResponse({"status": "success", "message": "อัปเดตสถานะสำเร็จ!"})
+        except Expense.DoesNotExist:
+            return JsonResponse({"status": "error", "message": "ไม่พบบิลนี้"}, status=404)
+    return JsonResponse({"status": "error", "message": "Invalid request"}, status=400)
+
+# =====================================================
+# ระบบชำระเงินหน้า POS
+# =====================================================
+@login_required
 def process_checkout(request):
     if request.method == "POST":
         try:
@@ -64,41 +140,29 @@ def process_checkout(request):
             if not cart_items:
                 return JsonResponse({"status": "error", "message": "ตะกร้าว่างเปล่า"}, status=400)
 
-            # -----------------------------------------------------
-            # ระบบรันเลขที่บิลรายวัน (INV-YYYYMMDD-XXXX)
-            # -----------------------------------------------------
             local_now = timezone.localtime()
-            date_str = local_now.strftime('%Y%m%d') # เช่น 20260827
+            date_str = local_now.strftime('%Y%m%d')
             prefix = f"INV-{date_str}-"
             
-            # ค้นหาบิลล่าสุดของวันนี้
             last_order = Order.objects.filter(
                 receipt_number__startswith=prefix
             ).order_by('-receipt_number').first()
 
             if last_order:
-                # เอา 4 หลักสุดท้ายมาบวก 1
                 last_number = int(last_order.receipt_number.split('-')[-1])
                 new_number = last_number + 1
             else:
-                # ถ้ายังไม่มีบิลเลย เริ่มที่ 1
                 new_number = 1
                 
-            receipt_number = f"{prefix}{new_number:04d}" # ตัวอย่าง: INV-20260827-0001
-            # -----------------------------------------------------
-
-            # คำนวณยอดรวมสุทธิ
+            receipt_number = f"{prefix}{new_number:04d}"
             total_amount = sum(item['price'] * item['qty'] for item in cart_items)
 
-            # สร้างหัวบิล (Order)
-            # created_at จะถูกสร้างอัตโนมัติตาม auto_now_add=True ใน models.py
             order = Order.objects.create(
                 receipt_number=receipt_number,
                 total_amount=total_amount,
-                created_by=request.user if request.user.is_authenticated else None
+                created_by=request.user
             )
 
-            # บันทึกสินค้าในตะกร้า (OrderItem) และตัดสต๊อก
             for item in cart_items:
                 product = Product.objects.get(id=item['id'])
                 qty = item['qty']
@@ -111,15 +175,10 @@ def process_checkout(request):
                     subtotal=item['price'] * qty
                 )
                 
-                # ตัดสต๊อกสินค้า
                 product.stock_quantity -= qty
                 product.save()
 
-            return JsonResponse({
-                "status": "success", 
-                "message": "บันทึกบิลและตัดสต๊อกสำเร็จ!", 
-                "receipt": receipt_number
-            })
+            return JsonResponse({"status": "success", "message": "บันทึกสำเร็จ!", "receipt": receipt_number})
             
         except Exception as e:
             return JsonResponse({"status": "error", "message": str(e)}, status=500)

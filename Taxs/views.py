@@ -1,5 +1,5 @@
 from datetime import datetime
-from decimal import Decimal # 1. นำเข้า Decimal มาใช้งาน
+from decimal import Decimal
 from django.shortcuts import render, redirect
 from django.contrib.auth.decorators import login_required
 from django.contrib import messages
@@ -9,9 +9,13 @@ from Pos.models import Order
 
 def calculate_thai_personal_tax(net_income):
     """
-    คำนวณภาษีเงินได้บุคคลธรรมดาตามขั้นบันไดสรรพากรไทย (0% - 35%)
+    คำนวณภาษีเงินได้บุคคลธรรมดาตามขั้นบันไดสรรพากรไทย
+    - 0 - 150,000 บาทแรก: ยกเว้น (0%)
+    - 150,001 - 300,000 บาท: 5% ของส่วนที่เกิน 150,000
+    - 300,001 - 500,000 บาท: 10% ของส่วนที่เกิน 300,000 (+ สะสม 7,500)
+    - 500,001 - 1,000,000 บาท: 15% ของส่วนที่เกิน 500,000 (+ สะสม 27,500)
+    - 1,000,001 ขึ้นไป: ตามขั้นบันไดระดับสูงต่อไป
     """
-    # แปลงเป็น float ชั่วคราวเพื่อให้คำนวณเปรียบเทียบขั้นบันไดได้ง่าย
     net = float(net_income)
     tax = 0
     if net <= 150000:
@@ -45,7 +49,6 @@ def tax_home_view(request):
     except:
         realtime_sales = Decimal('0')
 
-    # 2. ใช้ Decimal ในการคำนวณค่าใช้จ่ายและลดหย่อนเพื่อไม่ให้ Type ชนกัน
     estimated_expense = realtime_sales * Decimal('0.60')
     personal_deduction = Decimal('60000')
     total_deduction_default = estimated_expense + personal_deduction
@@ -53,11 +56,9 @@ def tax_home_view(request):
     realtime_net_income = max(Decimal('0'), realtime_sales - total_deduction_default)
     realtime_tax = calculate_thai_personal_tax(realtime_net_income)
 
-    # 3. คำนวณเพดานยอดขายก่อนเริ่มเสียภาษี
     tax_free_sales_limit = (Decimal('150000') + personal_deduction) / Decimal('0.40')
     sales_until_tax = max(Decimal('0'), tax_free_sales_limit - realtime_sales)
 
-    # ระบบจำลอง (Simulator)
     sim_result = None
     if request.method == "POST" and "simulate" in request.POST:
         try:
@@ -72,10 +73,9 @@ def tax_home_view(request):
                 'net': sim_net,
                 'tax': sim_tax
             }
-        except (ValueError, decimal.InvalidOperation):
+        except (ValueError, Exception):
             messages.error(request, "กรุณากรอกตัวเลขจำลองให้ถูกต้อง")
 
-    # บันทึกผลลงประวัติ
     if request.method == "POST" and "save_record" in request.POST:
         try:
             tax_year = int(request.POST.get("tax_year", current_year))
@@ -94,7 +94,7 @@ def tax_home_view(request):
             )
             messages.success(request, "บันทึกประวัติภาษีสำเร็จ!")
             return redirect('tax:home')
-        except (ValueError, decimal.InvalidOperation):
+        except (ValueError, Exception):
             messages.error(request, "ข้อมูลการบันทึกไม่ถูกต้อง")
 
     history = TaxRecord.objects.filter(user=request.user).order_by('-created_at')
