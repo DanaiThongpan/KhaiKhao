@@ -27,7 +27,9 @@ DEBUG = True
 
 # เพิ่มโดเมนของ PythonAnywhere และค่าพื้นฐานสำหรับรันในเครื่อง
 ALLOWED_HOSTS = ['danaith64.pythonanywhere.com', '127.0.0.1', 'localhost']
+# ALLOWED_HOSTS = ['f763-49-229-22-76.ngrok-free.app', '127.0.0.1', 'localhost']
 
+SECURE_PROXY_SSL_HEADER = ('HTTP_X_FORWARDED_PROTO', 'https')
 
 # Application definition
 
@@ -44,6 +46,7 @@ INSTALLED_APPS = [
     'Expenses',
     'Reports',
     'Taxs',
+    'History',
 ]
 
 MIDDLEWARE = [

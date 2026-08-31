@@ -215,9 +215,7 @@
 <body>
 
 <div class="app">
-    <!-- =====================================================
-         SIDEBAR
-    ====================================================== -->
+    <!-- SIDEBAR -->
     <aside class="sidebar">
         <div class="logo">
             <h2>KhaiKhao</h2>
@@ -225,6 +223,7 @@
         </div>
         <nav class="menu">
             <a href="{% url 'pos:home' %}" class="menu-item"><span>🏠</span><span>หน้าหลัก</span></a>
+            <a href="{% url 'history:home' %}" class="menu-item"><span>📜</span><span>ประวัติการขาย</span></a>
             <a href="{% url 'expenses:home' %}" class="menu-item"><span>💵</span><span>บันทึกรายจ่าย</span></a>
             <a href="{% url 'products:list' %}" class="menu-item"><span>📦</span><span>สินค้า</span></a>
             <a href="#" class="menu-item"><span>🛒</span><span>สต๊อกของใช้</span></a>
@@ -242,9 +241,7 @@
         </div>
     </aside>
 
-    <!-- =====================================================
-         MAIN CONTENT
-    ====================================================== -->
+    <!-- MAIN CONTENT -->
     <main class="main">
         <header class="header">
             <div class="header-content">
@@ -256,7 +253,7 @@
                         {% elif request.user.username == 'M053' %}
                             🐷 ร้านเรื่องของหมู M053
                         {% else %}
-                            🛒 ร้านค้าทั่วไป
+                            🛒 ร้าน {{ request.user.username }}
                         {% endif %}
                     </p>
                 </div>
@@ -268,7 +265,6 @@
 
         <div style="max-width: 1400px; margin: 0 auto; padding-top: 10px;">
             
-            <!-- [อัปเดต] ตัวกรองเลือกร้านค้า (เปลี่ยนเป็นเลือกปุ๊บ กรองปั๊บอัตโนมัติ) -->
             <form method="GET" class="filter-form-bar">
                 <div class="filter-group" style="flex: 1; max-width: 350px;">
                     <label for="user">เลือกร้านค้า / ผู้ใช้งาน:</label>
@@ -289,7 +285,6 @@
                 {% endif %}
             </form>
 
-            <!-- TOTAL SALES CARD -->
             <div class="total-summary-card">
                 <div class="details">
                     <span>ยอดขายสะสมรวมทั้งหมด (Grand Total)</span>
@@ -413,6 +408,20 @@
         {% endfor %}
     ];
 
+    // ดึงจำนวนออเดอร์มาใส่กราฟ
+    const orderCounts = [
+        {% for row in chart_data %}
+            {{ row.order_count|default:0 }},
+        {% endfor %}
+    ];
+    
+    // ดึงจำนวนกล่องมาใส่กราฟ (ถ้าใน views.py ส่งค่า item_qty มา จะแสดงจำนวนกล่องที่ขายได้)
+    const itemQtys = [
+        {% for row in chart_data %}
+            {{ row.item_qty|default:0 }},
+        {% endfor %}
+    ];
+
     const ctx = document.getElementById('salesChart').getContext('2d');
     
     let gradient = ctx.createLinearGradient(0, 0, 0, 400);
@@ -420,18 +429,36 @@
     gradient.addColorStop(1, 'rgba(22, 163, 74, 0.2)');
 
     new Chart(ctx, {
-        type: 'bar',
         data: {
             labels: labels,
-            datasets: [{
-                label: 'ยอดขาย',
-                data: dataValues,
-                backgroundColor: gradient,
-                borderColor: '#15803d',
-                borderWidth: 1,
-                borderRadius: 8,
-                hoverBackgroundColor: '#16a34a'
-            }]
+            datasets: [
+                {
+                    type: 'bar',
+                    label: 'ยอดขาย (กราฟแท่ง)',
+                    data: dataValues,
+                    backgroundColor: gradient,
+                    borderColor: '#15803d',
+                    borderWidth: 1,
+                    borderRadius: 8,
+                    hoverBackgroundColor: '#16a34a',
+                    yAxisID: 'y'
+                },
+                {
+                    type: 'line',
+                    label: 'ยอดขาย (เส้นแนวโน้ม)', 
+                    data: dataValues, 
+                    borderColor: '#f59e0b',
+                    backgroundColor: 'transparent', 
+                    borderWidth: 3, 
+                    pointBackgroundColor: '#d97706',
+                    pointBorderColor: '#ffffff', 
+                    pointBorderWidth: 2,
+                    pointRadius: 5, 
+                    pointHoverRadius: 7,
+                    tension: 0.4, // ใช้เส้นโค้งสวยงามเหมือนเดิม
+                    yAxisID: 'y' // ใช้แกนเดียวกับกราฟแท่ง ทำให้เส้นทับกันพอดี
+                }
+            ]
         },
         options: {
             responsive: true,
@@ -439,6 +466,9 @@
             scales: {
                 x: { grid: { display: false } },
                 y: {
+                    type: 'linear',
+                    display: true,
+                    position: 'left',
                     beginAtZero: true,
                     border: { dash: [4, 4] },
                     grid: { color: '#e2e8f0', drawBorder: false },
@@ -449,16 +479,32 @@
                 }
             },
             plugins: {
-                legend: { display: false },
+                legend: { 
+                    display: false // ซ่อนแถบด้านบนเพื่อให้กราฟดูคลีนๆ (เพราะมันคือข้อมูลเดียวกัน)
+                },
                 tooltip: {
-                    backgroundColor: 'rgba(15, 23, 42, 0.9)',
+                    backgroundColor: 'rgba(15, 23, 42, 0.95)',
                     titleFont: { size: 14, family: "'Segoe UI', sans-serif" },
-                    bodyFont: { size: 14, font: 'bold' },
+                    bodyFont: { size: 14, font: 'normal' },
                     padding: 12,
                     cornerRadius: 8,
+                    // กรองให้โชว์กล่อง Tooltip แค่กล่องเดียว (ป้องกันข้อความซ้ำกัน)
+                    filter: function(tooltipItem) {
+                        return tooltipItem.datasetIndex === 0;
+                    },
                     callbacks: {
                         label: function(context) {
-                            return ' ยอดขาย: ฿' + context.parsed.y.toLocaleString();
+                            return ' 💰 ยอดขาย: ฿' + context.parsed.y.toLocaleString(undefined, {minimumFractionDigits: 2});
+                        },
+                        // เพิ่มข้อมูลอื่นๆ ต่อท้ายด้านล่างยอดขาย
+                        afterLabel: function(context) {
+                            let index = context.dataIndex;
+                            let orders = orderCounts[index];
+                            let boxes = itemQtys[index];
+                            return [
+                                ' 🧾 ออเดอร์: ' + orders + ' รายการ',
+                                ' 📦 จำนวน: ' + boxes + ' กล่อง'
+                            ];
                         }
                     }
                 }

@@ -7,7 +7,7 @@ from django.db.models import Sum, Prefetch
 from django.contrib.auth.decorators import login_required
 from django.db.models import Sum, Prefetch, Q
 from Products.models import Product, ProductCategory
-from Expenses.models import Expense  # <--- ดึงโมเดลรายจ่ายที่คุณสร้างมาใช้
+from Expenses.models import Expense
 from .models import Order, OrderItem
 
 @login_required 
@@ -63,7 +63,7 @@ def home(request):
         "daily_sales": daily_sales,
         "selected_date": selected_date,
         "unpaid_expenses": unpaid_expenses,
-        "shop_promptpay": request.user.promptpay_number or "",  # <--- [เพิ่มเข้ามา] ดึงเบอร์พร้อมเพย์ของ User ที่ Login อยู่
+        "shop_promptpay": request.user.promptpay_number or "", 
     }
 
     return render(request, "Pos/home.html", context)
@@ -92,7 +92,7 @@ def api_compare_profit(request):
         created_by=request.user
     ).aggregate(total=Sum('total_amount'))['total'] or 0
     
-    # 2. [อัปเดต] ดึงเฉพาะรายจ่ายที่ "ยังไม่จ่าย" (is_paid=False) เท่านั้น
+    # 2. ดึงเฉพาะรายจ่ายที่ "ยังไม่จ่าย" (is_paid=False) เท่านั้น
     expenses_qs = Expense.objects.filter(
         is_paid=False
     ).order_by('expense_date')
@@ -111,6 +111,7 @@ def api_compare_profit(request):
         'sales_total': float(sales),
         'expenses': expenses_list
     })
+
 # =====================================================
 # API มาร์ครายจ่ายว่า "จ่ายแล้ว"
 # =====================================================
@@ -141,27 +142,45 @@ def process_checkout(request):
 
             local_now = timezone.localtime()
             date_str = local_now.strftime('%Y%m%d')
-            prefix = f"INV-{date_str}-"
             
+            # [อัปเดต] ใช้ username เป็นรหัสร้านในเลขบิล เช่น P184 หรือ M053
+            shop_code = request.user.username.upper()
+            prefix = f"INV-{shop_code}-{date_str}-"
+            
+            # 1. เรียงหาบิลของวันนี้ที่มี 'เลขน้อยที่สุด' (กรองเฉพาะของร้านนี้)
             last_order = Order.objects.filter(
+                created_by=request.user,
                 receipt_number__startswith=prefix
-            ).order_by('-receipt_number').first()
+            ).order_by('receipt_number').first()
 
             if last_order:
-                last_number = int(last_order.receipt_number.split('-')[-1])
-                new_number = last_number + 1
+                try:
+                    last_number = int(last_order.receipt_number.split('-')[-1])
+                    new_number = last_number - 1
+                except (ValueError, IndexError):
+                    new_number = 9999
             else:
-                new_number = 1
+                new_number = 9999
                 
             receipt_number = f"{prefix}{new_number:04d}"
+
+            # 2. ป้องกัน Error (UNIQUE constraint) 100%
+            while Order.objects.filter(receipt_number=receipt_number).exists():
+                new_number -= 1
+                if new_number < 1: 
+                    new_number = 9999
+                receipt_number = f"{prefix}{new_number:04d}"
+
             total_amount = sum(item['price'] * item['qty'] for item in cart_items)
 
+            # 3. บันทึกข้อมูลบิล (Order)
             order = Order.objects.create(
                 receipt_number=receipt_number,
                 total_amount=total_amount,
                 created_by=request.user
             )
 
+            # 4. บันทึกข้อมูลรายการสินค้าในบิล (OrderItem) และตัดสต๊อก
             for item in cart_items:
                 product = Product.objects.get(id=item['id'])
                 qty = item['qty']
@@ -174,6 +193,7 @@ def process_checkout(request):
                     subtotal=item['price'] * qty
                 )
                 
+                # ตัดสต๊อกสินค้า
                 product.stock_quantity -= qty
                 product.save()
 

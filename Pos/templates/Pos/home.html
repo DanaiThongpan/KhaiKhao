@@ -8,6 +8,8 @@
     <link rel="stylesheet" href="{% static 'css/style.css' %}">
     <!-- ไลบรารีสำหรับสร้าง QR Code (PromptPay / Maemanee) -->
     <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
+    <!-- ไลบรารีสำหรับแปลง HTML เป็นรูปภาพ (e-Slip) -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
     <style>
         /* =====================================================
            CSS โครงสร้างพื้นฐาน
@@ -27,7 +29,7 @@
         .qty-btn { background: #f3f4f6; border: none; border-radius: 6px; width: 25px; height: 25px; cursor: pointer; font-weight: bold; }
         .qty-btn:hover { background: #e5e7eb; }
         .cart-footer { padding: 20px; border-top: 1px solid #e5e7eb; background: #fff; }
-        .summary-row { display: flex; justify-content: space-between; font-size: 18px; font-weight: bold; margin-bottom: 15px; }
+        .summary-row { display: flex; justify-content: space-between; font-size: 18px; font-weight: bold; margin-bottom: 15px; align-items: center;}
         .btn-checkout { width: 100%; padding: 15px; background: #16a34a; color: white; border: none; border-radius: 8px; font-size: 16px; font-weight: bold; cursor: pointer; }
         .btn-checkout:disabled { background: #9ca3af; cursor: not-allowed; }
 
@@ -91,6 +93,21 @@
         .compare-result { display: flex; justify-content: space-between; align-items: center; font-size: 18px; padding: 15px; border-radius: 8px; transition: 0.3s; background: #f0fdf4; border: 1px solid #bbf7d0; }
         .compare-result strong { font-size: 24px; }
 
+        /* =====================================================
+           TOGGLE SWITCH (สวิตช์ ไม่รับบิล ในหน้าตะกร้า)
+        ===================================================== */
+        .no-bill-box { display: flex; justify-content: space-between; align-items: center; background: #fffbeb; border: 1px solid #fde68a; padding: 10px 15px; border-radius: 8px; margin-bottom: 15px; transition: 0.3s; }
+        .no-bill-box:hover { background: #fef3c7; }
+        .no-bill-text { font-size: 14px; font-weight: bold; color: #d97706; display: flex; align-items: center; gap: 8px; }
+        
+        .switch { position: relative; display: inline-block; width: 46px; height: 24px; }
+        .switch input { opacity: 0; width: 0; height: 0; }
+        .slider { position: absolute; cursor: pointer; top: 0; left: 0; right: 0; bottom: 0; background-color: #d1d5db; transition: .4s; border-radius: 24px; }
+        .slider:before { position: absolute; content: ""; height: 18px; width: 18px; left: 3px; bottom: 3px; background-color: white; transition: .4s; border-radius: 50%; box-shadow: 0 1px 3px rgba(0,0,0,0.2); }
+        input:checked + .slider { background-color: #16a34a; }
+        input:focus + .slider { box-shadow: 0 0 1px #16a34a; }
+        input:checked + .slider:before { transform: translateX(22px); }
+
         /* มือถือ Responsive */
         @media (max-width: 1200px) {
             .sidebar { width: 70px; }
@@ -104,11 +121,12 @@
             .sidebar { position: relative; width: 100%; height: auto; flex-direction: row; justify-content: space-between; padding: 10px 15px; }
             .sidebar .menu { display: flex; gap: 10px; }
             .sidebar .sidebar-bottom { display: flex; align-items: center; }
-            .main { margin-left: 0 !important; margin-right: 0 !important; padding-bottom: 120px; }
-            .cart-sidebar { position: fixed; top: auto; bottom: 0; left: 0; right: 0; width: 100%; height: 80px; flex-direction: row; align-items: center; justify-content: space-between; padding: 10px 20px; border-left: none; border-top: 2px solid #e5e7eb; box-shadow: 0 -4px 15px rgba(0,0,0,0.1); z-index: 1000; }
+            .main { margin-left: 0 !important; margin-right: 0 !important; padding-bottom: 220px; } /* เผื่อที่ให้กล่องตะกร้า */
+            .cart-sidebar { position: fixed; top: auto; bottom: 0; left: 0; right: 0; width: 100%; height: auto; padding: 15px; border-left: none; border-top: 2px solid #e5e7eb; box-shadow: 0 -4px 15px rgba(0,0,0,0.1); z-index: 1000; }
             .cart-header, .cart-items { display: none; }
-            .cart-footer { display: flex; width: 100%; justify-content: space-between; align-items: center; background: transparent; border-top: none; padding: 0; }
-            .btn-checkout { width: auto; padding: 10px 25px; }
+            .cart-footer { padding: 0; background: transparent; border-top: none; }
+            .btn-checkout { width: 100%; padding: 12px; }
+            .no-bill-box { padding: 8px 12px; margin-bottom: 10px; }
         }
     </style>
 </head>
@@ -128,6 +146,7 @@
         </div>
         <nav class="menu">
             <a href="{% url 'pos:home' %}" class="menu-item active"><span>🏠</span><span>หน้าหลัก</span></a>
+            <a href="{% url 'history:home' %}" class="menu-item"><span>📜</span><span>ประวัติการขาย</span></a>
             <a href="{% url 'expenses:home' %}" class="menu-item"><span>💵</span><span>บันทึกรายจ่าย</span></a>
             <a href="{% url 'products:list' %}" class="menu-item"><span>📦</span><span>สินค้า</span></a>
             <a href="#" class="menu-item"><span>🛒</span><span>สต๊อกของใช้</span></a>
@@ -153,8 +172,8 @@
                 <h1>รายการสินค้า</h1>
                 <div class="shop-title-box">
                     <p class="shop-name-text" id="shopNameDisplay">
-                        {% if request.user.username == 'P184' %}🔥 ร้านทอดเป่า P184
-                        {% elif request.user.username == 'M053' %}🐷 ร้านเรื่องของหมู M053
+                        {% if request.user.username == 'P184' %}🔥 ร้านทอดเป่า P184 🔥
+                        {% elif request.user.username == 'M053' %}🐷 ร้านเรื่องของหมู M053 🐷
                         {% else %}🛒 ร้าน {{ request.user.username }}{% endif %}
                     </p>
                 </div>
@@ -269,8 +288,22 @@
     <aside class="cart-sidebar">
         <div class="cart-header"><h2>ตะกร้าสินค้า</h2></div>
         <div class="cart-items" id="cartContainer"><div style="text-align: center; color: #9ca3af; margin-top: 50px;"><div style="font-size: 40px; margin-bottom: 10px;">🛒</div>ยังไม่มีสินค้าในตะกร้า</div></div>
+        
         <div class="cart-footer">
-            <div class="summary-row"><span>ยอดรวมสุทธิ:</span><span id="grandTotal" style="color: #16a34a;">฿0.00</span></div>
+            <div class="summary-row">
+                <span>ยอดรวมสุทธิ:</span>
+                <span id="grandTotal" style="color: #16a34a; font-size: 22px;">฿0.00</span>
+            </div>
+            
+            <!-- ปุ่มสวิตช์ ไม่รับบิล (ย้ายมาไว้ตรงนี้) -->
+            <div class="no-bill-box">
+                <span class="no-bill-text">🌱 ลูกค้าไม่รับบิล</span>
+                <label class="switch">
+                    <input type="checkbox" id="no_bill_toggle_cart">
+                    <span class="slider"></span>
+                </label>
+            </div>
+
             <button class="btn-checkout" id="btnCheckout" onclick="openQrModal()" disabled>รับชำระเงิน (QR พร้อมเพย์/แม่มณี)</button>
         </div>
     </aside>
@@ -344,7 +377,7 @@
      MODAL สำหรับแสดง QR Code พร้อมเพย์/แม่มณี และเลือกรูปแบบบิล
 ====================================================== -->
 <div id="qrModal" class="modal-overlay" style="display: none;">
-    <div class="modal-content" style="max-width: 420px; text-align: center; padding: 20px;">
+    <div class="modal-content" style="max-width: 440px; text-align: center; padding: 20px;">
         <div class="modal-header" style="border: none; padding-bottom: 0;">
             <h3 style="margin: 0; width: 100%;">📱 ชำระเงินผ่าน QR พร้อมเพย์ / แม่มณี</h3>
             <button onclick="closeQrModal()" style="background:none; border:none; font-size:22px; cursor:pointer; color:#64748b;">✖</button>
@@ -355,18 +388,25 @@
             <!-- พื้นที่แสดงรูป QR Code -->
             <div id="qrcode" style="display: flex; justify-content: center; margin: 10px 0;"></div>
             
-            <p style="font-size: 12px; color: #d97706; margin: 5px 0 10px 0;">⚠️ กรุณาตรวจสอบยอดเงินในแอปธนาคารก่อนกดยืนยัน</p>
-
-            <!-- ตัวเลือกระหว่าง ปริ้นกระดาษ หรือ แสดงหน้าจอ -->
-            <div style="background: #f8fafc; border: 1px solid #e2e8f0; padding: 12px; border-radius: 8px; margin: 15px 0; text-align: left;">
-                <label style="font-size: 13px; font-weight: bold; color: #334151; display: block; margin-bottom: 8px;">🖨️ เลือกรูปแบบการออกบิลหลังชำระเงิน:</label>
-                <div style="display: flex; gap: 15px;">
-                    <label style="cursor: pointer; font-size: 14px; display: flex; align-items: center; gap: 5px;">
-                        <input type="radio" name="billType" value="print" checked style="accent-color: #16a34a;"> ปริ้นท์กระดาษ (มี QR)
+            <!-- ตัวเลือกระหว่างรูปแบบบิล -->
+            <div style="background: #f8fafc; border: 1px solid #e2e8f0; padding: 15px; border-radius: 8px; margin: 15px 0; text-align: left;">
+                <label style="font-size: 14px; font-weight: bold; color: #334151; display: flex; justify-content: space-between; margin-bottom: 12px;">
+                    <span>🖨️ รูปแบบการออกบิลหลังชำระเงิน:</span>
+                    <span style="font-size: 11px; color: #3b82f6; cursor: pointer; text-decoration: underline;" onclick="resetPrintSlot()">🔄 รีเซ็ตกระดาษ A4</span>
+                </label>
+                <div style="display: flex; flex-direction: column; gap: 10px;">
+                    <label style="cursor: pointer; font-size: 14px; display: flex; align-items: center; gap: 8px;">
+                        <input type="radio" name="billType" value="image" checked style="accent-color: #16a34a; transform: scale(1.2);"> บันทึกเป็นรูปภาพ (e-Slip ขนาดมือถือ)
                     </label>
-                    <label style="cursor: pointer; font-size: 14px; display: flex; align-items: center; gap: 5px;">
-                        <input type="radio" name="billType" value="screen" style="accent-color: #16a34a;"> แสดงบนหน้าจอ
+                    <label style="cursor: pointer; font-size: 14px; display: flex; align-items: center; gap: 8px;">
+                        <input type="radio" name="billType" value="print" style="accent-color: #16a34a; transform: scale(1.2);"> พิมพ์ใบเสร็จ (A4 ขยับช่องอัตโนมัติ)
                     </label>
+                    <label style="cursor: pointer; font-size: 14px; display: flex; align-items: center; gap: 8px;">
+                        <input type="radio" name="billType" value="screen" style="accent-color: #16a34a; transform: scale(1.2);"> แสดงผลบิลบนหน้าจอ (ไม่บันทึก)
+                    </label>
+                </div>
+                <div id="printSlotStatus" style="font-size: 12px; color: #16a34a; margin-top: 10px; font-weight: bold;">
+                    *สำหรับ A4 บิลถัดไปจะพิมพ์ที่ช่อง: 1 / 6
                 </div>
             </div>
 
@@ -557,6 +597,7 @@
             else { alert("เกิดข้อผิดพลาด: " + data.message); }
         }).catch(err => alert("เชื่อมต่อไม่สำเร็จ"));
     }
+
     // -----------------------------------------------------
     // 3. PROMPTPAY & SCB MAEMANEE (BILLER ID) PAYLOAD
     // -----------------------------------------------------
@@ -569,51 +610,33 @@
         let cleanTarget = target.replace(/[^0-9]/g, '');
         let merchantAccount = '';
 
-        // แยกระบบสร้างโค้ดตามความยาวของไอดีร้านค้า
         if (cleanTarget.length === 10) {
-            // ระบบที่ 1: พร้อมเพย์เบอร์มือถือ (Tag 29)
             let formattedPhone = '0066' + cleanTarget.substring(1);
             let targetTag = tlv('01', formattedPhone);
             merchantAccount = tlv('29', tlv('00', 'A000000677010111') + targetTag);
             
         } else if (cleanTarget.length === 15) {
-            // แม่มณี / SCB Bill Payment
             const aid = tlv('00', 'A000000677010112');
-            // Biller ID ของร้าน
             const billerId = tlv('01', '010753600010286');
-            // Reference 1
             const ref1 = tlv('02', cleanTarget);
-            // Reference 2
             const ref2 = tlv('03', 'SCB');
-            merchantAccount = tlv(
-                '30',
-                aid + billerId + ref1 + ref2
-            );
+            merchantAccount = tlv('30', aid + billerId + ref1 + ref2);
+            
         } else {
-            // ระบบที่ 3: พร้อมเพย์บัตรประชาชน / นิติบุคคล (13 หลัก)
             let targetTag = tlv('02', cleanTarget);
             merchantAccount = tlv('29', tlv('00', 'A000000677010111') + targetTag);
         }
 
         let country = tlv('58', 'TH');
-        let currency = tlv('53', '764'); // เงินบาท (THB)
-        
-        let amountStr = '';
-        let initiationMethod = '11'; // โหมดสร้าง QR ซ้ำได้
-        
-        // ถ้าระบุยอดเงิน จะเพิ่ม Tag 54 และตั้งค่าเป็นจ่ายครั้งเดียว (Dynamic)
-        if (amount > 0) {
-            amountStr = tlv('54', amount.toFixed(2));
-            initiationMethod = '12'; 
-        }
+        let currency = tlv('53', '764'); 
+        let amountStr = amount > 0 ? tlv('54', amount.toFixed(2)) : '';
+        let initiationMethod = amount > 0 ? '12' : '11'; 
 
         let payloadFormat = tlv('00', '01');
         let initMethodTag = tlv('01', initiationMethod);
 
-        // รวมโครงสร้างข้อมูลทั้งหมด (รวม Tag 30 ของ SCB เข้ามาด้วย)
         let data = payloadFormat + initMethodTag + merchantAccount + currency + amountStr + country + '6304';
         
-        // คำนวณ Checksum CRC16 ท้ายสุด
         function crc16(text) {
             let crc = 0xFFFF;
             for (let c = 0; c < text.length; c++) {
@@ -630,6 +653,18 @@
         return data + crc16(data);
     }
 
+    function resetPrintSlot() {
+        localStorage.setItem('printSlotIndex', 0);
+        updatePrintSlotStatus();
+        alert("✅ รีเซ็ตตำแหน่งเรียบร้อยแล้ว (คุณสามารถนำกระดาษ A4 แผ่นใหม่ใส่เครื่องปริ้นได้เลย)");
+    }
+
+    function updatePrintSlotStatus() {
+        let slot = parseInt(localStorage.getItem('printSlotIndex')) || 0;
+        let statusEl = document.getElementById('printSlotStatus');
+        if (statusEl) statusEl.innerText = `*สำหรับ A4 บิลถัดไปจะพิมพ์ที่ช่อง: ${slot + 1} / 6`;
+    }
+
     function openQrModal() {
         if (cart.length === 0) return;
 
@@ -641,9 +676,20 @@
         let totalPrice = cart.reduce((sum, item) => sum + (item.price * item.qty), 0);
         
         document.getElementById('qrTotalText').innerText = '฿' + totalPrice.toLocaleString(undefined, {minimumFractionDigits: 2});
+        
+        updatePrintSlotStatus(); 
+
+        // ตรวจสอบค่าปุ่ม "ไม่รับบิล" จากตะกร้า เพื่อไปเลือกรูปแบบใน Modal อัตโนมัติ
+        const noBillToggleCart = document.getElementById('no_bill_toggle_cart');
+        if (noBillToggleCart && noBillToggleCart.checked) {
+            document.querySelector('input[name="billType"][value="screen"]').checked = true;
+        } else {
+            // ค่าเริ่มต้นเป็นสลิป
+            document.querySelector('input[name="billType"][value="image"]').checked = true;
+        }
+
         document.getElementById('qrModal').style.display = 'flex';
 
-        // สร้าง QR Code ด้วย qrcode.min.js ในเครื่อง (ไม่ต้องผ่าน API นอก จะได้ไม่เจอปัญหารูปไม่โหลด)
         document.getElementById('qrcode').innerHTML = "";
         let payload = generatePromptPayPayload(PROMPTPAY_ID, totalPrice);
 
@@ -697,10 +743,17 @@
             if (data.status === "success") {
                 const receiptNo = data.receipt;
                 cart = []; 
+                
+                // รีเซ็ตปุ่มไม่รับบิล
+                const noBillToggleCart = document.getElementById('no_bill_toggle_cart');
+                if(noBillToggleCart) noBillToggleCart.checked = false;
 
                 if (selectedBillType === 'print') {
                     triggerPrintReceipt(receiptNo, currentCart, totalPrice, qrDataUrl, shopName);
-                    window.location.href = "{% url 'pos:home' %}";
+                    setTimeout(() => { window.location.href = "{% url 'pos:home' %}"; }, 1500);
+                } else if (selectedBillType === 'image') {
+                    // เรียกใช้งานฟังก์ชันดาวน์โหลดสลิปรูปแบบมือถือ
+                    downloadSlipImage(receiptNo, currentCart, totalPrice, qrDataUrl, shopName);
                 } else {
                     showScreenBill(receiptNo, currentCart, totalPrice);
                 }
@@ -718,55 +771,218 @@
         });
     }
 
+    // =========================================================================
+    // 4. ระบบการพิมพ์แบบสลิป บนกระดาษ A4 (6 ช่อง)
+    // =========================================================================
     function triggerPrintReceipt(receiptNo, items, total, qrDataUrl, shopName) {
-        let printWindow = window.open('', '_blank', 'width=400,height=600');
+        let printWindow = window.open('', '_blank');
+        let currentSlot = parseInt(localStorage.getItem('printSlotIndex')) || 0;
+
+        let col = currentSlot % 2;             
+        let row = Math.floor(currentSlot / 2); 
+
+        localStorage.setItem('printSlotIndex', (currentSlot + 1) % 6);
+
+        let leftOffset = 15 + (col * 95);  
+        let topOffset = 10 + (row * 95);   
+        
+        let isM053 = shopName.includes("M053") || shopName.includes("เรื่องของหมู");
+        let qrFooterDesc = isM053 ? 
+            `🐷 โอนแล้วรอสักครู่นะคะ 🐷<br>
+            ⚠️ รบกวนตรวจสอบยอดเงินก่อนยืนยัน ⚠️<br>
+            ขอบคุณที่อุดหนุนร้านเรื่องของหมูค่ะ 🙏` : 
+            `⚠️ กรุณาตรวจสอบความถูกต้องของยอดเงิน<br>
+            ↘❗ ก่อนกดยืนยันทุกครั้ง<br>
+            📢 หากพบว่ายอดเงินไม่ถูกต้อง<br>
+            ↘❗ กรุณาแจ้งทางร้านทันที<br>
+            🙇🏻‍♀️ ขอบคุณค่ะ/ครับ 🙇`;
+
         let htmlContent = `
             <html>
             <head>
                 <title>ใบเสร็จรับเงิน - ${receiptNo}</title>
                 <style>
-                    body { font-family: 'Courier New', Courier, monospace; font-size: 12px; width: 280px; margin: 0 auto; padding: 10px; color: #000; }
+                    @page { size: A4; margin: 0; }
+                    body { 
+                        font-family: 'Courier New', Courier, monospace; 
+                        margin: 0; padding: 0; 
+                        background: #fff; color: #000;
+                    }
+                    .receipt-box { 
+                        position: absolute;
+                        left: ${leftOffset}mm;
+                        top: ${topOffset}mm;
+                        width: 85mm;
+                        height: 88mm;
+                        padding: 3mm 4mm;
+                        box-sizing: border-box;
+                        border: 1px dashed #e5e7eb;
+                        display: flex;
+                        flex-direction: column;
+                        overflow: hidden;
+                    }
                     .center { text-align: center; }
-                    .line { border-bottom: 1px dashed #000; margin: 8px 0; }
+                    .line { border-bottom: 1px dashed #000; margin: 4px 0; }
                     .flex { display: flex; justify-content: space-between; }
+                    
+                    .shop-name { font-size: 14px; font-weight: bold; margin: 0; }
+                    .info-text { font-size: 11px; margin: 2px 0; color: #333; }
+                    .item-text { font-size: 11px; margin: 2px 0; font-weight: 500; }
+                    .total-row { font-weight: bold; font-size: 13px; margin-top: 3px; }
+                    
+                    .qr-footer {
+                        display: flex;
+                        align-items: center;
+                        gap: 12px;
+                        margin-top: auto;
+                    }
+                    .qr-footer img { width: 85px; height: 85px; } 
+                    .qr-desc { font-size: 10px; line-height: 1.4; color: #333; font-weight: bold; }
                 </style>
             </head>
-            <body onload="window.print(); window.close();">
-                <div class="center">
-                    <h3 style="margin:0;">${shopName}</h3>
-                    <p style="margin:2px 0;">ใบเสร็จรับเงิน / Receipt</p>
-                </div>
-                <div class="line"></div>
-                <div>เลขที่บิล: ${receiptNo}</div>
-                <div>วันที่: ${new Date().toLocaleString('th-TH')}</div>
-                <div class="line"></div>
-                <div>
+            <body onload="setTimeout(() => { window.print(); window.close(); }, 800);">
+                <div class="receipt-box">
+                    <div class="center">
+                        <div class="shop-name">${shopName}</div>
+                        <div class="info-text">ใบเสร็จรับเงิน / Receipt</div>
+                    </div>
+                    <div class="line"></div>
+                    <div class="info-text">เลขที่บิล: ${receiptNo}</div>
+                    <div class="info-text">วันที่: ${new Date().toLocaleString('th-TH')}</div>
+                    <div class="line"></div>
+                    
+                    <div style="flex-grow: 1; overflow: hidden;">
         `;
-        
+
         items.forEach(item => {
-            htmlContent += `<div class="flex"><span>${item.name} x${item.qty}</span><span>฿${(item.price * item.qty).toFixed(2)}</span></div>`;
+            htmlContent += `
+                        <div class="flex item-text">
+                            <span>${item.name} x${item.qty}</span>
+                            <span>฿${(item.price * item.qty).toFixed(2)}</span>
+                        </div>
+            `;
         });
 
         htmlContent += `
+                    </div>
+                    <div class="line"></div>
+                    <div class="flex total-row">
+                        <span>ยอดรวมสุทธิ:</span>
+                        <span>฿${total.toFixed(2)}</span>
+                    </div>
+
+                    <div class="qr-footer">
+                        ${qrDataUrl ? `<img src="${qrDataUrl}" alt="QR">` : ''}
+                        <div class="qr-desc">
+                                ${qrFooterDesc}
+                        </div>
+                    </div>
                 </div>
-                <div class="line"></div>
-                <div class="flex" style="font-weight: bold; font-size: 14px;">
-                    <span>ยอดรวมสุทธิ:</span>
-                    <span>฿${total.toFixed(2)}</span>
-                </div>
-                <div class="line"></div>
-                <div class="center" style="margin: 10px 0;">
-                    ${qrDataUrl ? `<img src="${qrDataUrl}" alt="QR Code" style="width: 100px; height: 100px;" /><br>` : ''}
-                    <small style="font-size: 10px; color: #555;">สแกนตรวจสอบข้อมูลบิล</small>
-                </div>
-                <div class="line"></div>
-                <div class="center" style="margin-top: 10px;">ขอบคุณที่ใช้บริการค่ะ/ครับ 🙏</div>
             </body>
             </html>
         `;
         
         printWindow.document.write(htmlContent);
         printWindow.document.close();
+    }
+
+    // =========================================================================
+    // 4.2 ระบบดาวน์โหลด e-Slip (สัดส่วนพอดีมือถือ)
+    // =========================================================================
+    function downloadSlipImage(receiptNo, items, total, qrDataUrl, shopName) {
+        // สร้างกรอบบิลจำลอง (ซ่อนไว้นอกหน้าจอ) เพื่อให้ html2canvas จับภาพ
+        const slipContainer = document.createElement('div');
+        slipContainer.style.position = 'absolute';
+        slipContainer.style.left = '-9999px';
+        slipContainer.style.top = '-9999px';
+        slipContainer.style.width = '380px'; // ขนาดพอดีจอมือถือ
+        slipContainer.style.backgroundColor = '#ffffff';
+        slipContainer.style.padding = '25px 20px';
+        slipContainer.style.fontFamily = "'Sarabun', 'Tahoma', sans-serif";
+        slipContainer.style.color = '#1f2937';
+        slipContainer.style.borderRadius = '12px'; // ขอบมนสวยงามแบบ e-Slip
+
+// 1. เพิ่ม ${index + 1}. ตรงนี้เพื่อให้รันเลขลำดับ 1, 2, 3... หน้ารายการอาหาร
+        let itemsHtml = items.map((item, index) => `
+            <div style="display: flex; justify-content: space-between; margin-bottom: 8px; font-size: 15px;">
+                <span style="flex: 1; padding-right: 10px;">${index + 1}. ${item.name} <span style="color: #6b7280;">(x${item.qty})</span></span>
+                <span style="font-weight: 500; white-space: nowrap;">฿${(item.price * item.qty).toFixed(2)}</span>
+            </div>
+        `).join('');
+
+        // 2. โค้ดส่วนแสดงผลสลิปร้านเรื่องของหมู (จัดฟอนต์ "รายการอาหาร:" ให้หนาและสวยขึ้นนิดนึงครับ)
+        if (shopName.includes("M053") || shopName.includes("เรื่องของหมู")) {
+            slipContainer.innerHTML = `
+                <div style="text-align: center; border-bottom: 2px dashed #fbcfe8; padding-bottom: 15px; margin-bottom: 15px;">
+                    <div style="font-size: 40px; margin-bottom: 5px;">🐷</div>
+                    <h2 style="margin: 0 0 5px 0; font-size: 24px; color: #be185d;">${shopName} 🐷</h2>
+                    <p style="margin: 0; font-size: 14px; color: #db2777;">ใบรายละเอียดออเดอร์ / Order Details</p>
+                </div>
+                <div style="margin-bottom: 20px; font-size: 14px; color: #4b5563; line-height: 1.6;">
+                    <div style="display: flex; justify-content: space-between;"><span>เลขที่บิล:</span> <span style="font-weight: 500;">${receiptNo}</span></div>
+                    <div style="display: flex; justify-content: space-between;"><span>วันที่:</span> <span>${new Date().toLocaleString('th-TH')}</span></div>
+                </div>
+                <div style="border-bottom: 2px dashed #fbcfe8; border-top: 2px dashed #fbcfe8; padding: 15px 0; margin-bottom: 15px;">
+                    <div style="font-weight: bold; margin-bottom: 8px; color: #be185d;">รายการอาหาร:</div>
+                    ${itemsHtml}
+                </div>
+                <div style="display: flex; justify-content: space-between; align-items: center; font-weight: bold; font-size: 20px; color: #be185d; margin-bottom: 25px;">
+                    <span>ยอดรวมสุทธิ:</span>
+                    <span>฿${total.toFixed(2)}</span>
+                </div>
+                <div style="text-align: center; background: #fdf2f8; padding: 15px; border-radius: 12px; border: 1px solid #fce7f3;">
+                    ${qrDataUrl ? `<img src="${qrDataUrl}" style="width: 140px; height: 140px; margin-bottom: 12px; mix-blend-mode: multiply; border-radius: 10px;">` : ''}
+                    <p style="margin: 0; font-size: 13px; color: #9d174d; font-weight: bold; line-height: 1.5;">
+                       🐷 รบกวนตรวจสอบยอดเงินก่อนยืนยัน 🐷<br>
+                       ⚠️ หากพบว่ายอดเงินไม่ถูกต้องกรุณาแจ้งทางร้านทันที ⚠️<br>
+                       🙏 ขอบคุณที่อุดหนุนร้านเรื่องของหมูค่ะ 🙏
+                    </p>
+                </div>
+            `;
+        } else {
+            slipContainer.innerHTML = `
+                <div style="text-align: center; border-bottom: 1px dashed #d1d5db; padding-bottom: 15px; margin-bottom: 15px;">
+                    <div style="font-size: 30px; margin-bottom: 5px;">Pos By Danai</div>
+                    <h2 style="margin: 0 0 5px 0; font-size: 24px; color: #111827;">${shopName}</h2>
+                    <p style="margin: 0; font-size: 14px; color: #6b7280;">ใบรายละเอียดออเดอร์ / Order Details</p>
+                </div>
+                <div style="margin-bottom: 20px; font-size: 14px; color: #4b5563; line-height: 1.6;">
+                    <div style="display: flex; justify-content: space-between;"><span>เลขที่บิล:</span> <span style="font-weight: 500;">${receiptNo}</span></div>
+                    <div style="display: flex; justify-content: space-between;"><span>วันที่:</span> <span>${new Date().toLocaleString('th-TH')}</span></div>
+                </div>
+                <div style="border-bottom: 1px dashed #d1d5db; border-top: 1px dashed #d1d5db; padding: 15px 0; margin-bottom: 15px;">
+                    ${itemsHtml}
+                </div>
+                <div style="display: flex; justify-content: space-between; align-items: center; font-weight: bold; font-size: 20px; color: #16a34a; margin-bottom: 25px;">
+                    <span>ยอดรวมสุทธิ:</span>
+                    <span>฿${total.toFixed(2)}</span>
+                </div>
+                <div style="text-align: center; background: #f9fafb; padding: 15px; border-radius: 8px; border: 1px solid #f3f4f6;">
+                    ${qrDataUrl ? `<img src="${qrDataUrl}" style="width: 140px; height: 140px; margin-bottom: 12px; mix-blend-mode: multiply;">` : ''}
+                    <p style="margin: 0; font-size: 13px; color: #4b5563; font-weight: bold; line-height: 1.5;">
+                       ⚠️ กรุณาตรวจสอบความถูกต้องของยอดเงิน<br>
+                        ↘❗ ก่อนกดยืนยันทุกครั้ง<br>
+                        📢 หากพบว่ายอดเงินไม่ถูกต้อง<br>
+                        ↘❗ กรุณาแจ้งทางร้านทันที<br>
+                        🙇🏻‍♀️ ขอบคุณที่มาอุดหนุนนะค้าบ 🙇
+                    </p>
+                </div>
+            `;
+        }
+
+        document.body.appendChild(slipContainer);
+
+        // ใช้ html2canvas แปลง div เป็นไฟล์รูปภาพ (Scale 2 เพื่อให้ภาพคมชัดระดับ HD)
+        html2canvas(slipContainer, { scale: 2, backgroundColor: '#ffffff' }).then(canvas => {
+            let link = document.createElement('a');
+            link.download = `${receiptNo}.png`;
+            link.href = canvas.toDataURL('image/png');
+            link.click(); // สั่งโหลดลงเครื่องอัตโนมัติ
+
+            // ทำความสะอาดและรีเฟรชหน้า
+            document.body.removeChild(slipContainer);
+            setTimeout(() => { window.location.href = "{% url 'pos:home' %}"; }, 1000);
+        });
     }
 
     function showScreenBill(receiptNo, items, total) {
@@ -793,7 +1009,7 @@
     }
 
     // -----------------------------------------------------
-    // 4. FILTER PRODUCTS & CART
+    // 5. FILTER PRODUCTS & CART
     // -----------------------------------------------------
     const searchInput = document.getElementById("searchInput");
     const catTabs = document.querySelectorAll(".cat-tab");
@@ -833,11 +1049,23 @@
     searchInput.addEventListener("input", filterProducts);
 
     let cart = [];
+    
+    // จำกัด 5 รายการ
     function addToCart(id, name, price) {
         const existingItem = cart.find(item => item.id === id);
-        if (existingItem) existingItem.qty += 1; else cart.push({ id: id, name: name, price: parseFloat(price), qty: 1 });
+        
+        if (existingItem) {
+            existingItem.qty += 1; 
+        } else {
+            if (cart.length >= 10) {
+                alert("⚠️ จำกัดสูงสุด 10 รายการต่อ 1 บิล เพื่อไม่ให้ข้อความล้นกรอบครับ\n(หากต้องการสั่งเพิ่ม ให้ชำระเงินบิลนี้ก่อนแล้วเริ่มบิลใหม่)");
+                return;
+            }
+            cart.push({ id: id, name: name, price: parseFloat(price), qty: 1 });
+        }
         renderCart();
     }
+    
     function updateQty(id, change) {
         const item = cart.find(item => item.id === id);
         if (item) { item.qty += change; if (item.qty <= 0) cart = cart.filter(cartItem => cartItem.id !== id); renderCart(); }
@@ -860,3 +1088,6 @@
         btnCheckout.disabled = false;
     }
 </script>
+
+</body>
+</html>
