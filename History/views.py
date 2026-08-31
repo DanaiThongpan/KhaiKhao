@@ -12,7 +12,7 @@ def history_list(request):
     orders = Order.objects.filter(created_by=request.user).prefetch_related('items__product').order_by('-created_at')
     products = Product.objects.filter(is_active=True, created_by=request.user).order_by('category', 'name')
     
-    days = request.GET.get('days', '1')
+    days = request.GET.get('days', '0')
     now = timezone.localtime()
     today = now.date()
     
@@ -57,11 +57,16 @@ def history_list(request):
     }
     return render(request, 'History/history_list.html', context)
 
+from django.urls import reverse
+
 @login_required
 def edit_order(request, order_id):
+    order = get_object_or_404(Order, id=order_id, created_by=request.user)
+    
+    # ดึงค่า days ติดมากับ URL เช่น /history/edit/1/?days=5 (รับได้ทั้งจาก GET และ POST)
+    days = request.GET.get('days') or request.POST.get('days', '0')
+
     if request.method == 'POST':
-        order = get_object_or_404(Order, id=order_id, created_by=request.user)
-        
         item_ids = request.POST.getlist('item_id[]')
         product_ids = request.POST.getlist('item_product_id[]')
         prices = request.POST.getlist('item_price[]')
@@ -105,5 +110,9 @@ def edit_order(request, order_id):
         
         order.total_amount = new_total
         order.save()
-            
-    return redirect('history:home')
+        
+        # พอกดบันทึกเสร็จ จะพาเด้งกลับไปที่หน้าเดิมพร้อมกับห้อยค่า days ต่อท้ายไว้เสมอ
+        return redirect(f"{reverse('history:home')}?days={days}")
+        
+    # เผื่อกรณีเข้าหน้าแก้ไขแบบ GET (ถ้ามี)
+    return redirect(f"{reverse('history:home')}?days={days}")

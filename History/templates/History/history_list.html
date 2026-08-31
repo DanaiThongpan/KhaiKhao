@@ -78,7 +78,6 @@
             .btn-del-item { width: 100%; height: 40px; margin-top: 5px; }
         }
 
-        /* เพิ่ม CSS ป้ายชื่อร้านแบบหน้าหลัก */
         .shop-title-box { display: inline-block; background: linear-gradient(135deg, #f0fdf4 0%, #dcfce7 100%); border: 1px solid #bbf7d0; padding: 6px 15px; border-radius: 8px; margin-top: 10px; }
         .shop-name-text { font-size: 20px; font-weight: 800; color: #15803d; letter-spacing: 0.5px; margin: 0; text-shadow: 0 1px 1px rgba(0,0,0,0.05); }
     </style>
@@ -124,7 +123,6 @@
         <header style="margin-bottom: 20px;">
             <div>
                 <h1 style="margin: 0; color: #1f2937; font-size: 24px;">📜 ประวัติการขาย</h1>
-                <!-- ป้ายชื่อร้านแบบใหม่ -->
                 <div class="shop-title-box">
                     <p class="shop-name-text">
                         {% if request.user.username == 'P184' %}
@@ -142,7 +140,7 @@
         <form method="GET" class="filter-card">
             <div>
                 <span style="font-size: 14px; font-weight: bold; color: #374151; margin-bottom: 5px; display: block;">📅 ช่วงเวลาแสดงข้อมูล:</span>
-                <select name="days" onchange="this.form.submit()">
+                <select name="days" onchange="this.form.submit()" style="padding: 8px 12px; border-radius: 6px; border: 1px solid #d1d5db; background: #fff; cursor: pointer; font-size: 14px; outline: none;">
                     <option value="0" {% if days == '0' %}selected{% endif %}>เฉพาะวันนี้ (Today)</option>
                     <option value="1" {% if days == '1' %}selected{% endif %}>1 วันย้อนหลัง</option>
                     <option value="2" {% if days == '2' %}selected{% endif %}>2 วันย้อนหลัง</option>
@@ -291,6 +289,7 @@
 <script>
     const PROMPTPAY_ID = "{{ shop_promptpay }}"; 
     const allProducts = JSON.parse(document.getElementById('all-products-data').textContent);
+    const currentDays = "{{ days }}"; // ดึงค่าตัวกรองวันปัจจุบันมาเก็บไว้ใช้
 
     function generatePromptPayPayload(target, amount) {
         function tlv(tag, value) { return tag + String(value.length).padStart(2, '0') + value; }
@@ -318,7 +317,9 @@
 
     function openEditModal(orderId, receiptNo, itemsScriptId) {
         document.getElementById('editReceiptNo').innerText = receiptNo;
-        document.getElementById('editForm').action = "{% url 'history:edit_order' 999999 %}".replace('999999', orderId);
+        // แนบ ?days=... ต่อท้ายฟอร์มแอกชัน เพื่อให้เวลาบันทึกแล้วค่าไม่หลุด
+        let editUrl = "{% url 'history:edit_order' 999999 %}".replace('999999', orderId) + "?days=" + currentDays;
+        document.getElementById('editForm').action = editUrl;
         
         let items = JSON.parse(document.getElementById(itemsScriptId).textContent);
         let container = document.getElementById('editItemsContainer');
