@@ -16,8 +16,11 @@ def history_list(request):
     now = timezone.localtime()
     today = now.date()
     
-    if days == '1':
+    if days == '0':
         orders = orders.filter(created_at__date=today)
+    elif days == '1':
+        start_date = today - timedelta(days=1)
+        orders = orders.filter(created_at__date__gte=start_date)
     elif days == '2':
         start_date = today - timedelta(days=2)
         orders = orders.filter(created_at__date__gte=start_date)
