@@ -245,7 +245,15 @@
                 <span style="color: #16a34a;">฿<span id="editTotalPreview">0.00</span></span>
             </div>
             
-            <button type="submit" style="width: 100%; padding: 14px; background: #d97706; color: white; border: none; border-radius: 10px; font-weight: bold; font-size: 16px; cursor: pointer;">💾 บันทึกการเปลี่ยนแปลง</button>
+            <div style="display: flex; gap: 10px;">
+                <button type="submit" style="flex: 1; padding: 14px; background: #d97706; color: white; border: none; border-radius: 10px; font-weight: bold; font-size: 16px; cursor: pointer;">💾 บันทึกการเปลี่ยนแปลง</button>
+                <button type="button" id="btnDeleteOrder" onclick="deleteCurrentOrder()" style="padding: 14px 20px; background: #fee2e2; color: #dc2626; border: none; border-radius: 10px; font-weight: bold; font-size: 16px; cursor: pointer;">🗑️ ลบบิลนี้</button>
+            </div>
+        </form>
+
+        <!-- ฟอร์มลับสำหรับส่งคำสั่งลบบิล (DELETE) -->
+        <form id="deleteForm" method="POST" style="display: none;">
+            {% csrf_token %}
         </form>
     </div>
 </div>
@@ -289,7 +297,8 @@
 <script>
     const PROMPTPAY_ID = "{{ shop_promptpay }}"; 
     const allProducts = JSON.parse(document.getElementById('all-products-data').textContent);
-    const currentDays = "{{ days }}"; // ดึงค่าตัวกรองวันปัจจุบันมาเก็บไว้ใช้
+    const currentDays = "{{ days }}"; 
+    let currentDeleteUrl = ""; // ตัวเก็บลิงก์สำหรับลบบิล
 
     function generatePromptPayPayload(target, amount) {
         function tlv(tag, value) { return tag + String(value.length).padStart(2, '0') + value; }
@@ -317,9 +326,13 @@
 
     function openEditModal(orderId, receiptNo, itemsScriptId) {
         document.getElementById('editReceiptNo').innerText = receiptNo;
-        // แนบ ?days=... ต่อท้ายฟอร์มแอกชัน เพื่อให้เวลาบันทึกแล้วค่าไม่หลุด
+        
+        // เซ็ต URL สำหรับบันทึกการแก้ไข
         let editUrl = "{% url 'history:edit_order' 999999 %}".replace('999999', orderId) + "?days=" + currentDays;
         document.getElementById('editForm').action = editUrl;
+
+        // เซ็ต URL สำรองไว้สำหรับลบบิล
+        currentDeleteUrl = "{% url 'history:delete_order' 999999 %}".replace('999999', orderId) + "?days=" + currentDays;
         
         let items = JSON.parse(document.getElementById(itemsScriptId).textContent);
         let container = document.getElementById('editItemsContainer');
@@ -331,6 +344,14 @@
         
         calcEditTotal();
         document.getElementById('editModal').style.display = 'flex';
+    }
+
+    function deleteCurrentOrder() {
+        if (confirm("⚠️ คุณแน่ใจหรือไม่ว่าต้องการลบบิลนี้? การกระทำนี้ไม่สามารถย้อนกลับได้")) {
+            let deleteForm = document.getElementById('deleteForm');
+            deleteForm.action = currentDeleteUrl;
+            deleteForm.submit();
+        }
     }
 
     function appendItemRow(container, index, selectedProdId = '', price = 0, qty = 1) {
@@ -496,13 +517,19 @@
     }
 
     function downloadSlipImage(receiptNo, dateStr, total, qrDataUrl, shopName, itemsScriptId) {
+        // ดึงข้อมูลสินค้าออกมาแปลงเป็น JSON
         const items = JSON.parse(document.getElementById(itemsScriptId).textContent);
         
         const slipContainer = document.createElement('div');
-        slipContainer.style.position = 'absolute'; slipContainer.style.left = '-9999px'; slipContainer.style.top = '-9999px';
-        slipContainer.style.width = '380px'; slipContainer.style.backgroundColor = '#ffffff';
-        slipContainer.style.padding = '25px 20px'; slipContainer.style.fontFamily = "'Sarabun', 'Tahoma', sans-serif";
-        slipContainer.style.color = '#1f2937'; slipContainer.style.borderRadius = '16px';
+        slipContainer.style.position = 'absolute';
+        slipContainer.style.left = '-9999px';
+        slipContainer.style.top = '-9999px';
+        slipContainer.style.width = '380px';
+        slipContainer.style.backgroundColor = '#ffffff';
+        slipContainer.style.padding = '25px 20px';
+        slipContainer.style.fontFamily = "'Sarabun', 'Tahoma', sans-serif";
+        slipContainer.style.color = '#1f2937';
+        slipContainer.style.borderRadius = '12px';
 
         let itemsHtml = items.map((item, index) => `
             <div style="display: flex; justify-content: space-between; margin-bottom: 8px; font-size: 15px;">
@@ -511,30 +538,63 @@
             </div>
         `).join('');
 
-        slipContainer.innerHTML = `
-            <div style="text-align: center; border-bottom: 1px dashed #d1d5db; padding-bottom: 15px; margin-bottom: 15px;">
-                <div style="font-size: 32px; margin-bottom: 5px;">📦</div>
-                <h2 style="margin: 0 0 5px 0; font-size: 24px; color: #111827;">ร้าน ${shopName}</h2>
-                <p style="margin: 0; font-size: 14px; color: #6b7280;">สำเนาใบเสร็จ / e-Slip</p>
-            </div>
-            <div style="margin-bottom: 20px; font-size: 14px; color: #4b5563; line-height: 1.6;">
-                <div style="display: flex; justify-content: space-between;"><span>เลขอ้างอิง:</span> <span style="font-weight: 500;">${receiptNo}</span></div>
-                <div style="display: flex; justify-content: space-between;"><span>วันที่:</span> <span>${dateStr}</span></div>
-            </div>
-            <div style="border-bottom: 1px dashed #d1d5db; border-top: 1px dashed #d1d5db; padding: 15px 0; margin-bottom: 15px;">
-                ${itemsHtml}
-            </div>
-            <div style="display: flex; justify-content: space-between; align-items: center; font-weight: bold; font-size: 20px; color: #16a34a; margin-bottom: 20px;">
-                <span>ยอดรวมสุทธิ:</span>
-                <span>฿${total.toFixed(2)}</span>
-            </div>
-            <div style="text-align: center; background: #f9fafb; padding: 15px; border-radius: 12px; border: 1px solid #f3f4f6;">
-                ${qrDataUrl ? `<img src="${qrDataUrl}" style="width: 150px; height: 150px; margin-bottom: 10px; mix-blend-mode: multiply;">` : ''}
-                <p style="margin: 0; font-size: 13px; color: #4b5563; font-weight: bold; line-height: 1.4;">
-                   สแกน QR Code เพื่อชำระเงินผ่าน Mobile Banking<br>ขอบคุณที่ใช้บริการค่ะ/ครับ
-                </p>
-            </div>
-        `;
+        if (shopName.includes("M053") || shopName.includes("เรื่องของหมู")) {
+            slipContainer.innerHTML = `
+                <div style="text-align: center; border-bottom: 2px dashed #fbcfe8; padding-bottom: 15px; margin-bottom: 15px;">
+                    <h2 style="margin: 0 0 5px 0; font-size: 24px; color: #be185d;">🐷 ร้านเรื่องของหมู 🐷</h2>
+                    <p style="margin: 0; font-size: 14px; color: #db2777;">รายละเอียดออเดอร์</p>
+                </div>
+                <div style="margin-bottom: 20px; font-size: 14px; color: #4b5563; line-height: 1.6;">
+                    <div style="display: flex; justify-content: space-between;"><span>เลขที่บิล:</span> <span style="font-weight: 500;">${receiptNo}</span></div>
+                    <div style="display: flex; justify-content: space-between;"><span>วันที่:</span> <span>${dateStr}</span></div>
+                </div>
+                <div style="border-bottom: 2px dashed #fbcfe8; border-top: 2px dashed #fbcfe8; padding: 15px 0; margin-bottom: 15px;">
+                    <div style="font-weight: bold; margin-bottom: 8px; color: #be185d;">รายการอาหาร:</div>
+                    ${itemsHtml}
+                </div>
+                <div style="display: flex; justify-content: space-between; align-items: center; font-weight: bold; font-size: 20px; color: #be185d; margin-bottom: 25px;">
+                    <span>ยอดรวมสุทธิ:</span>
+                    <span>฿${total.toFixed(2)}</span>
+                </div>
+                <div style="text-align: center; background: #fdf2f8; padding: 15px; border-radius: 12px; border: 1px solid #fce7f3;">
+                    ${qrDataUrl ? `<img src="${qrDataUrl}" style="width: 140px; height: 140px; margin-bottom: 12px; mix-blend-mode: multiply; border-radius: 10px;">` : ''}
+                    <p style="margin: 0; font-size: 13px; color: #9d174d; font-weight: bold; line-height: 1.5;">
+                       🐷 รบกวนตรวจสอบยอดเงินก่อนยืนยัน 🐷<br>
+                       ⚠️ หากพบว่ายอดเงินไม่ถูกต้องกรุณาแจ้งทางร้านทันที ⚠️<br>
+                       🙏 ขอบคุณที่อุดหนุนร้านเรื่องของหมูค่ะ 🙏
+                    </p>
+                </div>
+            `;
+        } else {
+            slipContainer.innerHTML = `
+                <div style="text-align: center; border-bottom: 1px dashed #d1d5db; padding-bottom: 15px; margin-bottom: 15px;">
+                    <div style="font-size: 30px; margin-bottom: 5px;">POS By Danai</div>
+                    <h2 style="margin: 0 0 5px 0; font-size: 24px; color: #111827;">🔥 ร้านทอดเป่า P184 🔥</h2>
+                    <p style="margin: 0; font-size: 14px; color: #6b7280;">ใบรายละเอียดออเดอร์ / Order Details</p>
+                </div>
+                <div style="margin-bottom: 20px; font-size: 14px; color: #4b5563; line-height: 1.6;">
+                    <div style="display: flex; justify-content: space-between;"><span>เลขที่บิล:</span> <span style="font-weight: 500;">${receiptNo}</span></div>
+                    <div style="display: flex; justify-content: space-between;"><span>วันที่:</span> <span>${dateStr}</span></div>
+                </div>
+                <div style="border-bottom: 1px dashed #d1d5db; border-top: 1px dashed #d1d5db; padding: 15px 0; margin-bottom: 15px;">
+                    ${itemsHtml}
+                </div>
+                <div style="display: flex; justify-content: space-between; align-items: center; font-weight: bold; font-size: 20px; color: #16a34a; margin-bottom: 25px;">
+                    <span>ยอดรวมสุทธิ:</span>
+                    <span>฿${total.toFixed(2)}</span>
+                </div>
+                <div style="text-align: center; background: #f9fafb; padding: 15px; border-radius: 8px; border: 1px solid #f3f4f6;">
+                    ${qrDataUrl ? `<img src="${qrDataUrl}" style="width: 140px; height: 140px; margin-bottom: 12px; mix-blend-mode: multiply;">` : ''}
+                    <p style="margin: 0; font-size: 13px; color: #4b5563; font-weight: bold; line-height: 1.5;">
+                       ⚠️ กรุณาตรวจสอบความถูกต้องของยอดเงิน<br>
+                        ↘❗ ก่อนกดยืนยันทุกครั้ง<br>
+                        📢 หากพบว่ายอดเงินไม่ถูกต้อง<br>
+                        ↘❗ กรุณาแจ้งทางร้านทันที<br>
+                        🙇🏻‍♀️ ขอบคุณที่มาอุดหนุนนะค้าบ 🙇
+                    </p>
+                </div>
+            `;
+        }
 
         document.body.appendChild(slipContainer);
 

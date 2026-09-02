@@ -116,3 +116,13 @@ def edit_order(request, order_id):
         
     # เผื่อกรณีเข้าหน้าแก้ไขแบบ GET (ถ้ามี)
     return redirect(f"{reverse('history:home')}?days={days}")
+
+@login_required
+def delete_order(request, order_id):
+    order = get_object_or_404(Order, id=order_id, created_by=request.user)
+    days = request.GET.get('days', '0')
+    
+    if request.method == 'POST':
+        order.delete()
+        
+    return redirect(f"{reverse('history:home')}?days={days}")
