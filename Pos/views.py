@@ -3,12 +3,13 @@ from datetime import datetime
 from django.shortcuts import render
 from django.http import JsonResponse
 from django.utils import timezone
-from django.db.models import Sum, Prefetch
-from django.contrib.auth.decorators import login_required
 from django.db.models import Sum, Prefetch, Q
+from django.contrib.auth.decorators import login_required
 from Products.models import Product, ProductCategory
 from Expenses.models import Expense
 from .models import Order, OrderItem
+# 👇 นำเข้าโมเดลจากแอป Stocks เพื่อใช้ตัดยอดกล่อง
+from Stocks.models import StockItem, StockLog 
 
 @login_required 
 def home(request):
@@ -67,6 +68,7 @@ def home(request):
     }
 
     return render(request, "Pos/home.html", context)
+
 
 # =====================================================
 # API สำหรับ Modal เทียบรายได้-รายจ่าย (แสดงเฉพาะบิลค้างจ่าย)
@@ -127,8 +129,9 @@ def mark_expense_paid(request, expense_id):
             return JsonResponse({"status": "error", "message": "ไม่พบบิลนี้"}, status=404)
     return JsonResponse({"status": "error", "message": "Invalid request"}, status=400)
 
+
 # =====================================================
-# ระบบชำระเงินหน้า POS
+# ระบบชำระเงินหน้า POS (ตัดสต๊อกกล่องตรงนี้!)
 # =====================================================
 @login_required
 def process_checkout(request):
@@ -143,11 +146,11 @@ def process_checkout(request):
             local_now = timezone.localtime()
             date_str = local_now.strftime('%Y%m%d')
             
-            # [อัปเดต] ใช้ username เป็นรหัสร้านในเลขบิล เช่น P184 หรือ M053
+            # ใช้ username เป็นรหัสร้านในเลขบิล เช่น P184 หรือ M053
             shop_code = request.user.username.upper()
             prefix = f"INV-{shop_code}-{date_str}-"
             
-            # 1. เรียงหาบิลของวันนี้ที่มี 'เลขน้อยที่สุด' (กรองเฉพาะของร้านนี้)
+            # 1. เรียงหาบิลของวันนี้ที่มี 'เลขน้อยที่สุด'
             last_order = Order.objects.filter(
                 created_by=request.user,
                 receipt_number__startswith=prefix
@@ -164,7 +167,6 @@ def process_checkout(request):
                 
             receipt_number = f"{prefix}{new_number:04d}"
 
-            # 2. ป้องกัน Error (UNIQUE constraint) 100%
             while Order.objects.filter(receipt_number=receipt_number).exists():
                 new_number -= 1
                 if new_number < 1: 
@@ -173,18 +175,25 @@ def process_checkout(request):
 
             total_amount = sum(item['price'] * item['qty'] for item in cart_items)
 
-            # 3. บันทึกข้อมูลบิล (Order)
+            # บันทึกข้อมูลบิล (Order)
             order = Order.objects.create(
                 receipt_number=receipt_number,
                 total_amount=total_amount,
                 created_by=request.user
             )
 
-            # 4. บันทึกข้อมูลรายการสินค้าในบิล (OrderItem) และตัดสต๊อก
+            # ==========================================
+            # ตัวแปรสำหรับคำนวณจำนวนกล่องที่ต้องใช้
+            # ==========================================
+            boxes_to_deduct = 0
+            # คีย์เวิร์ดที่ไม่ต้องนับรวมในการตัดสต๊อกกล่อง
+            exclude_keywords = ["topping", "ท็อปปิ้ง", "กับข้าว", "พิเศษ", "เครื่องดื่ม"]
+
             for item in cart_items:
                 product = Product.objects.get(id=item['id'])
                 qty = item['qty']
                 
+                # สร้างรายการสินค้าในบิล
                 OrderItem.objects.create(
                     order=order,
                     product=product,
@@ -193,9 +202,47 @@ def process_checkout(request):
                     subtotal=item['price'] * qty
                 )
                 
-                # ตัดสต๊อกสินค้า
+                # ตัดสต๊อกสินค้าหลัก (ถ้ามี)
                 product.stock_quantity -= qty
                 product.save()
+
+                # 👇 ตรวจสอบว่าสินค้าชิ้นนี้ต้องใช้กล่องหรือไม่
+                cat_name = product.category.name.lower() if product.category else ""
+                prod_name = product.name.lower()
+                
+                # เช็คว่าชื่อหมวดหมู่หรือชื่อสินค้าตรงกับคำที่ยกเว้นไหม
+                is_excluded = any(kw in cat_name or kw in prod_name for kw in exclude_keywords)
+                
+                # ถ้าไม่ตรงกับคำยกเว้น (แปลว่าเป็นอาหารจานหลัก) ให้นับบวกจำนวนกล่อง
+                if not is_excluded:
+                    boxes_to_deduct += qty
+
+            # ==========================================
+            # ตัดยอดสต๊อก "กล่อง" ในแอป Stocks แบบอัตโนมัติ
+            # ==========================================
+            if boxes_to_deduct > 0:
+                # ค้นหาสินค้าในสต๊อกที่มีคำว่า "กล่อง" อยู่ในชื่อ (เช่น "กล่องข้าว", "กล่องใส")
+                box_stock = StockItem.objects.filter(
+                    created_by=request.user, 
+                    name__icontains='กล่อง'
+                ).first()
+                
+                if box_stock:
+                    # ป้องกันยอดติดลบ
+                    if box_stock.quantity >= boxes_to_deduct:
+                        box_stock.quantity -= boxes_to_deduct
+                    else:
+                        box_stock.quantity = 0
+                    box_stock.save()
+                    
+                    # บันทึกประวัติ (Log)
+                    StockLog.objects.create(
+                        item=box_stock,
+                        action='OUT',
+                        amount=boxes_to_deduct,
+                        note=f'ขายหน้าร้านบิล {receipt_number}',
+                        created_by=request.user
+                    )
 
             return JsonResponse({"status": "success", "message": "บันทึกสำเร็จ!", "receipt": receipt_number})
             
