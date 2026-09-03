@@ -41,6 +41,9 @@
         .summary-card.clickable { cursor: pointer; transition: 0.2s; }
         .summary-card.clickable:hover { transform: translateY(-3px); box-shadow: 0 6px 12px rgba(0,0,0,0.05); }
 
+        /* สไตล์สำหรับกล่องฟิลเตอร์ */
+        .filter-card { background: white; padding: 15px 20px; border-radius: 12px; box-shadow: 0 2px 4px rgba(0,0,0,0.02); display: flex; gap: 20px; align-items: flex-end; flex-wrap: wrap; margin-bottom: 20px; border: 1px solid #e5e7eb; }
+
         @media (max-width: 1200px) {
             .sidebar { width: 80px; }
             .sidebar .logo h2, .sidebar .logo span, .sidebar .menu span:nth-child(2), .sidebar .user-profile, .sidebar .sidebar-bottom span:nth-child(2) { display: none; }
@@ -59,6 +62,8 @@
             .sidebar .menu-item span:nth-child(1) { font-size: 22px; margin-bottom: 4px; }
             .sidebar .menu-item span:nth-child(2) { display: block !important; font-size: 10px; font-weight: normal; }
             .sidebar .menu-item.active { background: transparent; color: #4ade80; }
+            
+            .filter-card { flex-direction: column; align-items: stretch; }
         }
 
         .shop-title-box { display: inline-block; background: linear-gradient(135deg, #f0fdf4 0%, #dcfce7 100%); border: 1px solid #bbf7d0; padding: 6px 15px; border-radius: 8px; margin-top: 10px; }
@@ -115,12 +120,60 @@
             </button>
         </header>
 
-        <!-- ================= สรุปยอดขาย & การใช้กล่องวันนี้ ================= -->
+        <!-- ================= ส่วนตัวกรองช่วงเวลา (แบบละเอียด) ================= -->
+        <form method="GET" class="filter-card">
+            <div style="flex: 1; min-width: 140px;">
+                <label style="font-size: 12px; color: #64748b; font-weight: bold; display: block; margin-bottom: 4px;">📅 ตัวกรองด่วน:</label>
+                <select name="days" id="daysFilter" onchange="clearDates(); this.form.submit();" style="width: 100%; padding: 10px; border: 1px solid #d1d5db; border-radius: 8px; outline: none; background: #fff; font-size: 14px; font-weight: bold; cursor: pointer;">
+                    <option value="0" {% if days == '0' %}selected{% endif %}>เฉพาะวันนี้</option>
+                    <option value="1" {% if days == '1' %}selected{% endif %}>1 วันย้อนหลัง</option>
+                    <option value="2" {% if days == '2' %}selected{% endif %}>2 วันย้อนหลัง</option>
+                    <option value="3" {% if days == '3' %}selected{% endif %}>3 วันย้อนหลัง</option>
+                    <option value="4" {% if days == '4' %}selected{% endif %}>4 วันย้อนหลัง</option>
+                    <option value="5" {% if days == '5' %}selected{% endif %}>5 วันย้อนหลัง</option>
+                    <option value="10" {% if days == '10' %}selected{% endif %}>10 วันย้อนหลัง</option>
+                    <option value="20" {% if days == '20' %}selected{% endif %}>20 วันย้อนหลัง</option>
+                    <option value="30" {% if days == '30' %}selected{% endif %}>30 วันย้อนหลัง</option>
+                    <option value="all" {% if days == 'all' %}selected{% endif %}>แสดงทั้งหมด</option>
+                    <option value="custom" {% if not days %}selected{% endif %} style="display: none;">📌 กำหนดเอง</option>
+                </select>
+            </div>
+            <div style="flex: 1; min-width: 130px;">
+                <label style="font-size: 12px; color: #64748b; font-weight: bold; display: block; margin-bottom: 4px;">ตั้งแต่วันที่:</label>
+                <input type="date" name="start_date" id="startDate" value="{{ start_date|default:'' }}" onchange="clearDays()" style="width: 100%; padding: 9px; border: 1px solid #d1d5db; border-radius: 8px; font-size: 14px; outline: none;">
+            </div>
+            <div style="flex: 1; min-width: 130px;">
+                <label style="font-size: 12px; color: #64748b; font-weight: bold; display: block; margin-bottom: 4px;">ถึงวันที่ (ไม่บังคับ):</label>
+                <input type="date" name="end_date" id="endDate" value="{{ end_date|default:'' }}" onchange="clearDays()" style="width: 100%; padding: 9px; border: 1px solid #d1d5db; border-radius: 8px; font-size: 14px; outline: none;">
+            </div>
+            <div style="display: flex; gap: 8px;">
+                <button type="submit" style="background: #2563eb; color: white; border: none; padding: 10px 20px; border-radius: 8px; font-weight: bold; cursor: pointer; height: 42px; display: flex; align-items: center; gap: 5px;">
+                    🔍 <span>ค้นหา</span>
+                </button>
+                <a href="?" style="display: inline-flex; align-items: center; justify-content: center; background: #f1f5f9; color: #475569; border: 1px solid #cbd5e1; padding: 0 15px; border-radius: 8px; font-weight: bold; text-decoration: none; height: 42px;">
+                    ล้าง
+                </a>
+            </div>
+        </form>
+
+        <script>
+            // ล้างช่องวันที่เมื่อเลือกตัวกรองด่วน
+            function clearDates() {
+                document.getElementById('startDate').value = '';
+                document.getElementById('endDate').value = '';
+            }
+            // ปรับ Dropdown เป็นค่ากำหนดเองเมื่อพิมพ์วันที่
+            function clearDays() {
+                document.getElementById('daysFilter').value = 'custom';
+            }
+        </script>
+
+        <!-- ================= สรุปยอดขาย & การใช้กล่อง ================= -->
         <section class="summary-grid">
             <div class="summary-card" style="border-left: 4px solid #3b82f6;">
                 <div style="font-size: 35px;">🧾</div>
                 <div>
-                    <span style="color: #64748b; font-size: 13px; font-weight: bold;">ออเดอร์วันนี้</span>
+                    <span style="color: #64748b; font-size: 13px; font-weight: bold;">จำนวนออเดอร์รวม</span>
                     <div style="font-size: 24px; font-weight: 800; color: #1f2937;">{{ today_orders_count|default:"0" }} <span style="font-size: 14px; color: #64748b; font-weight: normal;">บิล</span></div>
                 </div>
             </div>
@@ -128,7 +181,7 @@
             <div class="summary-card" style="border-left: 4px solid #ef4444;">
                 <div style="font-size: 35px;">📦</div>
                 <div>
-                    <span style="color: #64748b; font-size: 13px; font-weight: bold;">กล่องที่ใช้ไปวันนี้</span>
+                    <span style="color: #64748b; font-size: 13px; font-weight: bold;">กล่องที่ถูกเบิกใช้</span>
                     <div style="font-size: 24px; font-weight: 800; color: #ef4444;">{{ today_boxes_used|default:"0"|floatformat:0 }} <span style="font-size: 14px; color: #ef4444; font-weight: normal;">ใบ</span></div>
                 </div>
             </div>
@@ -137,8 +190,8 @@
                 <div style="display: flex; align-items: center; gap: 15px;">
                     <div style="font-size: 35px;">🍱</div>
                     <div>
-                        <span style="color: #166534; font-size: 14px; font-weight: bold; display: block; margin-bottom: 5px;">สรุปเมนูที่ขายวันนี้</span>
-                        <span style="color: #15803d; font-size: 11px; background: white; padding: 4px 10px; border-radius: 20px; font-weight: bold; box-shadow: 0 1px 2px rgba(0,0,0,0.05);">🔍 คลิ๊กดูรายละเอียด</span>
+                        <span style="color: #166534; font-size: 14px; font-weight: bold; display: block; margin-bottom: 5px;">สรุปรายการขาย</span>
+                        <span style="color: #15803d; font-size: 11px; background: white; padding: 4px 10px; border-radius: 20px; font-weight: bold; box-shadow: 0 1px 2px rgba(0,0,0,0.05);">🔍 คลิ๊กดูรายละเอียดบิล</span>
                     </div>
                 </div>
             </div>
@@ -282,13 +335,12 @@
     </div>
 </div>
 
-<!-- ================= MODAL สรุปรายการอาหารที่ขายวันนี้ (แบบใหม่) ================= -->
-<!-- ================= MODAL สรุปรายการอาหารที่ขายวันนี้ (ออกแบบรายบิล) ================= -->
+<!-- ================= MODAL สรุปรายการอาหารที่ขาย (รายบิล) ================= -->
 <div id="todaySalesModal" class="modal-overlay">
     <div class="modal-content" style="max-width: 550px; padding: 0; overflow: hidden; background: #f9fafb;">
         <div style="background: #f0fdf4; padding: 20px; border-bottom: 1px solid #bbf7d0; display: flex; justify-content: space-between; align-items: flex-start;">
             <div>
-                <h3 style="margin: 0; font-size: 18px; color: #166534; display: flex; align-items: center; gap: 8px;">🍱 สรุปรายการขายวันนี้ (รายบิล)</h3>
+                <h3 style="margin: 0; font-size: 18px; color: #166534; display: flex; align-items: center; gap: 8px;">🍱 สรุปรายการขาย (แยกตามบิล)</h3>
                 <div style="font-size: 13px; color: #15803d; margin-top: 5px; font-weight: 500;">ยอดรวมทั้งหมด {{ today_orders_count|default:"0" }} ออเดอร์</div>
             </div>
             <button onclick="closeModal('todaySalesModal')" style="background:none; border:none; font-size:24px; cursor:pointer; color:#166534;">✖</button>
@@ -306,7 +358,7 @@
                             <div style="font-size: 15px; font-weight: bold; color: #1f2937; margin-top: 8px;">🧾 {{ order.receipt }}</div>
                         </div>
                         <div style="text-align: right;">
-                            <div style="font-size: 12px; color: #64748b; font-weight: 500;">🕒 {{ order.time|date:"H:i" }} น.</div>
+                            <div style="font-size: 12px; color: #64748b; font-weight: 500;">📅 {{ order.time|date:"d/m/Y H:i" }} น.</div>
                             <div style="font-size: 13px; font-weight: bold; margin-top: 6px; {% if order.order_total_boxes > 0 %}color: #ef4444;{% else %}color: #10b981;{% endif %}">
                                 {% if order.order_total_boxes > 0 %}📦 ใช้กล่อง {{ order.order_total_boxes }} ใบ{% else %}✅ ไม่ใช้กล่อง{% endif %}
                             </div>
@@ -338,7 +390,7 @@
             {% else %}
                 <div style="text-align: center; color: #9ca3af; padding: 40px 20px;">
                     <div style="font-size: 40px; margin-bottom: 10px;">📭</div>
-                    ยังไม่มีรายการขายในวันนี้
+                    ยังไม่มีรายการขายในช่วงเวลาที่เลือก
                 </div>
             {% endif %}
         </div>
@@ -346,12 +398,15 @@
 </div>
 
 <script>
+    // JS Parameter สำหรับส่งค่ากลับไป View เวลามีการอัปเดตข้อมูล
+    const queryParams = "?days={{ days|default:'' }}&start_date={{ start_date|default:'' }}&end_date={{ end_date|default:'' }}";
+
     function openAddStockModal() { document.getElementById('addStockModal').style.display = 'flex'; }
     function openTodaySalesModal() { document.getElementById('todaySalesModal').style.display = 'flex'; }
 
     function openLogModal(itemId, itemName, action, unit) {
         let form = document.getElementById('logForm');
-        form.action = "{% url 'stocks:add_log' 999999 %}".replace('999999', itemId);
+        form.action = "{% url 'stocks:add_log' 999999 %}".replace('999999', itemId) + queryParams;
         
         document.getElementById('logActionInput').value = action;
         document.getElementById('logUnitText').innerText = unit;
@@ -378,7 +433,7 @@
 
     function openDeleteModal(itemId, itemName) {
         document.getElementById('deleteItemName').innerText = itemName;
-        document.getElementById('deleteForm').action = "{% url 'stocks:delete_stock' 999999 %}".replace('999999', itemId);
+        document.getElementById('deleteForm').action = "{% url 'stocks:delete_stock' 999999 %}".replace('999999', itemId) + queryParams;
         document.getElementById('deleteModal').style.display = 'flex';
     }
 

@@ -1,10 +1,10 @@
 from datetime import datetime
 from django.shortcuts import render
 from django.contrib.auth.decorators import login_required
-from django.db.models import Sum, Count
+from django.db.models import Sum, Count, Q  # <--- เพิ่ม Q ตรงนี้
 from django.db.models.functions import TruncDay, TruncWeek, TruncMonth, TruncYear
 
-from Pos.models import Order, OrderItem # <--- อย่าลืมนำเข้า OrderItem
+from Pos.models import Order, OrderItem
 from Accounts.models import User
 
 @login_required
@@ -81,6 +81,16 @@ def reports_home(request):
     # แปลงเป็น List เพื่อนำไปเพิ่ม "จำนวนกล่อง" (item_qty)
     chart_data = list(chart_data_qs)
 
+    # =========================================================
+    # คีย์เวิร์ดที่ไม่นับรวมเป็น "กล่อง" (เหมือนกับแอป Stocks)
+    # =========================================================
+    exclude_keywords = ["topping", "ท็อปปิ้ง", "กับข้าว", "พิเศษ", "เครื่องดื่ม", "เพิ่มเติม"]
+    
+    # สร้างเงื่อนไข Q เพื่อตรวจสอบว่าชื่อสินค้า หรือ ชื่อหมวดหมู่ มีคำเหล่านี้หรือไม่
+    exclude_q = Q()
+    for kw in exclude_keywords:
+        exclude_q |= Q(product__name__icontains=kw) | Q(product__category__name__icontains=kw)
+
     # วนลูปเพื่อหาจำนวนชิ้น/กล่อง ที่ขายได้ในแต่ละช่วงเวลา
     for row in chart_data:
         period_val = row['period']
@@ -97,8 +107,9 @@ def reports_home(request):
             else:
                 period_orders = orders_qs.filter(created_at__date=period_val)
         
-        # คำนวณผลรวมจำนวน Quantity จาก OrderItem ของบิลเหล่านั้น
-        qty_sum = OrderItem.objects.filter(order__in=period_orders).aggregate(total_qty=Sum('quantity'))['total_qty']
+        # คำนวณผลรวมจำนวน Quantity จาก OrderItem ของบิลเหล่านั้น 
+        # โดย .exclude(exclude_q) จะเตะรายการที่มีคำว่า Topping, เครื่องดื่ม, ฯลฯ ออกไปไม่ให้เอามารวม
+        qty_sum = OrderItem.objects.filter(order__in=period_orders).exclude(exclude_q).aggregate(total_qty=Sum('quantity'))['total_qty']
         
         row['item_qty'] = qty_sum or 0
 
