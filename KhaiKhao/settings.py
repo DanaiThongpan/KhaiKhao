@@ -48,6 +48,7 @@ INSTALLED_APPS = [
     'Taxs',
     'History',
     'Stocks',
+    'Riders',
 ]
 
 MIDDLEWARE = [

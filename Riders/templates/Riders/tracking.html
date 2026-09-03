@@ -1,0 +1,76 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>แชร์พิกัดไรเดอร์ - KhaiKhao</title>
+    <style>
+        body { font-family: 'Tahoma', sans-serif; background: #f3f4f6; text-align: center; padding: 20px; margin: 0; color: #1f2937; }
+        .card { background: white; padding: 30px 20px; border-radius: 16px; box-shadow: 0 10px 20px rgba(0,0,0,0.05); margin-top: 20px; }
+        .btn { width: 100%; padding: 20px; font-size: 20px; font-weight: bold; color: white; border: none; border-radius: 12px; cursor: pointer; margin-top: 20px; }
+        .btn-start { background: #16a34a; }
+        .btn-stop { background: #ef4444; display: none; }
+        .alert { background: #fef2f2; color: #b91c1c; padding: 12px; border-radius: 8px; border: 1px solid #fca5a5; font-size: 13px; text-align: left; margin-bottom: 15px; }
+    </style>
+</head>
+<body>
+    <div class="card">
+        <h2 style="margin: 0; color: #2563eb;">📍 ระบบส่งพิกัดจัดส่ง</h2>
+        <p style="color: #64748b; margin: 5px 0 20px 0;">ออเดอร์: <strong>{{ order.receipt_number }}</strong></p>
+
+        <div class="alert">
+            <strong>⚠️ คำแนะนำสำหรับไรเดอร์:</strong><br>
+            • กดปุ่ม "เริ่มแชร์พิกัด" และอนุญาตให้เข้าถึง GPS<br>
+            • ห้ามปิดหน้าจอนี้จนกว่าจะส่งอาหารให้ลูกค้าเสร็จ
+        </div>
+
+        <button class="btn btn-start" id="startBtn" onclick="startSending()">🟢 เริ่มแชร์พิกัด</button>
+        <button class="btn btn-stop" id="stopBtn" onclick="stopSending()">🔴 หยุดแชร์พิกัดแล้ว</button>
+
+        <div id="statusText" style="margin-top: 20px; font-weight: bold; color: #64748b;">สถานะ: รอการกดเริ่ม...</div>
+    </div>
+
+    <script>
+        let intervalInstance;
+
+        function startSending() {
+            if (navigator.geolocation) {
+                document.getElementById('startBtn').style.display = 'none';
+                document.getElementById('stopBtn').style.display = 'block';
+                document.getElementById('statusText').innerText = "กำลังเชื่อมต่อ GPS... 🛰️";
+                
+                sendCoords(); 
+                intervalInstance = setInterval(sendCoords, 30000); // ส่งทุก 30 วินาที
+            } else {
+                alert("เบราว์เซอร์นี้ไม่รองรับ GPS");
+            }
+        }
+
+        function stopSending() {
+            clearInterval(intervalInstance);
+            document.getElementById('startBtn').style.display = 'block';
+            document.getElementById('stopBtn').style.display = 'none';
+            document.getElementById('statusText').innerText = "🔴 หยุดการแชร์พิกัดแล้ว";
+        }
+
+        function sendCoords() {
+            navigator.geolocation.getCurrentPosition(pos => {
+                const lat = pos.coords.latitude;
+                const lng = pos.coords.longitude;
+
+                fetch(`/riders/api/update/{{ order.id }}/`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ lat: lat, lng: lng })
+                })
+                .then(res => res.json())
+                .then(data => {
+                    document.getElementById('statusText').innerText = "✅ ส่งพิกัดสำเร็จล่าสุด: " + new Date().toLocaleTimeString();
+                });
+            }, err => {
+                document.getElementById('statusText').innerText = "❌ กรุณาเปิด Location/GPS บนมือถือของคุณ!";
+            });
+        }
+    </script>
+</body>
+</html>

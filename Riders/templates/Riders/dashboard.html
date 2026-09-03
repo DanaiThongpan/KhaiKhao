@@ -1,0 +1,152 @@
+{% load static %}
+<!DOCTYPE html>
+<html lang="th">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>ติดตามสถานะไรเดอร์ - KhaiKhao POS</title>
+    <link rel="stylesheet" href="{% static 'css/style.css' %}">
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
+    <style>
+        * { box-sizing: border-box; }
+        .app { display: flex; min-height: 100vh; background: #f3f4f6; }
+        .sidebar { width: 250px; flex-shrink: 0; position: fixed; top: 0; left: 0; bottom: 0; background: #111827; color: white; z-index: 100; display: flex; flex-direction: column; }
+        .main { flex: 1; margin-left: 250px; padding: 30px; }
+        .table-responsive { width: 100%; overflow-x: auto; background: white; border-radius: 12px; box-shadow: 0 2px 4px rgba(0,0,0,0.02); }
+        .history-table { width: 100%; border-collapse: collapse; min-width: 700px; }
+        .history-table th, .history-table td { padding: 15px 20px; border-bottom: 1px solid #e5e7eb; vertical-align: middle; text-align: left; }
+        .history-table th { background: #f8fafc; color: #475569; font-size: 14px; }
+        .btn-track { background: #047857; color: white; border: none; padding: 8px 14px; border-radius: 8px; font-weight: bold; cursor: pointer; display: inline-flex; align-items: center; gap: 5px; }
+        .btn-track:hover { background: #065f46; }
+        .modal-overlay { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.6); z-index: 2000; display: none; align-items: center; justify-content: center; }
+        .modal-content { background: white; border-radius: 16px; width: 95%; max-width: 750px; padding: 25px; box-shadow: 0 20px 25px rgba(0,0,0,0.1); }
+    </style>
+</head>
+<body>
+
+<div class="app">
+    <aside class="sidebar">
+        <div class="logo">
+            <h2>KhaiKhao</h2>
+            <span>POS</span>
+        </div>
+        <nav class="menu">
+            <a href="{% url 'pos:home' %}" class="menu-item"><span>🏠</span><span>หน้าหลัก</span></a>
+            <a href="{% url 'history:home' %}" class="menu-item"><span>📜</span><span>ประวัติการขาย</span></a>
+            <a href="{% url 'expenses:home' %}" class="menu-item"><span>💵</span><span>บันทึกรายจ่าย</span></a>
+            <a href="{% url 'products:list' %}" class="menu-item"><span>📦</span><span>สินค้า</span></a>
+            <a href="{% url 'stocks:list' %}" class="menu-item"><span>🛒</span><span>สต๊อกของใช้</span></a>
+            <a href="{% url 'reports:home' %}" class="menu-item"><span>📊</span><span>รายงาน</span></a>
+            <a href="{% url 'riders:home' %}" class="menu-item active"><span>🛵</span><span>ติดตามไรเดอร์</span></a>
+            <a href="{% url 'tax:home' %}" class="menu-item"><span>📑</span><span>คำนวณภาษี</span></a>
+        </nav>
+    </aside>
+
+    <main class="main">
+        <header style="margin-bottom: 25px;">
+            <h1 style="margin: 0; color: #1f2937; font-size: 24px;">🛵 ระบบติดตามพิกัดไรเดอร์ (เรียลไทม์)</h1>
+            <p style="color: #64748b; margin: 5px 0 0 0;">เลือกออเดอร์เพื่อเปิดหน้าจอแผนที่และสแกน QR สำหรับส่งพิกัด</p>
+        </header>
+
+        <div class="table-responsive">
+            <table class="history-table">
+                <thead>
+                    <tr>
+                        <th>เลขที่บิล</th>
+                        <th>ยอดชำระ</th>
+                        <th>วันที่/เวลา</th>
+                        <th style="text-align: center;">จัดการพิกัด GPS</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for order in orders %}
+                    <tr>
+                        <td style="font-weight: bold; color: #2563eb;">{{ order.receipt_number }}</td>
+                        <td style="font-weight: bold; color: #16a34a;">฿{{ order.total_amount|floatformat:2 }}</td>
+                        <td>{{ order.created_at|date:"d/m/Y H:i" }}</td>
+                        <td style="text-align: center;">
+                            <button class="btn-track" onclick="openMapModal({{ order.id }}, '{{ order.receipt_number }}')">
+                                🗺️ เปิดแผนที่ติดตาม
+                            </button>
+                        </td>
+                    </tr>
+                    {% empty %}
+                    <tr>
+                        <td colspan="4" style="text-align: center; padding: 40px; color: #9ca3af;">ยังไม่มีประวัติออเดอร์ในระบบ</td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </main>
+</div>
+
+<div id="mapModal" class="modal-overlay">
+    <div class="modal-content">
+        <div style="display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid #e5e7eb; padding-bottom: 12px; margin-bottom: 15px;">
+            <h3 style="margin: 0; font-size: 18px;">📍 ตำแหน่งไรเดอร์: <span id="modalReceipt" style="color: #2563eb;"></span></h3>
+            <button onclick="closeMapModal()" style="background:none; border:none; font-size:22px; cursor:pointer; color:#64748b;">✖</button>
+        </div>
+
+        <div style="display: flex; gap: 15px; flex-wrap: wrap;">
+            <div style="flex: 2; min-width: 280px; height: 350px; border-radius: 10px; border: 1px solid #cbd5e1; overflow: hidden;" id="mapContainer"></div>
+            
+            <div style="flex: 1; min-width: 200px; background: #f8fafc; padding: 15px; border-radius: 10px; border: 1px dashed #cbd5e1; text-align: center; display: flex; flex-direction: column; justify-content: center; align-items: center;">
+                <h4 style="margin: 0 0 10px 0; font-size: 13px; color: #334151;">📱 ให้ไรเดอร์สแกนลิงก์นี้</h4>
+                <div id="qrCodeBox" style="background: white; padding: 8px; border-radius: 6px; margin-bottom: 10px;"></div>
+                <div id="updateStatus" style="font-size: 11px; background: #fee2e2; color: #dc2626; padding: 4px 8px; border-radius: 20px; font-weight: bold; width: 100%;">ยังไม่ได้รับพิกัด</div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+    let mapInstance;
+    let markerInstance;
+    let timerId;
+
+    function openMapModal(orderId, receiptNo) {
+        document.getElementById('modalReceipt').innerText = receiptNo;
+        document.getElementById('mapModal').style.display = 'flex';
+
+        const trackUrl = window.location.origin + `/riders/track/${orderId}/`;
+        document.getElementById('qrCodeBox').innerHTML = '';
+        new QRCode(document.getElementById('qrCodeBox'), { text: trackUrl, width: 130, height: 130 });
+
+        if (!mapInstance) {
+            mapInstance = L.map('mapContainer').setView([13.7563, 100.5018], 14);
+            L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', { maxZoom: 19 }).addTo(mapInstance);
+        }
+
+        fetchLocation(orderId);
+        timerId = setInterval(() => fetchLocation(orderId), 30000);
+    }
+
+    function closeMapModal() {
+        document.getElementById('mapModal').style.display = 'none';
+        clearInterval(timerId);
+    }
+
+    function fetchLocation(orderId) {
+        fetch(`/riders/api/get/${orderId}/`)
+        .then(res => res.json())
+        .then(data => {
+            if (data.lat && data.lng) {
+                document.getElementById('updateStatus').innerText = "อัปเดตล่าสุด: " + data.last_update;
+                document.getElementById('updateStatus').style.background = "#dcfce7";
+                document.getElementById('updateStatus').style.color = "#16a34a";
+
+                if (!markerInstance) {
+                    markerInstance = L.marker([data.lat, data.lng]).addTo(mapInstance);
+                } else {
+                    markerInstance.setLatLng([data.lat, data.lng]);
+                }
+                mapInstance.setView([data.lat, data.lng], 16);
+            }
+        });
+    }
+</script>
+</body>
+</html>
