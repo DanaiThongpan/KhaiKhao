@@ -39,9 +39,18 @@
             <a href="{% url 'products:list' %}" class="menu-item"><span>📦</span><span>สินค้า</span></a>
             <a href="{% url 'stocks:list' %}" class="menu-item"><span>🛒</span><span>สต๊อกของใช้</span></a>
             <a href="{% url 'reports:home' %}" class="menu-item"><span>📊</span><span>รายงาน</span></a>
-            <a href="{% url 'riders:home' %}" class="menu-item active"><span>🛵</span><span>ติดตามไรเดอร์</span></a>
             <a href="{% url 'tax:home' %}" class="menu-item"><span>📑</span><span>คำนวณภาษี</span></a>
+            <a href="{% url 'riders:home' %}" class="menu-item active"><span>🛵</span><span>ติดตามไรเดอร์</span></a>
         </nav>
+                <div class="sidebar-bottom">
+            {% if request.user.is_authenticated %}
+            <div class="user-profile" style="padding: 10px 15px; margin-bottom: 10px; border-bottom: 1px solid #374151;">
+                <div style="font-size: 0.9em; color: #9ca3af;">เข้าสู่ระบบโดย:</div>
+                <div style="font-weight: bold; color: #fff; margin-top: 5px;">👤 {{ request.user.username }}</div>
+            </div>
+            {% endif %}
+            <a href="{% url 'logout' %}" class="menu-item"><span>🚪</span><span>ออกจากระบบ</span></a>
+        </div>
     </aside>
 
     <main class="main">
