@@ -27,25 +27,21 @@ class RiderProfile(models.Model):
     def __str__(self):
         return f'{self.name} ({self.get_rider_type_display()})'
 
-
 class DeliveryTask(models.Model):
-    order = models.OneToOneField(
-        Order, on_delete=models.CASCADE, related_name='delivery_info'
-    )
-    rider = models.ForeignKey(
-        'RiderProfile',
-        on_delete=models.SET_NULL,
-        null=True,
-        blank=True,
-        related_name='tasks',
-    )
-
+    order = models.OneToOneField(Order, on_delete=models.CASCADE, related_name='delivery_info')
+    rider = models.ForeignKey('RiderProfile', on_delete=models.SET_NULL, null=True, blank=True, related_name='tasks')
+    
+    # พิกัดไรเดอร์
     latitude = models.FloatField(blank=True, null=True)
     longitude = models.FloatField(blank=True, null=True)
     last_location_update = models.DateTimeField(blank=True, null=True)
-
+    
+    # พิกัดจุดหมายปลายทาง (ที่เพิ่มใหม่)
     dormitory_name = models.CharField(max_length=255, blank=True, null=True)
+    dest_latitude = models.FloatField(blank=True, null=True)
+    dest_longitude = models.FloatField(blank=True, null=True)
+    
     status = models.CharField(max_length=20, default='PENDING')
 
     def __str__(self):
-        return f'Task for Order: {self.order.receipt_number}'
+        return f"Task for Order: {self.order.receipt_number}"

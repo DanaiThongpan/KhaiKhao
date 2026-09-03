@@ -135,3 +135,61 @@ def get_location_api(request, order_id):
         "dormitory_name": task.dormitory_name or "-",
         "last_update": timezone.localtime(task.last_location_update).strftime("%H:%M:%S") if task.last_location_update else "ยังไม่เริ่มแชร์พิกัด"
     })
+
+# ... (นำเข้าโค้ดเดิมด้านบนให้ครบ) ...
+
+@csrf_exempt
+def save_destination_api(request, order_id):
+    """ API สำหรับบันทึกพิกัดจุดหมายและชื่อหอพัก พร้อมเปลี่ยนสถานะเป็น GOING """
+    if request.method == 'POST':
+        try:
+            data = json.loads(request.body)
+            order = get_object_or_404(Order, id=order_id)
+            task, _ = DeliveryTask.objects.get_or_create(order=order)
+            
+            task.dormitory_name = data.get('dormitory_name', '').strip()
+            task.dest_latitude = data.get('dest_lat')
+            task.dest_longitude = data.get('dest_lng')
+            
+            # เมื่อบันทึกจุดหมาย ให้เปลี่ยนสถานะเป็น "กำลังจัดส่ง"
+            if task.status == 'PENDING':
+                task.status = 'GOING'
+                
+            task.save()
+            return JsonResponse({"status": "success"})
+        except Exception as e:
+            return JsonResponse({"status": "error", "message": str(e)}, status=400)
+    return JsonResponse({"status": "invalid method"}, status=405)
+
+@csrf_exempt
+def complete_delivery_api(request, order_id):
+    """ API สำหรับกดยืนยันจัดส่งสำเร็จ """
+    if request.method == 'POST':
+        order = get_object_or_404(Order, id=order_id)
+        task, _ = DeliveryTask.objects.get_or_create(order=order)
+        task.status = 'DELIVERED'
+        task.save()
+        return JsonResponse({"status": "success"})
+    return JsonResponse({"status": "invalid method"}, status=405)
+
+@login_required
+def get_location_api(request, order_id):
+    order = get_object_or_404(Order, id=order_id, created_by=request.user)
+    task, _ = DeliveryTask.objects.get_or_create(order=order)
+    
+    is_online = False
+    if task.last_location_update:
+        if (timezone.now() - task.last_location_update).total_seconds() <= 90:
+            is_online = True
+
+    # คืนค่ากลับไปพร้อม dest_lat และ dest_lng
+    return JsonResponse({
+        "lat": task.latitude,
+        "lng": task.longitude,
+        "dest_lat": task.dest_latitude,
+        "dest_lng": task.dest_longitude,
+        "status": task.status,
+        "is_online": is_online,
+        "dormitory_name": task.dormitory_name or "",
+        "last_update": timezone.localtime(task.last_location_update).strftime("%H:%M:%S") if task.last_location_update else "-"
+    })
