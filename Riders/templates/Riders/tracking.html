@@ -7,16 +7,32 @@
     <style>
         body { font-family: 'Tahoma', sans-serif; background: #f3f4f6; text-align: center; padding: 20px; margin: 0; color: #1f2937; }
         .card { background: white; padding: 30px 20px; border-radius: 16px; box-shadow: 0 10px 20px rgba(0,0,0,0.05); margin-top: 20px; }
-        .btn { width: 100%; padding: 20px; font-size: 20px; font-weight: bold; color: white; border: none; border-radius: 12px; cursor: pointer; margin-top: 20px; }
+        .btn { width: 100%; padding: 20px; font-size: 20px; font-weight: bold; color: white; border: none; border-radius: 12px; cursor: pointer; margin-top: 20px; transition: 0.2s; }
         .btn-start { background: #16a34a; }
         .btn-stop { background: #ef4444; display: none; }
         .alert { background: #fef2f2; color: #b91c1c; padding: 12px; border-radius: 8px; border: 1px solid #fca5a5; font-size: 13px; text-align: left; margin-bottom: 15px; }
+        
+        /* สไตล์กล่องกรอกชื่อหอพัก */
+        .dorm-input { width: 100%; padding: 12px; font-size: 16px; border: 1px solid #cbd5e1; border-radius: 8px; margin-bottom: 10px; box-sizing: border-box; }
+        .btn-save-dorm { background: #3b82f6; width: 100%; padding: 12px; font-size: 16px; font-weight: bold; color: white; border: none; border-radius: 8px; cursor: pointer; transition: 0.2s; }
+        .btn-save-dorm:hover { background: #2563eb; }
     </style>
 </head>
 <body>
     <div class="card">
         <h2 style="margin: 0; color: #2563eb;">📍 ระบบส่งพิกัดจัดส่ง</h2>
         <p style="color: #64748b; margin: 5px 0 20px 0;">ออเดอร์: <strong>{{ order.receipt_number }}</strong></p>
+
+        <!-- ==============================================
+             กล่องสำหรับให้ไรเดอร์พิมพ์ชื่อหอพัก และกดบันทึก
+        =============================================== -->
+        <div style="background: #f8fafc; padding: 15px; border-radius: 12px; border: 1px dashed #cbd5e1; margin-bottom: 20px;">
+            <label style="display: block; text-align: left; margin-bottom: 8px; font-weight: bold; color: #475569; font-size: 14px;">🏢 ระบุชื่อหอพักปลายทาง</label>
+            <input type="text" id="dormNameInput" class="dorm-input" placeholder="เช่น หอพักบ้านปู่ย่า" value="{{ task.dormitory_name|default:'' }}">
+            <button class="btn-save-dorm" onclick="saveDormitory()">💾 บันทึกชื่อหอพัก</button>
+            <div id="dormStatus" style="font-size: 12px; margin-top: 8px; color: #16a34a; font-weight: bold;"></div>
+        </div>
+        <!-- ============================================== -->
 
         <div class="alert">
             <strong>⚠️ คำแนะนำสำหรับไรเดอร์:</strong><br>
@@ -33,14 +49,31 @@
     <script>
         let intervalInstance;
 
+        // ฟังก์ชันยิง API ไปบันทึกชื่อหอพัก
+        function saveDormitory() {
+            const dormName = document.getElementById('dormNameInput').value;
+            fetch(`/riders/api/save-dorm/{{ order.id }}/`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ dormitory_name: dormName })
+            })
+            .then(res => res.json())
+            .then(data => {
+                if(data.status === 'success') {
+                    document.getElementById('dormStatus').innerText = "✅ บันทึกชื่อหอพักสำเร็จ!";
+                    // ซ่อนข้อความสำเร็จหลังผ่านไป 3 วินาที
+                    setTimeout(() => { document.getElementById('dormStatus').innerText = ""; }, 3000);
+                }
+            });
+        }
+
         function startSending() {
             if (navigator.geolocation) {
                 document.getElementById('startBtn').style.display = 'none';
                 document.getElementById('stopBtn').style.display = 'block';
                 document.getElementById('statusText').innerText = "กำลังเชื่อมต่อ GPS... 🛰️";
-                
                 sendCoords(); 
-                intervalInstance = setInterval(sendCoords, 30000); // ส่งทุก 30 วินาที
+                intervalInstance = setInterval(sendCoords, 30000);
             } else {
                 alert("เบราว์เซอร์นี้ไม่รองรับ GPS");
             }
@@ -57,7 +90,6 @@
             navigator.geolocation.getCurrentPosition(pos => {
                 const lat = pos.coords.latitude;
                 const lng = pos.coords.longitude;
-
                 fetch(`/riders/api/update/{{ order.id }}/`, {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },

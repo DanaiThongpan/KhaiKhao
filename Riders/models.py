@@ -23,15 +23,17 @@ class RiderProfile(models.Model):
 
 class DeliveryTask(models.Model):
     order = models.OneToOneField(Order, on_delete=models.CASCADE, related_name='delivery_info')
-    rider = models.ForeignKey(RiderProfile, on_delete=models.SET_NULL, null=True, blank=True, related_name='tasks')
+    rider = models.ForeignKey('RiderProfile', on_delete=models.SET_NULL, null=True, blank=True, related_name='tasks')
     
-    # ย้ายพิกัด GPS มาเก็บที่ตารางจัดส่งโดยเฉพาะ
+    # พิกัด GPS
     latitude = models.FloatField(blank=True, null=True)
     longitude = models.FloatField(blank=True, null=True)
     last_location_update = models.DateTimeField(blank=True, null=True)
     
-    status = models.CharField(max_length=20, default='PENDING') # เช่น กำลังไปส่ง, ส่งแล้ว
+    # เพิ่มฟิลด์เก็บชื่อหอพัก
+    dormitory_name = models.CharField(max_length=255, blank=True, null=True)
+    
+    status = models.CharField(max_length=20, default='PENDING')
 
     def __str__(self):
         return f"Task for Order: {self.order.receipt_number}"
-    

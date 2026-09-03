@@ -1,32 +1,140 @@
 {% load static %}
 <!DOCTYPE html>
 <html lang="th">
+
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>ติดตามสถานะไรเดอร์ - KhaiKhao POS</title>
+    <title>ติดตามไรเดอร์ - KhaiKhao POS</title>
+
+    <!-- CSS หลัก -->
     <link rel="stylesheet" href="{% static 'css/style.css' %}">
-    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+
+    <!-- Leaflet -->
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css">
     <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+
+    <!-- QR Code -->
     <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
+
     <style>
+        /* =====================================================
+           GLOBAL & PAGE
+        ===================================================== */
         * { box-sizing: border-box; }
-        .app { display: flex; min-height: 100vh; background: #f3f4f6; }
-        .sidebar { width: 250px; flex-shrink: 0; position: fixed; top: 0; left: 0; bottom: 0; background: #111827; color: white; z-index: 100; display: flex; flex-direction: column; }
-        .main { flex: 1; margin-left: 250px; padding: 30px; }
-        .table-responsive { width: 100%; overflow-x: auto; background: white; border-radius: 12px; box-shadow: 0 2px 4px rgba(0,0,0,0.02); }
+        body { font-family: 'Sarabun', 'Tahoma', sans-serif; background: #f8fafc; color: #334155; margin: 0; }
+        .rider-page { width: 100%; max-width: 1200px; margin: 0 auto; }
+        
+        .page-header { margin-bottom: 25px; padding-bottom: 15px; border-bottom: 2px dashed #e2e8f0; }
+        .page-header h1 { margin: 0; font-size: 28px; color: #0f172a; display: flex; align-items: center; gap: 10px; }
+        .page-header p { margin: 8px 0 0; color: #64748b; font-size: 15px; }
+
+        /* =====================================================
+           MAP SECTION (ดีไซน์ใหม่)
+        ===================================================== */
+        .map-container {
+            width: 100%; height: 600px; background: #e2e8f0; border-radius: 20px;
+            overflow: hidden; position: relative; box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.1);
+            border: 4px solid white;
+        }
+        #map { width: 100%; height: 100%; z-index: 1; }
+
+        /* =====================================================
+           MAP OVERLAYS (ป้ายสถานะ & กล่องข้อมูล)
+        ===================================================== */
+        .map-status {
+            position: absolute; top: 15px; left: 15px; z-index: 1000;
+            background: rgba(255, 255, 255, 0.85); 
+            backdrop-filter: blur(8px); -webkit-backdrop-filter: blur(8px);
+            border-radius: 30px; padding: 10px 20px;
+            box-shadow: 0 4px 15px rgba(0, 0, 0, 0.08);
+            display: flex; align-items: center; gap: 10px; 
+            font-size: 14px; font-weight: bold; color: #334155;
+            border: 1px solid rgba(255, 255, 255, 0.6);
+        }
+
+        .map-info {
+            position: absolute; top: 15px; right: 15px; z-index: 1000; width: 320px;
+            max-height: calc(100% - 30px); /* 🌟 ป้องกันไม่ให้ยาวทะลุแผนที่ */
+            overflow-y: auto; /* 🌟 เลื่อนดูข้อมูลได้ถ้าหน้าจอสั้น */
+            background: rgba(255, 255, 255, 0.85); 
+            backdrop-filter: blur(10px); -webkit-backdrop-filter: blur(10px);
+            border-radius: 16px; padding: 20px;
+            box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.1); 
+            border: 1px solid rgba(255, 255, 255, 0.6);
+        }
+/* 🌟 ตกแต่ง Scrollbar ภายในกล่องข้อมูลให้สวยเนียนตา */
+        .map-info::-webkit-scrollbar { width: 5px; }
+        .map-info::-webkit-scrollbar-track { background: transparent; }
+        .map-info::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 10px; }
+        .online-status { display: flex; align-items: center; gap: 10px; background: #f8fafc; border-radius: 10px; padding: 12px; margin-bottom: 15px; border: 1px solid #f1f5f9; }
+        .online-indicator { width: 10px; height: 10px; border-radius: 50%; background: #94a3b8; }
+        .online-indicator.online { background: #22c55e; }
+        .online-indicator.offline { background: #ef4444; }
+        #onlineText { font-size: 14px; font-weight: bold; }
+
+        /* =====================================================
+           GPS INFO (ตารางข้อมูลในกล่อง)
+        ===================================================== */
+        .gps-info { display: flex; flex-direction: column; gap: 8px; }
+        .gps-row { display: flex; justify-content: space-between; align-items: center; padding: 6px 0; font-size: 13px; border-bottom: 1px dashed #e2e8f0; }
+        .gps-row:last-child { border-bottom: none; }
+        .gps-label { color: #64748b; font-weight: 600; display: flex; align-items: center; gap: 6px; }
+        .gps-value { color: #0f172a; font-weight: 800; text-align: right; }
+        .highlight-blue { color: #2563eb !important; background: #eff6ff; padding: 2px 8px; border-radius: 6px; }
+
+        /* =====================================================
+           QR SECTION
+        ===================================================== */
+        .qr-section { margin-top: 15px; padding-top: 15px; border-top: 2px solid #f1f5f9; text-align: center; }
+        .qr-title { font-size: 14px; font-weight: bold; margin-bottom: 10px; color: #334155; }
+        #qrcode { width: 140px; height: 140px; margin: 0 auto 10px; background: white; padding: 10px; border-radius: 12px; border: 1px solid #e2e8f0; display: flex; justify-content: center; align-items: center; }
+        .qr-description { color: #64748b; font-size: 12px; line-height: 1.4; margin-bottom: 10px; }
+        
+        .btn-copy { width: 100%; border: none; border-radius: 10px; padding: 10px; background: #0f172a; color: white; font-size: 13px; font-weight: bold; cursor: pointer; transition: 0.2s; display: flex; justify-content: center; align-items: center; gap: 6px; }
+        .btn-copy:hover { background: #3b82f6; transform: translateY(-2px); box-shadow: 0 4px 6px rgba(59, 130, 246, 0.2); }
+
+        /* =====================================================
+           TABLE SECTION (รายการออเดอร์)
+        ===================================================== */
+        .orders-section { margin-top: 30px; }
+        .section-title { font-size: 20px; font-weight: 800; color: #0f172a; margin-bottom: 15px; display: flex; align-items: center; gap: 8px; }
+        
+        .table-responsive { width: 100%; overflow-x: auto; background: white; border-radius: 16px; box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.05); border: 1px solid #e2e8f0; }
         .history-table { width: 100%; border-collapse: collapse; min-width: 700px; }
-        .history-table th, .history-table td { padding: 15px 20px; border-bottom: 1px solid #e5e7eb; vertical-align: middle; text-align: left; }
-        .history-table th { background: #f8fafc; color: #475569; font-size: 14px; }
-        .btn-track { background: #047857; color: white; border: none; padding: 8px 14px; border-radius: 8px; font-weight: bold; cursor: pointer; display: inline-flex; align-items: center; gap: 5px; }
-        .btn-track:hover { background: #065f46; }
-        .modal-overlay { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.6); z-index: 2000; display: none; align-items: center; justify-content: center; }
-        .modal-content { background: white; border-radius: 16px; width: 95%; max-width: 750px; padding: 25px; box-shadow: 0 20px 25px rgba(0,0,0,0.1); }
+        .history-table th { padding: 16px 20px; background: #f8fafc; color: #475569; font-size: 14px; font-weight: 800; text-align: left; border-bottom: 2px solid #e2e8f0; white-space: nowrap; }
+        .history-table td { padding: 16px 20px; font-size: 15px; border-bottom: 1px solid #f1f5f9; vertical-align: middle; transition: 0.2s; }
+        
+        .history-table tbody tr { cursor: pointer; transition: all 0.2s ease; }
+        .history-table tbody tr:hover { background: #f1f5f9; }
+        .history-table tbody tr.selected { background: #eff6ff; border-left: 4px solid #3b82f6; }
+        
+        .btn-track { border: none; background: #3b82f6; color: white; padding: 8px 16px; border-radius: 8px; font-size: 13px; font-weight: bold; cursor: pointer; transition: 0.2s; display: inline-flex; align-items: center; gap: 6px; }
+        .btn-track:hover { background: #2563eb; transform: scale(1.05); box-shadow: 0 4px 10px rgba(37, 99, 235, 0.2); }
+
+        .refresh-text { margin-top: 12px; color: #64748b; font-size: 13px; text-align: right; font-weight: 600; }
+
+        /* =====================================================
+           MOBILE
+        ===================================================== */
+        @media (max-width: 900px) {
+            .map-container { height: 500px; }
+            .map-info { width: 260px; }
+        }
+        @media (max-width: 650px) {
+            .page-header h1 { font-size: 22px; }
+            .map-container { height: 650px; }
+            .map-info { top: auto; bottom: 15px; left: 15px; right: 15px; width: auto; max-height: 280px; overflow-y: auto; }
+            .map-status { top: 15px; left: 15px; font-size: 12px; }
+        }
     </style>
 </head>
-<body>
 
+<body>
 <div class="app">
+    <!-- =====================================================
+         SIDEBAR (คงไว้เหมือนเดิม)
+    ====================================================== -->
     <aside class="sidebar">
         <div class="logo">
             <h2>KhaiKhao</h2>
@@ -42,7 +150,7 @@
             <a href="{% url 'tax:home' %}" class="menu-item"><span>📑</span><span>คำนวณภาษี</span></a>
             <a href="{% url 'riders:home' %}" class="menu-item active"><span>🛵</span><span>ติดตามไรเดอร์</span></a>
         </nav>
-                <div class="sidebar-bottom">
+        <div class="sidebar-bottom">
             {% if request.user.is_authenticated %}
             <div class="user-profile" style="padding: 10px 15px; margin-bottom: 10px; border-bottom: 1px solid #374151;">
                 <div style="font-size: 0.9em; color: #9ca3af;">เข้าสู่ระบบโดย:</div>
@@ -53,109 +161,265 @@
         </div>
     </aside>
 
+    <!-- =====================================================
+         MAIN
+    ====================================================== -->
     <main class="main">
-        <header style="margin-bottom: 25px;">
-            <h1 style="margin: 0; color: #1f2937; font-size: 24px;">🛵 ระบบติดตามพิกัดไรเดอร์ (เรียลไทม์)</h1>
-            <p style="color: #64748b; margin: 5px 0 0 0;">เลือกออเดอร์เพื่อเปิดหน้าจอแผนที่และสแกน QR สำหรับส่งพิกัด</p>
-        </header>
+        <div class="rider-page">
 
-        <div class="table-responsive">
-            <table class="history-table">
-                <thead>
-                    <tr>
-                        <th>เลขที่บิล</th>
-                        <th>ยอดชำระ</th>
-                        <th>วันที่/เวลา</th>
-                        <th style="text-align: center;">จัดการพิกัด GPS</th>
-                    </tr>
-                </thead>
-                <tbody>
-                    {% for order in orders %}
-                    <tr>
-                        <td style="font-weight: bold; color: #2563eb;">{{ order.receipt_number }}</td>
-                        <td style="font-weight: bold; color: #16a34a;">฿{{ order.total_amount|floatformat:2 }}</td>
-                        <td>{{ order.created_at|date:"d/m/Y H:i" }}</td>
-                        <td style="text-align: center;">
-                            <button class="btn-track" onclick="openMapModal({{ order.id }}, '{{ order.receipt_number }}')">
-                                🗺️ เปิดแผนที่ติดตาม
-                            </button>
-                        </td>
-                    </tr>
-                    {% empty %}
-                    <tr>
-                        <td colspan="4" style="text-align: center; padding: 40px; color: #9ca3af;">ยังไม่มีประวัติออเดอร์ในระบบ</td>
-                    </tr>
-                    {% endfor %}
-                </tbody>
-            </table>
+            <!-- HEADER -->
+            <header class="page-header">
+                <h1>🛵 แดชบอร์ดติดตามไรเดอร์</h1>
+                <p>ระบบติดตามพิกัดการจัดส่งออเดอร์แบบเรียลไทม์ (อัปเดตทุก 30 วินาที)</p>
+            </header>
+
+            <!-- MAP CONTAINER -->
+            <div class="map-container">
+                <div id="map"></div>
+
+                <!-- MAP STATUS -->
+                <div class="map-status">
+                    <span id="mapStatusDot" class="status-dot"></span>
+                    <span id="mapStatusText">รอเลือกออเดอร์จากตารางด้านล่าง 👇</span>
+                </div>
+
+                <!-- MAP INFO PANEL -->
+                <div class="map-info">
+                    <div class="map-info-title">📋 ข้อมูลการจัดส่งปัจจุบัน</div>
+
+                    <div class="online-status">
+                        <span id="onlineIndicator" class="online-indicator"></span>
+                        <span id="onlineText">ยังไม่ได้เลือกออเดอร์</span>
+                    </div>
+
+                    <div class="gps-info">
+                        <div class="gps-row">
+                            <span class="gps-label">🧾 เลขที่บิล</span>
+                            <span id="infoReceipt" class="gps-value highlight-blue">-</span>
+                        </div>
+                        
+                        <!-- 🌟 เพิ่มหอพักปลายทางที่นี่ -->
+                        <div class="gps-row">
+                            <span class="gps-label">🏢 หอพักปลายทาง</span>
+                            <span id="gpsDorm" class="gps-value highlight-blue">-</span>
+                        </div>
+
+                        <div class="gps-row">
+                            <span class="gps-label">📍 ละติจูด</span>
+                            <span id="gpsLat" class="gps-value">-</span>
+                        </div>
+                        <div class="gps-row">
+                            <span class="gps-label">📍 ลองจิจูด</span>
+                            <span id="gpsLng" class="gps-value">-</span>
+                        </div>
+                        <div class="gps-row">
+                            <span class="gps-label">🚦 สถานะงาน</span>
+                            <span id="gpsStatus" class="gps-value">-</span>
+                        </div>
+                        <div class="gps-row">
+                            <span class="gps-label">⏱️ อัปเดตล่าสุด</span>
+                            <span id="gpsTime" class="gps-value" style="color: #059669;">-</span>
+                        </div>
+                    </div>
+
+                    <!-- QR CODE -->
+                    <div class="qr-section">
+                        <div class="qr-title">📱 สแกนเพื่อเริ่มส่งพิกัด</div>
+                        <div id="qrcode"><span style="color:#94a3b8; font-size:12px;">เลือกออเดอร์</span></div>
+                        <div class="qr-description">ให้ไรเดอร์สแกนด้วยกล้องมือถือ<br>เพื่อเข้าสู่หน้าจอแชร์พิกัด GPS</div>
+                        <button class="btn-copy" onclick="copyTrackingUrl()">🔗 คัดลอกลิงก์ส่งให้ไรเดอร์</button>
+                    </div>
+                </div>
+            </div>
+
+            <!-- ORDERS TABLE -->
+            <div class="orders-section">
+                <div class="section-title">📦 รายการออเดอร์ของร้าน</div>
+                <div class="table-responsive">
+                    <table class="history-table">
+                        <thead>
+                            <tr>
+                                <th>เลขอ้างอิง</th>
+                                <th>ยอดชำระสุทธิ</th>
+                                <th>วันที่สั่งซื้อ</th>
+                                <th>จัดการจัดส่ง</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for order in orders %}
+                            <tr id="order-row-{{ order.id }}" onclick="selectOrder({{ order.id }}, '{{ order.receipt_number|escapejs }}')">
+                                <td style="font-weight: 800; color: #1e293b;">{{ order.receipt_number }}</td>
+                                <td style="font-weight: 800; color: #10b981;">฿{{ order.total_amount|floatformat:2 }}</td>
+                                <td style="color: #64748b;">{{ order.created_at|date:"d/m/Y H:i" }}</td>
+                                <td>
+                                    <button class="btn-track" onclick="event.stopPropagation(); selectOrder({{ order.id }}, '{{ order.receipt_number|escapejs }}');">
+                                        📍 เปิดดูพิกัด
+                                    </button>
+                                </td>
+                            </tr>
+                            {% empty %}
+                            <tr>
+                                <td colspan="4" style="text-align: center; padding: 40px; color: #94a3b8; font-weight: bold;">
+                                    🤷‍♂️ ยังไม่มีประวัติออเดอร์ในระบบ
+                                </td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+                <div class="refresh-text">🔄 ระบบจะรีเฟรชตำแหน่งอัตโนมัติทุกๆ 30 วินาที</div>
+            </div>
+
         </div>
     </main>
 </div>
 
-<div id="mapModal" class="modal-overlay">
-    <div class="modal-content">
-        <div style="display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid #e5e7eb; padding-bottom: 12px; margin-bottom: 15px;">
-            <h3 style="margin: 0; font-size: 18px;">📍 ตำแหน่งไรเดอร์: <span id="modalReceipt" style="color: #2563eb;"></span></h3>
-            <button onclick="closeMapModal()" style="background:none; border:none; font-size:22px; cursor:pointer; color:#64748b;">✖</button>
-        </div>
-
-        <div style="display: flex; gap: 15px; flex-wrap: wrap;">
-            <div style="flex: 2; min-width: 280px; height: 350px; border-radius: 10px; border: 1px solid #cbd5e1; overflow: hidden;" id="mapContainer"></div>
-            
-            <div style="flex: 1; min-width: 200px; background: #f8fafc; padding: 15px; border-radius: 10px; border: 1px dashed #cbd5e1; text-align: center; display: flex; flex-direction: column; justify-content: center; align-items: center;">
-                <h4 style="margin: 0 0 10px 0; font-size: 13px; color: #334151;">📱 ให้ไรเดอร์สแกนลิงก์นี้</h4>
-                <div id="qrCodeBox" style="background: white; padding: 8px; border-radius: 6px; margin-bottom: 10px;"></div>
-                <div id="updateStatus" style="font-size: 11px; background: #fee2e2; color: #dc2626; padding: 4px 8px; border-radius: 20px; font-weight: bold; width: 100%;">ยังไม่ได้รับพิกัด</div>
-            </div>
-        </div>
-    </div>
-</div>
-
+<!-- =============================================================
+     JAVASCRIPT
+============================================================== -->
 <script>
-    let mapInstance;
-    let markerInstance;
-    let timerId;
+    let mapInstance = null;
+    let riderMarker = null;
+    let timerId = null;
+    let currentOrderId = null;
+    let currentTrackingUrl = "";
 
-    function openMapModal(orderId, receiptNo) {
-        document.getElementById('modalReceipt').innerText = receiptNo;
-        document.getElementById('mapModal').style.display = 'flex';
+    // ตั้งค่าพิกัดเริ่มต้น (มออุบล)
+    const defaultLat = 15.1218;
+    const defaultLng = 104.9038;
 
-        const trackUrl = window.location.origin + `/riders/track/${orderId}/`;
-        document.getElementById('qrCodeBox').innerHTML = '';
-        new QRCode(document.getElementById('qrCodeBox'), { text: trackUrl, width: 130, height: 130 });
+/* =========================================================
+       INITIALIZE MAP
+    ========================================================= */
+    function initializeMap() {
+        // 🌟 ตั้งค่า zoomControl: false เพื่อปิดปุ่มซูมที่มุมซ้ายบน
+        mapInstance = L.map("map", { zoomControl: false }).setView([defaultLat, defaultLng], 14);
+        
+        L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", {
+            maxZoom: 19,
+            attribution: "&copy; OpenStreetMap contributors"
+        }).addTo(mapInstance);
 
-        if (!mapInstance) {
-            mapInstance = L.map('mapContainer').setView([13.7563, 100.5018], 14);
-            L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', { maxZoom: 19 }).addTo(mapInstance);
-        }
+        // 🌟 สร้างปุ่มซูมใหม่ แล้วย้ายไปไว้ที่ "มุมขวาล่าง" (bottomright) เพื่อหลบกล่องข้อมูล
+        L.control.zoom({ position: 'bottomright' }).addTo(mapInstance);
+    }
 
+    function selectOrder(orderId, receiptNumber) {
+        currentOrderId = orderId;
+
+        // ไฮไลต์แถวในตาราง
+        document.querySelectorAll(".history-table tbody tr").forEach(row => row.classList.remove("selected"));
+        const selectedRow = document.getElementById("order-row-" + orderId);
+        if (selectedRow) selectedRow.classList.add("selected");
+
+        // อัปเดตข้อมูลบนกล่อง
+        document.getElementById("infoReceipt").textContent = receiptNumber;
+
+        // สร้างลิงก์และ QR Code
+        currentTrackingUrl = window.location.origin + "/riders/track/" + orderId + "/";
+        generateQRCode(currentTrackingUrl);
+
+        // ดึงพิกัดและตั้งเวลา
         fetchLocation(orderId);
-        timerId = setInterval(() => fetchLocation(orderId), 30000);
-    }
-
-    function closeMapModal() {
-        document.getElementById('mapModal').style.display = 'none';
         clearInterval(timerId);
+        timerId = setInterval(() => {
+            if (currentOrderId) fetchLocation(currentOrderId);
+        }, 30000);
     }
 
-    function fetchLocation(orderId) {
-        fetch(`/riders/api/get/${orderId}/`)
-        .then(res => res.json())
-        .then(data => {
-            if (data.lat && data.lng) {
-                document.getElementById('updateStatus').innerText = "อัปเดตล่าสุด: " + data.last_update;
-                document.getElementById('updateStatus').style.background = "#dcfce7";
-                document.getElementById('updateStatus').style.color = "#16a34a";
+    async function fetchLocation(orderId) {
+        try {
+            const response = await fetch("/riders/api/get/" + orderId + "/", { method: "GET", cache: "no-store" });
+            if (!response.ok) throw new Error("HTTP " + response.status);
+            const data = await response.json();
+            
+            updateLocationUI(data);
 
-                if (!markerInstance) {
-                    markerInstance = L.marker([data.lat, data.lng]).addTo(mapInstance);
-                } else {
-                    markerInstance.setLatLng([data.lat, data.lng]);
-                }
-                mapInstance.setView([data.lat, data.lng], 16);
+            if (data.lat && data.lng) {
+                const lat = parseFloat(data.lat);
+                const lng = parseFloat(data.lng);
+                if (!isNaN(lat) && !isNaN(lng)) updateMap(lat, lng);
             }
+        } catch (error) {
+            console.error("Location error:", error);
+            document.getElementById("mapStatusText").textContent = "⚠️ ไม่สามารถโหลดตำแหน่งได้";
+            document.getElementById("mapStatusDot").className = "status-dot offline";
+        }
+    }
+
+    function updateLocationUI(data) {
+        // 🌟 อัปเดตชื่อหอพัก
+        document.getElementById("gpsDorm").textContent = data.dormitory_name || "-";
+
+        document.getElementById("gpsLat").textContent = data.lat ? Number(data.lat).toFixed(6) : "-";
+        document.getElementById("gpsLng").textContent = data.lng ? Number(data.lng).toFixed(6) : "-";
+        document.getElementById("gpsTime").textContent = data.last_update || "-";
+
+        let statusText = "-";
+        switch (data.status) {
+            case "PENDING": statusText = "รอจัดส่ง"; break;
+            case "GOING": statusText = "กำลังจัดส่ง"; break;
+            case "DELIVERED": statusText = "จัดส่งแล้ว"; break;
+            case "CANCELLED": statusText = "ยกเลิก"; break;
+        }
+        document.getElementById("gpsStatus").textContent = statusText;
+
+        if (data.is_online) {
+            document.getElementById("mapStatusDot").className = "status-dot online";
+            document.getElementById("mapStatusText").textContent = "🟢 ไรเดอร์กำลังออนไลน์";
+            document.getElementById("onlineIndicator").className = "online-indicator online";
+            document.getElementById("onlineText").textContent = "ออนไลน์เชื่อมต่อแล้ว";
+            document.getElementById("onlineText").style.color = "#059669";
+        } else {
+            document.getElementById("mapStatusDot").className = "status-dot offline";
+            document.getElementById("mapStatusText").textContent = "🔴 ไรเดอร์ออฟไลน์";
+            document.getElementById("onlineIndicator").className = "online-indicator offline";
+            document.getElementById("onlineText").textContent = "ออฟไลน์ / ยังไม่ส่งพิกัด";
+            document.getElementById("onlineText").style.color = "#dc2626";
+        }
+    }
+
+    function updateMap(lat, lng) {
+        if (!mapInstance) return;
+
+        if (!riderMarker) {
+            riderMarker = L.marker([lat, lng]).addTo(mapInstance);
+            riderMarker.bindPopup("<b>🛵 ไรเดอร์อยู่ที่นี่</b>").openPopup();
+        } else {
+            riderMarker.setLatLng([lat, lng]);
+        }
+        mapInstance.setView([lat, lng], 16, { animate: true });
+    }
+
+    function generateQRCode(url) {
+        const container = document.getElementById("qrcode");
+        container.innerHTML = "";
+        new QRCode(container, {
+            text: url, width: 140, height: 140,
+            colorDark: "#0f172a", colorLight: "#ffffff",
+            correctLevel: QRCode.CorrectLevel.H
         });
     }
+
+    async function copyTrackingUrl() {
+        if (!currentTrackingUrl) { alert("กรุณาเลือกออเดอร์ก่อนครับ"); return; }
+        try {
+            await navigator.clipboard.writeText(currentTrackingUrl);
+            alert("📋 คัดลอกลิงก์สำเร็จ นำไปส่งให้ไรเดอร์ได้เลย!");
+        } catch (error) {
+            const input = document.createElement("input");
+            input.value = currentTrackingUrl;
+            document.body.appendChild(input);
+            input.select();
+            document.execCommand("copy");
+            document.body.removeChild(input);
+            alert("📋 คัดลอกลิงก์สำเร็จ!");
+        }
+    }
+
+    document.addEventListener("DOMContentLoaded", initializeMap);
+    window.addEventListener("beforeunload", () => clearInterval(timerId));
 </script>
+
 </body>
 </html>
