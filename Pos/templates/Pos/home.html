@@ -260,7 +260,8 @@
                     <div class="products-grid">
                         {% for product in category.products.all %}
                             {% if product.is_active %}
-                                <article class="product-card" data-name="{{ product.name }}" data-code="{{ product.code }}" data-category="{{ category.name }}" onclick="addToCart('{{ product.id }}', '{{ product.name }}', {{ product.selling_price }})">
+                                <!-- เพิ่ม parameter หมวดหมู่ส่งไปที่ตะกร้าด้วย เพื่อไว้ตรวจสอบตอนออกบิล -->
+                                <article class="product-card" data-name="{{ product.name }}" data-code="{{ product.code }}" data-category="{{ category.name }}" onclick="addToCart('{{ product.id }}', '{{ product.name|escapejs }}', {{ product.selling_price }}, '{{ category.name|escapejs }}')">
                                     <div class="product-image">
                                         {% if product.image %}<img src="{{ product.image.url }}" alt="{{ product.name }}">
                                         {% else %}<div class="no-image"><span>🍱</span><small>ไม่มีรูปภาพ</small></div>{% endif %}
@@ -771,7 +772,7 @@
         });
     }
 
-    // =========================================================================
+// =========================================================================
     // 4. ระบบการพิมพ์แบบสลิป บนกระดาษ A4 (6 ช่อง)
     // =========================================================================
     function triggerPrintReceipt(receiptNo, items, total, qrDataUrl, shopName) {
@@ -803,39 +804,16 @@
                 <title>ใบเสร็จรับเงิน - ${receiptNo}</title>
                 <style>
                     @page { size: A4; margin: 0; }
-                    body { 
-                        font-family: 'Courier New', Courier, monospace; 
-                        margin: 0; padding: 0; 
-                        background: #fff; color: #000;
-                    }
-                    .receipt-box { 
-                        position: absolute;
-                        left: ${leftOffset}mm;
-                        top: ${topOffset}mm;
-                        width: 85mm;
-                        height: 88mm;
-                        padding: 3mm 4mm;
-                        box-sizing: border-box;
-                        border: 1px dashed #e5e7eb;
-                        display: flex;
-                        flex-direction: column;
-                        overflow: hidden;
-                    }
+                    body { font-family: 'Courier New', Courier, monospace; margin: 0; padding: 0; background: #fff; color: #000; }
+                    .receipt-box { position: absolute; left: ${leftOffset}mm; top: ${topOffset}mm; width: 85mm; height: 88mm; padding: 3mm 4mm; box-sizing: border-box; border: 1px dashed #e5e7eb; display: flex; flex-direction: column; overflow: hidden; }
                     .center { text-align: center; }
                     .line { border-bottom: 1px dashed #000; margin: 4px 0; }
                     .flex { display: flex; justify-content: space-between; }
-                    
                     .shop-name { font-size: 14px; font-weight: bold; margin: 0; }
                     .info-text { font-size: 11px; margin: 2px 0; color: #333; }
                     .item-text { font-size: 11px; margin: 2px 0; font-weight: 500; }
                     .total-row { font-weight: bold; font-size: 13px; margin-top: 3px; }
-                    
-                    .qr-footer {
-                        display: flex;
-                        align-items: center;
-                        gap: 12px;
-                        margin-top: auto;
-                    }
+                    .qr-footer { display: flex; align-items: center; gap: 12px; margin-top: auto; }
                     .qr-footer img { width: 85px; height: 85px; } 
                     .qr-desc { font-size: 10px; line-height: 1.4; color: #333; font-weight: bold; }
                 </style>
@@ -850,17 +828,40 @@
                     <div class="info-text">เลขที่บิล: ${receiptNo}</div>
                     <div class="info-text">วันที่: ${new Date().toLocaleString('th-TH')}</div>
                     <div class="line"></div>
-                    
                     <div style="flex-grow: 1; overflow: hidden;">
         `;
 
+        const excludeKeywords = ["topping", "ท็อปปิ้ง", "พิเศษ", "เครื่องดื่ม", "เพิ่มเติม"];
+        let mainIdxPrint = 1;
+
         items.forEach(item => {
-            htmlContent += `
-                        <div class="flex item-text">
-                            <span>${item.name} x${item.qty}</span>
-                            <span>฿${(item.price * item.qty).toFixed(2)}</span>
-                        </div>
-            `;
+            const catName = (item.category || "").toLowerCase();
+            const prodName = item.name.toLowerCase();
+            
+            // เช็คว่าเป็นรายการย่อยหรือไม่
+            let isSubItem = excludeKeywords.some(kw => prodName.includes(kw) || catName.includes(kw));
+            
+            // บังคับให้ กับข้าว, น้ำเปล่า, ข้าวเปล่า เป็นรายการหลักเสมอ (มีเลขนำหน้า)
+            if (prodName.includes("กับข้าว") || catName.includes("กับข้าว") || prodName.includes("น้ำเปล่า") || prodName.includes("ข้าวเปล่า") || prodName.includes("ข้าวปล่าว")) {
+                isSubItem = false;
+            }
+
+            if (isSubItem) {
+                htmlContent += `
+                            <div class="flex item-text" style="padding-left: 12px; color: #555;">
+                                <span>- ${item.name} <small>(x${item.qty})</small></span>
+                                <span>฿${(item.price * item.qty).toFixed(2)}</span>
+                            </div>
+                `;
+            } else {
+                let currIdx = mainIdxPrint++;
+                htmlContent += `
+                            <div class="flex item-text">
+                                <span style="font-weight: bold;">${currIdx}. ${item.name} <small>(x${item.qty})</small></span>
+                                <span style="font-weight: bold;">฿${(item.price * item.qty).toFixed(2)}</span>
+                            </div>
+                `;
+            }
         });
 
         htmlContent += `
@@ -870,12 +871,9 @@
                         <span>ยอดรวมสุทธิ:</span>
                         <span>฿${total.toFixed(2)}</span>
                     </div>
-
                     <div class="qr-footer">
                         ${qrDataUrl ? `<img src="${qrDataUrl}" alt="QR">` : ''}
-                        <div class="qr-desc">
-                                ${qrFooterDesc}
-                        </div>
+                        <div class="qr-desc">${qrFooterDesc}</div>
                     </div>
                 </div>
             </body>
@@ -890,31 +888,50 @@
     // 4.2 ระบบดาวน์โหลด e-Slip (สัดส่วนพอดีมือถือ)
     // =========================================================================
     function downloadSlipImage(receiptNo, items, total, qrDataUrl, shopName) {
-        // สร้างกรอบบิลจำลอง (ซ่อนไว้นอกหน้าจอ) เพื่อให้ html2canvas จับภาพ
         const slipContainer = document.createElement('div');
         slipContainer.style.position = 'absolute';
         slipContainer.style.left = '-9999px';
         slipContainer.style.top = '-9999px';
-        slipContainer.style.width = '380px'; // ขนาดพอดีจอมือถือ
+        slipContainer.style.width = '380px'; 
         slipContainer.style.backgroundColor = '#ffffff';
         slipContainer.style.padding = '25px 20px';
         slipContainer.style.fontFamily = "'Sarabun', 'Tahoma', sans-serif";
         slipContainer.style.color = '#1f2937';
-        slipContainer.style.borderRadius = '12px'; // ขอบมนสวยงามแบบ e-Slip
+        slipContainer.style.borderRadius = '12px'; 
 
-// 1. เพิ่ม ${index + 1}. ตรงนี้เพื่อให้รันเลขลำดับ 1, 2, 3... หน้ารายการอาหาร
-        let itemsHtml = items.map((item, index) => `
-            <div style="display: flex; justify-content: space-between; margin-bottom: 8px; font-size: 15px;">
-                <span style="flex: 1; padding-right: 10px;">${index + 1}. ${item.name} <span style="color: #6b7280;">(x${item.qty})</span></span>
-                <span style="font-weight: 500; white-space: nowrap;">฿${(item.price * item.qty).toFixed(2)}</span>
-            </div>
-        `).join('');
+        const excludeKeywords = ["topping", "ท็อปปิ้ง", "พิเศษ", "เครื่องดื่ม", "เพิ่มเติม"];
+        let mainIndex = 1;
+        
+        let itemsHtml = items.map(item => {
+            const catName = (item.category || "").toLowerCase();
+            const prodName = item.name.toLowerCase();
+            
+            let isSubItem = excludeKeywords.some(kw => prodName.includes(kw) || catName.includes(kw));
+            if (prodName.includes("กับข้าว") || catName.includes("กับข้าว") || prodName.includes("น้ำเปล่า") || prodName.includes("ข้าวเปล่า") || prodName.includes("ข้าวปล่าว")) {
+                isSubItem = false;
+            }
 
-        // 2. โค้ดส่วนแสดงผลสลิปร้านเรื่องของหมู (จัดฟอนต์ "รายการอาหาร:" ให้หนาและสวยขึ้นนิดนึงครับ)
+            if (isSubItem) {
+                return `
+                    <div style="display: flex; justify-content: space-between; margin-bottom: 6px; font-size: 14px; padding-left: 20px; color: #6b7280;">
+                        <span style="flex: 1; padding-right: 10px;"><span style="color:#d97706; margin-right:5px;">↳</span> ${item.name} <span style="font-size: 12px;">(x${item.qty})</span></span>
+                        <span style="white-space: nowrap;">฿${(item.price * item.qty).toFixed(2)}</span>
+                    </div>
+                `;
+            } else {
+                let currentIdx = mainIndex++;
+                return `
+                    <div style="display: flex; justify-content: space-between; margin-bottom: 8px; font-size: 15px; color: #1f2937;">
+                        <span style="flex: 1; padding-right: 10px; font-weight: 500;">${currentIdx}. ${item.name} <span style="color: #6b7280; font-weight: normal; font-size: 13px;">(x${item.qty})</span></span>
+                        <span style="font-weight: bold; white-space: nowrap;">฿${(item.price * item.qty).toFixed(2)}</span>
+                    </div>
+                `;
+            }
+        }).join('');
+
         if (shopName.includes("M053") || shopName.includes("เรื่องของหมู")) {
             slipContainer.innerHTML = `
                 <div style="text-align: center; border-bottom: 2px dashed #fbcfe8; padding-bottom: 15px; margin-bottom: 15px;">
-
                     <h2 style="margin: 0 0 5px 0; font-size: 24px; color: #be185d;">${shopName}</h2>
                     <p style="margin: 0; font-size: 14px; color: #db2777;">รายละเอียดออเดอร์</p>
                 </div>
@@ -972,14 +989,11 @@
 
         document.body.appendChild(slipContainer);
 
-        // ใช้ html2canvas แปลง div เป็นไฟล์รูปภาพ (Scale 2 เพื่อให้ภาพคมชัดระดับ HD)
         html2canvas(slipContainer, { scale: 2, backgroundColor: '#ffffff' }).then(canvas => {
             let link = document.createElement('a');
             link.download = `${receiptNo}.png`;
             link.href = canvas.toDataURL('image/png');
-            link.click(); // สั่งโหลดลงเครื่องอัตโนมัติ
-
-            // ทำความสะอาดและรีเฟรชหน้า
+            link.click();
             document.body.removeChild(slipContainer);
             setTimeout(() => { window.location.href = "{% url 'pos:home' %}"; }, 1000);
         });
@@ -991,13 +1005,35 @@
         
         let container = document.getElementById('billItemsSummary');
         container.innerHTML = '';
+        
+        const excludeKeywords = ["topping", "ท็อปปิ้ง", "พิเศษ", "เครื่องดื่ม", "เพิ่มเติม"];
+        let mainIdxScreen = 1;
+
         items.forEach(item => {
-            container.innerHTML += `
-                <div style="display: flex; justify-content: space-between; margin-bottom: 5px;">
-                    <span>${item.name} (x${item.qty})</span>
-                    <strong>฿${(item.price * item.qty).toLocaleString(undefined, {minimumFractionDigits: 2})}</strong>
-                </div>
-            `;
+            const catName = (item.category || "").toLowerCase();
+            const prodName = item.name.toLowerCase();
+            
+            let isSubItem = excludeKeywords.some(kw => prodName.includes(kw) || catName.includes(kw));
+            if (prodName.includes("กับข้าว") || catName.includes("กับข้าว") || prodName.includes("น้ำเปล่า") || prodName.includes("ข้าวเปล่า") || prodName.includes("ข้าวปล่าว")) {
+                isSubItem = false;
+            }
+
+            if (isSubItem) {
+                container.innerHTML += `
+                    <div style="display: flex; justify-content: space-between; margin-bottom: 5px; padding-left: 15px; color: #64748b; font-size: 13px;">
+                        <span>↳ ${item.name} (x${item.qty})</span>
+                        <span>฿${(item.price * item.qty).toLocaleString(undefined, {minimumFractionDigits: 2})}</span>
+                    </div>
+                `;
+            } else {
+                let currIdx = mainIdxScreen++;
+                container.innerHTML += `
+                    <div style="display: flex; justify-content: space-between; margin-bottom: 5px; color: #1f2937;">
+                        <span style="font-weight: 500;">${currIdx}. ${item.name} (x${item.qty})</span>
+                        <strong>฿${(item.price * item.qty).toLocaleString(undefined, {minimumFractionDigits: 2})}</strong>
+                    </div>
+                `;
+            }
         });
 
         document.getElementById('screenBillModal').style.display = 'flex';
@@ -1050,8 +1086,8 @@
 
     let cart = [];
     
-    // จำกัด 5 รายการ
-    function addToCart(id, name, price) {
+    // จำกัด 10 รายการ และส่งค่า category มาด้วย
+    function addToCart(id, name, price, category) {
         const existingItem = cart.find(item => item.id === id);
         
         if (existingItem) {
@@ -1061,7 +1097,7 @@
                 alert("⚠️ จำกัดสูงสุด 10 รายการต่อ 1 บิล เพื่อไม่ให้ข้อความล้นกรอบครับ\n(หากต้องการสั่งเพิ่ม ให้ชำระเงินบิลนี้ก่อนแล้วเริ่มบิลใหม่)");
                 return;
             }
-            cart.push({ id: id, name: name, price: parseFloat(price), qty: 1 });
+            cart.push({ id: id, name: name, price: parseFloat(price), qty: 1, category: category || '' });
         }
         renderCart();
     }

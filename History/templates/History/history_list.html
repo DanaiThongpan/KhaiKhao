@@ -167,12 +167,10 @@
         </form>
 
         <script>
-            // ล้างช่องวันที่เมื่อเลือกตัวกรองด่วน
             function clearDates() {
                 document.getElementById('startDate').value = '';
                 document.getElementById('endDate').value = '';
             }
-            // ปรับ Dropdown เป็นค่ากำหนดเองเมื่อพิมพ์วันที่
             function clearDays() {
                 document.getElementById('daysFilter').value = 'custom';
             }
@@ -197,7 +195,7 @@
                     <script id="items-{{ order.id }}" type="application/json">
                     [
                         {% for item in order.items.all %}
-                        { "id": {{ item.id }}, "product_id": {{ item.product.id|default:0 }}, "name": "{{ item.product.name|escapejs }}", "qty": {{ item.quantity }}, "price": {{ item.price }} }{% if not forloop.last %},{% endif %}
+                        { "id": {{ item.id }}, "product_id": {{ item.product.id|default:0 }}, "name": "{{ item.product.name|escapejs }}", "category": "{{ item.product.category.name|default:''|escapejs }}", "qty": {{ item.quantity }}, "price": {{ item.price }} }{% if not forloop.last %},{% endif %}
                         {% endfor %}
                     ]
                     </script>
@@ -271,7 +269,6 @@
             </div>
         </form>
 
-        <!-- ฟอร์มลับสำหรับส่งคำสั่งลบบิล (DELETE) -->
         <form id="deleteForm" method="POST" style="display: none;">
             {% csrf_token %}
         </form>
@@ -318,7 +315,6 @@
     const PROMPTPAY_ID = "{{ shop_promptpay }}";
     const allProducts = JSON.parse(document.getElementById('all-products-data').textContent);
     
-    // JS Parameter สำหรับส่งค่ากลับไป View เวลามีการอัปเดตข้อมูล
     const queryParams = "?days={{ days|default:'' }}&start_date={{ start_date|default:'' }}&end_date={{ end_date|default:'' }}";
     let currentDeleteUrl = ""; 
 
@@ -349,11 +345,9 @@
     function openEditModal(orderId, receiptNo, itemsScriptId) {
         document.getElementById('editReceiptNo').innerText = receiptNo;
 
-        // เซ็ต URL สำหรับบันทึกการแก้ไข
         let editUrl = "{% url 'history:edit_order' 999999 %}".replace('999999', orderId) + queryParams;
         document.getElementById('editForm').action = editUrl;
 
-        // เซ็ต URL สำรองไว้สำหรับลบบิล
         currentDeleteUrl = "{% url 'history:delete_order' 999999 %}".replace('999999', orderId) + queryParams;
 
         let items = JSON.parse(document.getElementById(itemsScriptId).textContent);
@@ -521,7 +515,40 @@
                     <div style="font-size: 11px;">วันที่: ${new Date().toLocaleString('th-TH')}</div>
                     <div class="line"></div>
                     <div style="flex-grow: 1; overflow: hidden;">
-                        ${items.map((i, index) => `<div class="flex item-text"><span style="padding-right: 5px;">${index + 1}. ${i.name} x${i.qty}</span><span>฿${(i.price * i.qty).toFixed(2)}</span></div>`).join('')}
+        `;
+
+        const excludeKeywords = ["topping", "ท็อปปิ้ง", "กับข้าว", "พิเศษ", "เครื่องดื่ม", "เพิ่มเติม"];
+        let mainIdxPrint = 1;
+
+        items.forEach(item => {
+            const catName = (item.category || "").toLowerCase();
+            const prodName = item.name.toLowerCase();
+            let isSubItem = excludeKeywords.some(kw => prodName.includes(kw) || catName.includes(kw));
+
+             // บังคับให้ กับข้าว, น้ำเปล่า, ข้าวเปล่า เป็นรายการหลักเสมอ (มีเลขนำหน้า)
+            if (prodName.includes("กับข้าว") || catName.includes("กับข้าว") || prodName.includes("น้ำเปล่า") || prodName.includes("ข้าวเปล่า") || prodName.includes("ข้าวปล่าว")) {
+                isSubItem = false;
+            }
+
+            if (isSubItem) {
+                htmlContent += `
+                            <div class="flex item-text" style="padding-left: 12px; color: #555;">
+                                <span>- ${item.name} <small>(x${item.qty})</small></span>
+                                <span>฿${(item.price * item.qty).toFixed(2)}</span>
+                            </div>
+                `;
+            } else {
+                let currIdx = mainIdxPrint++;
+                htmlContent += `
+                            <div class="flex item-text">
+                                <span style="font-weight: bold;">${currIdx}. ${item.name} <small>(x${item.qty})</small></span>
+                                <span style="font-weight: bold;">฿${(item.price * item.qty).toFixed(2)}</span>
+                            </div>
+                `;
+            }
+        });
+
+        htmlContent += `
                     </div>
                     <div class="line"></div>
                     <div class="flex" style="font-weight: bold; font-size: 12px; margin-top: 2px;">
@@ -539,7 +566,6 @@
     }
 
     function downloadSlipImage(receiptNo, dateStr, total, qrDataUrl, shopName, itemsScriptId) {
-        // ดึงข้อมูลสินค้าออกมาแปลงเป็น JSON
         const items = JSON.parse(document.getElementById(itemsScriptId).textContent);
 
         const slipContainer = document.createElement('div');
@@ -553,12 +579,35 @@
         slipContainer.style.color = '#1f2937';
         slipContainer.style.borderRadius = '12px';
 
-        let itemsHtml = items.map((item, index) => `
-            <div style="display: flex; justify-content: space-between; margin-bottom: 8px; font-size: 15px;">
-                <span style="flex: 1; padding-right: 10px;">${index + 1}. ${item.name} <span style="color: #6b7280;">(x${item.qty})</span></span>
-                <span style="font-weight: 500; white-space: nowrap;">฿${(item.price * item.qty).toFixed(2)}</span>
-            </div>
-        `).join('');
+        const excludeKeywords = ["topping", "ท็อปปิ้ง", "กับข้าว", "พิเศษ", "เครื่องดื่ม", "เพิ่มเติม"];
+        let mainIndex = 1;
+        
+        let itemsHtml = items.map(item => {
+            const catName = (item.category || "").toLowerCase();
+            const prodName = item.name.toLowerCase();
+            let isSubItem = excludeKeywords.some(kw => prodName.includes(kw) || catName.includes(kw));
+
+            if (prodName.includes("กับข้าว") || catName.includes("กับข้าว") || prodName.includes("น้ำเปล่า") || prodName.includes("ข้าวเปล่า") || prodName.includes("ข้าวปล่าว")) {
+                isSubItem = false;
+            }
+
+            if (isSubItem) {
+                return `
+                    <div style="display: flex; justify-content: space-between; margin-bottom: 6px; font-size: 14px; padding-left: 20px; color: #6b7280;">
+                        <span style="flex: 1; padding-right: 10px;"><span style="color:#d97706; margin-right:5px;">↳</span> ${item.name} <span style="font-size: 12px;">(x${item.qty})</span></span>
+                        <span style="white-space: nowrap;">฿${(item.price * item.qty).toFixed(2)}</span>
+                    </div>
+                `;
+            } else {
+                let currentIdx = mainIndex++;
+                return `
+                    <div style="display: flex; justify-content: space-between; margin-bottom: 8px; font-size: 15px; color: #1f2937;">
+                        <span style="flex: 1; padding-right: 10px; font-weight: 500;">${currentIdx}. ${item.name} <span style="color: #6b7280; font-weight: normal; font-size: 13px;">(x${item.qty})</span></span>
+                        <span style="font-weight: bold; white-space: nowrap;">฿${(item.price * item.qty).toFixed(2)}</span>
+                    </div>
+                `;
+            }
+        }).join('');
 
         if (shopName.includes("M053") || shopName.includes("เรื่องของหมู")) {
             slipContainer.innerHTML = `
