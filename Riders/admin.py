@@ -36,3 +36,4 @@ class DeliveryTaskAdmin(admin.ModelAdmin):
     ordering = (
         '-last_location_update',
     )
+

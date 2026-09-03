@@ -30,7 +30,7 @@
         .page-header p { margin: 8px 0 0; color: #64748b; font-size: 15px; }
 
         /* =====================================================
-           MAP SECTION (ดีไซน์ใหม่)
+           MAP SECTION
         ===================================================== */
         .map-container {
             width: 100%; height: 600px; background: #e2e8f0; border-radius: 20px;
@@ -40,7 +40,7 @@
         #map { width: 100%; height: 100%; z-index: 1; }
 
         /* =====================================================
-           MAP OVERLAYS (ป้ายสถานะ & กล่องข้อมูล)
+           MAP OVERLAYS
         ===================================================== */
         .map-status {
             position: absolute; top: 15px; left: 15px; z-index: 1000;
@@ -55,18 +55,21 @@
 
         .map-info {
             position: absolute; top: 15px; right: 15px; z-index: 1000; width: 320px;
-            max-height: calc(100% - 30px); /* 🌟 ป้องกันไม่ให้ยาวทะลุแผนที่ */
-            overflow-y: auto; /* 🌟 เลื่อนดูข้อมูลได้ถ้าหน้าจอสั้น */
-            background: rgba(255, 255, 255, 0.85); 
+            max-height: calc(100% - 30px);
+            overflow-y: auto;
+            background: rgba(255, 255, 255, 0.90); 
             backdrop-filter: blur(10px); -webkit-backdrop-filter: blur(10px);
             border-radius: 16px; padding: 20px;
             box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.1); 
             border: 1px solid rgba(255, 255, 255, 0.6);
         }
-/* 🌟 ตกแต่ง Scrollbar ภายในกล่องข้อมูลให้สวยเนียนตา */
-        .map-info::-webkit-scrollbar { width: 5px; }
+        
+        .map-info::-webkit-scrollbar { width: 6px; }
         .map-info::-webkit-scrollbar-track { background: transparent; }
         .map-info::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 10px; }
+        
+        .map-info-title { font-size: 16px; font-weight: 800; color: #0f172a; margin-bottom: 15px; border-bottom: 2px solid #f1f5f9; padding-bottom: 10px; }
+
         .online-status { display: flex; align-items: center; gap: 10px; background: #f8fafc; border-radius: 10px; padding: 12px; margin-bottom: 15px; border: 1px solid #f1f5f9; }
         .online-indicator { width: 10px; height: 10px; border-radius: 50%; background: #94a3b8; }
         .online-indicator.online { background: #22c55e; }
@@ -74,7 +77,7 @@
         #onlineText { font-size: 14px; font-weight: bold; }
 
         /* =====================================================
-           GPS INFO (ตารางข้อมูลในกล่อง)
+           GPS INFO
         ===================================================== */
         .gps-info { display: flex; flex-direction: column; gap: 8px; }
         .gps-row { display: flex; justify-content: space-between; align-items: center; padding: 6px 0; font-size: 13px; border-bottom: 1px dashed #e2e8f0; }
@@ -95,7 +98,7 @@
         .btn-copy:hover { background: #3b82f6; transform: translateY(-2px); box-shadow: 0 4px 6px rgba(59, 130, 246, 0.2); }
 
         /* =====================================================
-           TABLE SECTION (รายการออเดอร์)
+           TABLE SECTION
         ===================================================== */
         .orders-section { margin-top: 30px; }
         .section-title { font-size: 20px; font-weight: 800; color: #0f172a; margin-bottom: 15px; display: flex; align-items: center; gap: 8px; }
@@ -114,9 +117,6 @@
 
         .refresh-text { margin-top: 12px; color: #64748b; font-size: 13px; text-align: right; font-weight: 600; }
 
-        /* =====================================================
-           MOBILE
-        ===================================================== */
         @media (max-width: 900px) {
             .map-container { height: 500px; }
             .map-info { width: 260px; }
@@ -124,7 +124,7 @@
         @media (max-width: 650px) {
             .page-header h1 { font-size: 22px; }
             .map-container { height: 650px; }
-            .map-info { top: auto; bottom: 15px; left: 15px; right: 15px; width: auto; max-height: 280px; overflow-y: auto; }
+            .map-info { top: auto; bottom: 15px; left: 15px; right: 15px; width: auto; max-height: 320px; }
             .map-status { top: 15px; left: 15px; font-size: 12px; }
         }
     </style>
@@ -133,7 +133,7 @@
 <body>
 <div class="app">
     <!-- =====================================================
-         SIDEBAR (คงไว้เหมือนเดิม)
+         SIDEBAR
     ====================================================== -->
     <aside class="sidebar">
         <div class="logo">
@@ -167,23 +167,19 @@
     <main class="main">
         <div class="rider-page">
 
-            <!-- HEADER -->
             <header class="page-header">
-                <h1>🛵 แดชบอร์ดติดตามไรเดอร์</h1>
-                <p>ระบบติดตามพิกัดการจัดส่งออเดอร์แบบเรียลไทม์ (อัปเดตทุก 30 วินาที)</p>
+                <h1>🛵 แดชบอร์ดติดตามไรเดอร์ (จัดส่งเอง)</h1>
+                <p>ระบบติดตามพิกัดการจัดส่งออเดอร์แบบเรียลไทม์ และบันทึกตำแหน่งสำหรับเจ้าของร้าน</p>
             </header>
 
-            <!-- MAP CONTAINER -->
             <div class="map-container">
                 <div id="map"></div>
 
-                <!-- MAP STATUS -->
                 <div class="map-status">
                     <span id="mapStatusDot" class="status-dot"></span>
                     <span id="mapStatusText">รอเลือกออเดอร์จากตารางด้านล่าง 👇</span>
                 </div>
 
-                <!-- MAP INFO PANEL -->
                 <div class="map-info">
                     <div class="map-info-title">📋 ข้อมูลการจัดส่งปัจจุบัน</div>
 
@@ -197,13 +193,10 @@
                             <span class="gps-label">🧾 เลขที่บิล</span>
                             <span id="infoReceipt" class="gps-value highlight-blue">-</span>
                         </div>
-                        
-                        <!-- 🌟 เพิ่มหอพักปลายทางที่นี่ -->
                         <div class="gps-row">
                             <span class="gps-label">🏢 หอพักปลายทาง</span>
                             <span id="gpsDorm" class="gps-value highlight-blue">-</span>
                         </div>
-
                         <div class="gps-row">
                             <span class="gps-label">📍 ละติจูด</span>
                             <span id="gpsLat" class="gps-value">-</span>
@@ -222,12 +215,32 @@
                         </div>
                     </div>
 
-                    <!-- QR CODE -->
+                    <!-- =====================================================
+                         🌟 ส่วนเพิ่มเติม: ควบคุมพิกัดสำหรับเจ้าของร้าน
+                    ====================================================== -->
+                    <div class="owner-action-section" style="margin-top: 15px; padding-top: 15px; border-top: 2px solid #f1f5f9;">
+                        <div class="qr-title" style="color: #2563eb; display: flex; align-items: center; gap: 5px;">
+                            👨‍🍳 เมนูสำหรับเจ้าของร้าน (ส่งเอง)
+                        </div>
+                        
+                        <!-- ช่องกรอกชื่อหอพัก -->
+                        <div style="display: flex; gap: 5px; margin-bottom: 8px;">
+                            <input type="text" id="ownerDormInput" placeholder="พิมพ์ชื่อหอพัก..." style="flex: 1; padding: 8px; border: 1px solid #cbd5e1; border-radius: 8px; font-size: 13px;">
+                            <button onclick="saveOwnerDorm()" style="background: #3b82f6; color: white; border: none; border-radius: 8px; padding: 0 12px; font-weight: bold; cursor: pointer; font-size: 13px;">บันทึก</button>
+                        </div>
+
+                        <!-- ปุ่มยิง GPS จากเครื่องนี้ -->
+                        <button onclick="saveOwnerGPS()" style="width: 100%; background: #10b981; color: white; border: none; border-radius: 8px; padding: 10px; font-size: 13px; font-weight: bold; cursor: pointer; display: flex; justify-content: center; align-items: center; gap: 5px; transition: 0.2s;">
+                            📍 บันทึกพิกัด GPS ปัจจุบันของฉัน
+                        </button>
+
+                        <div id="ownerStatusText" style="font-size: 12px; margin-top: 8px; text-align: center; font-weight: bold;"></div>
+                    </div>
+
+                    <!-- QR CODE (กรณีให้คนอื่นวิ่งแทน) -->
                     <div class="qr-section">
-                        <div class="qr-title">📱 สแกนเพื่อเริ่มส่งพิกัด</div>
+                        <div class="qr-title">📱 สแกนส่งพิกัด (กรณีให้คนอื่นวิ่ง)</div>
                         <div id="qrcode"><span style="color:#94a3b8; font-size:12px;">เลือกออเดอร์</span></div>
-                        <div class="qr-description">ให้ไรเดอร์สแกนด้วยกล้องมือถือ<br>เพื่อเข้าสู่หน้าจอแชร์พิกัด GPS</div>
-                        <button class="btn-copy" onclick="copyTrackingUrl()">🔗 คัดลอกลิงก์ส่งให้ไรเดอร์</button>
                     </div>
                 </div>
             </div>
@@ -253,7 +266,7 @@
                                 <td style="color: #64748b;">{{ order.created_at|date:"d/m/Y H:i" }}</td>
                                 <td>
                                     <button class="btn-track" onclick="event.stopPropagation(); selectOrder({{ order.id }}, '{{ order.receipt_number|escapejs }}');">
-                                        📍 เปิดดูพิกัด
+                                        📍 จัดการพิกัด
                                     </button>
                                 </td>
                             </tr>
@@ -284,42 +297,34 @@
     let currentOrderId = null;
     let currentTrackingUrl = "";
 
-    // ตั้งค่าพิกัดเริ่มต้น (มออุบล)
     const defaultLat = 15.1218;
     const defaultLng = 104.9038;
 
-/* =========================================================
-       INITIALIZE MAP
-    ========================================================= */
     function initializeMap() {
-        // 🌟 ตั้งค่า zoomControl: false เพื่อปิดปุ่มซูมที่มุมซ้ายบน
         mapInstance = L.map("map", { zoomControl: false }).setView([defaultLat, defaultLng], 14);
-        
         L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", {
             maxZoom: 19,
             attribution: "&copy; OpenStreetMap contributors"
         }).addTo(mapInstance);
-
-        // 🌟 สร้างปุ่มซูมใหม่ แล้วย้ายไปไว้ที่ "มุมขวาล่าง" (bottomright) เพื่อหลบกล่องข้อมูล
         L.control.zoom({ position: 'bottomright' }).addTo(mapInstance);
     }
 
     function selectOrder(orderId, receiptNumber) {
         currentOrderId = orderId;
 
-        // ไฮไลต์แถวในตาราง
         document.querySelectorAll(".history-table tbody tr").forEach(row => row.classList.remove("selected"));
         const selectedRow = document.getElementById("order-row-" + orderId);
         if (selectedRow) selectedRow.classList.add("selected");
 
-        // อัปเดตข้อมูลบนกล่อง
         document.getElementById("infoReceipt").textContent = receiptNumber;
+        
+        // ล้างช่องกรอกหอพักและข้อความแจ้งเตือน
+        document.getElementById("ownerDormInput").value = "";
+        document.getElementById("ownerStatusText").textContent = "";
 
-        // สร้างลิงก์และ QR Code
         currentTrackingUrl = window.location.origin + "/riders/track/" + orderId + "/";
         generateQRCode(currentTrackingUrl);
 
-        // ดึงพิกัดและตั้งเวลา
         fetchLocation(orderId);
         clearInterval(timerId);
         timerId = setInterval(() => {
@@ -348,8 +353,12 @@
     }
 
     function updateLocationUI(data) {
-        // 🌟 อัปเดตชื่อหอพัก
         document.getElementById("gpsDorm").textContent = data.dormitory_name || "-";
+        
+        // ให้ช่องกรอกชื่อหอพักแสดงชื่อเดิมที่มีอยู่แล้วด้วย
+        if (document.getElementById("ownerDormInput").value === "" && data.dormitory_name) {
+            document.getElementById("ownerDormInput").value = data.dormitory_name;
+        }
 
         document.getElementById("gpsLat").textContent = data.lat ? Number(data.lat).toFixed(6) : "-";
         document.getElementById("gpsLng").textContent = data.lng ? Number(data.lng).toFixed(6) : "-";
@@ -401,19 +410,82 @@
         });
     }
 
-    async function copyTrackingUrl() {
-        if (!currentTrackingUrl) { alert("กรุณาเลือกออเดอร์ก่อนครับ"); return; }
+    // =========================================================================
+    // ฟังก์ชันใหม่: สำหรับให้เจ้าของร้านบันทึกชื่อหอพัก
+    // =========================================================================
+    async function saveOwnerDorm() {
+        if (!currentOrderId) {
+            alert("กรุณาเลือกออเดอร์จากตารางก่อนครับ"); return;
+        }
+        const dormName = document.getElementById("ownerDormInput").value.trim();
+        if (!dormName) {
+            alert("กรุณากรอกชื่อหอพัก"); return;
+        }
+
+        const statusEl = document.getElementById("ownerStatusText");
+        statusEl.style.color = "#2563eb";
+        statusEl.textContent = "กำลังบันทึกชื่อหอพัก...";
+
         try {
-            await navigator.clipboard.writeText(currentTrackingUrl);
-            alert("📋 คัดลอกลิงก์สำเร็จ นำไปส่งให้ไรเดอร์ได้เลย!");
-        } catch (error) {
-            const input = document.createElement("input");
-            input.value = currentTrackingUrl;
-            document.body.appendChild(input);
-            input.select();
-            document.execCommand("copy");
-            document.body.removeChild(input);
-            alert("📋 คัดลอกลิงก์สำเร็จ!");
+            const res = await fetch(`/riders/api/save-dorm/${currentOrderId}/`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ dormitory_name: dormName })
+            });
+            const data = await res.json();
+            if (data.status === 'success') {
+                statusEl.style.color = "#10b981";
+                statusEl.textContent = "✅ บันทึกชื่อหอพักสำเร็จ!";
+                fetchLocation(currentOrderId); // รีเฟรชข้อมูลบนแผนที่
+                setTimeout(() => { statusEl.textContent = ""; }, 3000);
+            }
+        } catch (err) {
+            statusEl.style.color = "#ef4444";
+            statusEl.textContent = "❌ เกิดข้อผิดพลาดในการบันทึก";
+        }
+    }
+
+    // =========================================================================
+    // ฟังก์ชันใหม่: สำหรับให้เจ้าของร้านยิงพิกัด GPS เครื่องตัวเองเข้าระบบ
+    // =========================================================================
+    function saveOwnerGPS() {
+        if (!currentOrderId) {
+            alert("กรุณาเลือกออเดอร์จากตารางก่อนครับ"); return;
+        }
+
+        const statusEl = document.getElementById("ownerStatusText");
+        statusEl.style.color = "#2563eb";
+        statusEl.textContent = "กำลังค้นหาสัญญาณ GPS...";
+
+        if (navigator.geolocation) {
+            navigator.geolocation.getCurrentPosition(async (pos) => {
+                const lat = pos.coords.latitude;
+                const lng = pos.coords.longitude;
+                
+                try {
+                    const res = await fetch(`/riders/api/update/${currentOrderId}/`, {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ lat: lat, lng: lng })
+                    });
+                    const data = await res.json();
+                    
+                    if(data.status === 'success') {
+                        statusEl.style.color = "#10b981";
+                        statusEl.textContent = "✅ อัปเดตพิกัด GPS สำเร็จ!";
+                        fetchLocation(currentOrderId); // รีเฟรชจุดบนแผนที่
+                        setTimeout(() => { statusEl.textContent = ""; }, 3000);
+                    }
+                } catch (err) {
+                    statusEl.style.color = "#ef4444";
+                    statusEl.textContent = "❌ เกิดข้อผิดพลาดในการส่งพิกัด";
+                }
+            }, (err) => {
+                statusEl.style.color = "#ef4444";
+                statusEl.textContent = "❌ ไม่สามารถเข้าถึง GPS ได้ (กรุณาเปิด Location)";
+            });
+        } else {
+            alert("เบราว์เซอร์นี้ไม่รองรับระบบ GPS");
         }
     }
 
