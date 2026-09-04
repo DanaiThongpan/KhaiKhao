@@ -10,7 +10,12 @@ from Stocks.models import StockItem, StockLog
 
 @login_required
 def history_list(request):
-    orders = Order.objects.filter(created_by=request.user).prefetch_related('items__product').order_by('-created_at')
+    # 🌟 เพิ่ม select_related('delivery_info__destination') เพื่อดึงข้อมูลหอพักมาล่วงหน้า
+    orders = Order.objects.filter(created_by=request.user)\
+        .select_related('delivery_info__destination')\
+        .prefetch_related('items__product')\
+        .order_by('-created_at')
+        
     products = Product.objects.filter(is_active=True, created_by=request.user).order_by('category', 'name')
     
     # -----------------------------------------------------

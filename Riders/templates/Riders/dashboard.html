@@ -3,412 +3,503 @@
 <html lang="th">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>ติดตามไรเดอร์ - KhaiKhao POS</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>แดชบอร์ดงานจัดส่ง - KhaiKhao Delivery</title>
     
-    <!-- CSS หลัก -->
     <link rel="stylesheet" href="{% static 'css/style.css' %}">
     
-    <!-- Leaflet -->
+    <!-- Leaflet & Routing Machine -->
     <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css">
+    <link rel="stylesheet" href="https://unpkg.com/leaflet-routing-machine@latest/dist/leaflet-routing-machine.css" />
     <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
+    <script src="https://unpkg.com/leaflet-routing-machine@latest/dist/leaflet-routing-machine.js"></script>
 
     <style>
-        /* =====================================================
-           GLOBAL & PAGE
-        ===================================================== */
-        * { box-sizing: border-box; }
-        body { font-family: 'Sarabun', 'Tahoma', sans-serif; background: #f8fafc; color: #334155; margin: 0; }
-        .rider-page { width: 100%; max-width: 1200px; margin: 0 auto; }
-        .page-header { margin-bottom: 25px; padding-bottom: 15px; border-bottom: 2px dashed #e2e8f0; }
-        .page-header h1 { margin: 0; font-size: 28px; color: #0f172a; display: flex; align-items: center; gap: 10px; }
-        .page-header p { margin: 8px 0 0; color: #64748b; font-size: 15px; }
+        /* =========================================
+           ✨ MOBILE-FIRST UI DESIGN
+        ========================================= */
+        * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+        body { font-family: 'Sarabun', sans-serif; background: #f4f7f6; margin: 0; padding-bottom: 90px; color: #334155; }
+        
+        .app-header { background: linear-gradient(135deg, #1e293b 0%, #0f172a 100%); color: white; padding: 25px 20px 30px; border-bottom-left-radius: 25px; border-bottom-right-radius: 25px; box-shadow: 0 10px 20px rgba(0,0,0,0.05); position: relative; z-index: 10; }
+        .app-header h1 { margin: 0; font-size: 24px; font-weight: 800; display: flex; align-items: center; gap: 8px;}
+        .app-header p { margin: 5px 0 0; font-size: 14px; color: #cbd5e1; }
+        
+        .container { padding: 0 15px; margin-top: -15px; position: relative; z-index: 20; }
 
-        /* =====================================================
-           MAP SECTION
-        ===================================================== */
-        .map-container { width: 100%; height: 650px; background: #e2e8f0; border-radius: 20px; overflow: hidden; position: relative; border: 4px solid white; box-shadow: 0 10px 25px -5px rgba(0,0,0,0.1); cursor: crosshair; }
-        #map { width: 100%; height: 100%; z-index: 1; }
+        .order-card { background: white; border-radius: 20px; padding: 18px; margin-bottom: 15px; box-shadow: 0 8px 15px rgba(0,0,0,0.04); border: 1px solid rgba(226, 232, 240, 0.8); transition: transform 0.2s; }
+        .order-card:active { transform: scale(0.98); }
+        .order-header { display: flex; justify-content: space-between; align-items: center; border-bottom: 2px dashed #f1f5f9; padding-bottom: 12px; margin-bottom: 12px; }
+        .order-id { font-size: 18px; font-weight: 800; color: #0f172a; }
+        
+        .badge { padding: 6px 12px; border-radius: 20px; font-size: 11px; font-weight: 800; letter-spacing: 0.5px; }
+        .badge-pending { background: #fffbeb; color: #d97706; border: 1px solid #fde68a; }
+        .badge-going { background: #eff6ff; color: #2563eb; border: 1px solid #bfdbfe; }
+        .badge-delivered { background: #f0fdf4; color: #16a34a; border: 1px solid #bbf7d0; }
 
-        .map-status { position: absolute; top: 15px; left: 15px; z-index: 1000; background: rgba(255,255,255,0.85); backdrop-filter: blur(8px); border-radius: 30px; padding: 10px 20px; box-shadow: 0 4px 15px rgba(0,0,0,0.08); display: flex; align-items: center; gap: 10px; font-size: 14px; font-weight: bold; border: 1px solid rgba(255,255,255,0.6); }
-        .status-dot { width: 12px; height: 12px; border-radius: 50%; background: #94a3b8; }
-        .status-dot.online { background: #22c55e; box-shadow: 0 0 0 4px rgba(34, 197, 94, 0.2); }
-        .status-dot.offline { background: #ef4444; }
+        .info-row { display: flex; justify-content: space-between; font-size: 14px; margin-bottom: 8px; color: #64748b; align-items: center;}
+        .info-row strong { color: #10b981; font-size: 16px; font-weight: 900;}
 
-        .map-info { position: absolute; top: 15px; right: 15px; z-index: 1000; width: 340px; max-height: calc(100% - 30px); overflow-y: auto; background: rgba(255,255,255,0.95); backdrop-filter: blur(10px); border-radius: 16px; padding: 20px; box-shadow: 0 10px 25px -5px rgba(0,0,0,0.1); border: 1px solid rgba(255,255,255,0.6); }
-        .map-info::-webkit-scrollbar { width: 6px; }
-        .map-info::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 10px; }
-        .map-info-title { font-size: 16px; font-weight: 800; margin-bottom: 15px; border-bottom: 2px solid #f1f5f9; padding-bottom: 10px; }
+        /* กรอบเวลาการจัดส่ง */
+        .time-box { background: #f0fdf4; border: 1px dashed #bbf7d0; padding: 10px; border-radius: 12px; margin-bottom: 10px; display: flex; justify-content: space-between; align-items: center;}
+        .time-label { color: #166534; font-size: 13px; font-weight: bold; }
+        .time-val { color: #15803d; font-size: 16px; font-weight: 900; }
 
-        .gps-info { display: flex; flex-direction: column; gap: 8px; margin-bottom: 15px; }
-        .gps-row { display: flex; justify-content: space-between; padding: 6px 0; font-size: 13px; border-bottom: 1px dashed #e2e8f0; }
-        .gps-label { color: #64748b; font-weight: 600; }
-        .gps-value { color: #0f172a; font-weight: 800; }
+        .menu-box { background: #f8fafc; border: 1px solid #e2e8f0; padding: 12px; border-radius: 12px; margin: 12px 0; }
+        .menu-title { font-weight: 800; font-size: 13px; color: #1e293b; margin-bottom: 8px; display: flex; align-items: center; gap: 5px; }
+        .menu-list { margin: 0; padding-left: 20px; color: #475569; font-size: 13px; line-height: 1.6; }
+        .menu-qty { color: #3b82f6; font-weight: 800; }
+        
+        .dest-box { background: #fffbeb; padding: 12px 15px; border-radius: 12px; border: 1px solid #fde68a; margin-top: 12px; display: flex; align-items: center; gap: 12px; }
+        .dest-icon { font-size: 22px; background: white; width: 40px; height: 40px; display: flex; justify-content: center; align-items: center; border-radius: 50%; box-shadow: 0 2px 4px rgba(0,0,0,0.05); }
+        .dest-text { flex: 1; }
+        .dest-label { font-size: 11px; color: #d97706; font-weight: bold; margin-bottom: 2px; }
+        .dest-name { font-weight: 800; font-size: 15px; color: #1e293b; display: flex; align-items: center; justify-content: space-between;}
+        .dest-zone { font-size: 11px; color: #2563eb; background: #dbeafe; padding: 2px 6px; border-radius: 4px; display: inline-block;}
 
-        /* =====================================================
-           ACTION BUTTONS
-        ===================================================== */
-        .owner-action-section { background: #f1f5f9; padding: 15px; border-radius: 12px; border: 1px solid #e2e8f0; margin-bottom: 15px; }
-        .btn-action { width: 100%; border: none; border-radius: 8px; padding: 10px; font-size: 13px; font-weight: bold; cursor: pointer; display: flex; justify-content: center; align-items: center; gap: 5px; transition: 0.2s; margin-top: 8px; }
-        .btn-blue { background: #3b82f6; color: white; }
-        .btn-blue:hover { background: #2563eb; }
-        .btn-green { background: #10b981; color: white; }
-        .btn-green:hover { background: #059669; }
-        .btn-red { background: #ef4444; color: white; }
+        .btn-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-top: 15px; }
+        .btn { padding: 12px 10px; border-radius: 12px; font-weight: bold; font-size: 14px; text-align: center; border: none; cursor: pointer; transition: 0.2s; display: flex; justify-content: center; align-items: center; gap: 5px; }
+        .btn-primary { background: #3b82f6; color: white; box-shadow: 0 4px 10px rgba(59, 130, 246, 0.3); }
+        .btn-success { background: #10b981; color: white; box-shadow: 0 4px 10px rgba(16, 185, 129, 0.3); }
+        .btn-outline { background: white; color: #3b82f6; border: 2px solid #e2e8f0; }
+        .btn-outline:active { background: #f1f5f9; }
+        .btn-disabled { background: #e2e8f0; color: #94a3b8; cursor: not-allowed; box-shadow: none; }
 
-        /* =====================================================
-           SMART ROUTING (โครงสร้างสำหรับอนาคต)
-        ===================================================== */
-        .smart-route-panel { background: linear-gradient(to right, #eff6ff, #f8fafc); border-left: 4px solid #3b82f6; padding: 15px 20px; border-radius: 12px; margin: 25px 0; display: flex; justify-content: space-between; align-items: center; box-shadow: 0 2px 4px rgba(0,0,0,0.02); }
-        .route-info h3 { margin: 0 0 5px 0; color: #1e293b; font-size: 16px; display: flex; align-items: center; gap: 8px; }
-        .route-info p { margin: 0; color: #64748b; font-size: 13px; }
-        .btn-route { background: #1e293b; color: white; border: none; padding: 10px 20px; border-radius: 8px; font-weight: bold; cursor: pointer; transition: 0.2s; display: flex; gap: 8px; align-items: center; }
-        .btn-route:hover { background: #0f172a; transform: translateY(-2px); }
+        .bottom-nav { position: fixed; bottom: 0; width: 100%; background: white; display: flex; justify-content: space-around; padding: 12px 0 15px; box-shadow: 0 -5px 20px rgba(0,0,0,0.06); z-index: 1000; border-top-left-radius: 20px; border-top-right-radius: 20px; }
+        .nav-item { display: flex; flex-direction: column; align-items: center; color: #94a3b8; text-decoration: none; font-size: 11px; font-weight: 800; gap: 4px; transition: 0.2s;}
+        .nav-item.active { color: #3b82f6; }
+        .nav-icon { font-size: 22px; transition: transform 0.2s; }
+        .nav-item.active .nav-icon { transform: translateY(-3px); }
 
-        /* =====================================================
-           TABLE SECTION
-        ===================================================== */
-        .table-responsive { width: 100%; overflow-x: auto; background: white; border-radius: 16px; box-shadow: 0 4px 6px -1px rgba(0,0,0,0.05); }
-        .history-table { width: 100%; border-collapse: collapse; min-width: 700px; }
-        .history-table th, .history-table td { padding: 16px 20px; font-size: 14px; border-bottom: 1px solid #f1f5f9; text-align: left; }
-        .history-table tbody tr { cursor: pointer; }
-        .history-table tbody tr:hover { background: #f1f5f9; }
-        .history-table tbody tr.selected { background: #eff6ff; border-left: 4px solid #3b82f6; }
-        .btn-track { background: #3b82f6; color: white; border: none; padding: 6px 12px; border-radius: 6px; cursor: pointer; font-weight: bold; }
+        .modal-overlay { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(15, 23, 42, 0.6); backdrop-filter: blur(3px); z-index: 2000; display: none; align-items: flex-end; justify-content: center; opacity: 0; transition: opacity 0.3s; }
+        .modal-content { background: white; width: 100%; max-width: 600px; border-top-left-radius: 25px; border-top-right-radius: 25px; padding: 25px 20px 35px; transform: translateY(100%); transition: transform 0.3s cubic-bezier(0.4, 0, 0.2, 1); box-shadow: 0 -10px 25px rgba(0,0,0,0.1); }
+        .modal-overlay.active { display: flex; opacity: 1; }
+        .modal-overlay.active .modal-content { transform: translateY(0); }
+        .modal-handle { width: 40px; height: 5px; background: #cbd5e1; border-radius: 5px; margin: 0 auto 20px; }
+        .modal-title { font-size: 20px; font-weight: 800; margin-bottom: 20px; color: #0f172a; text-align: center; }
+        .form-select { width: 100%; padding: 15px; border-radius: 14px; border: 2px solid #e2e8f0; font-size: 16px; margin-bottom: 20px; background: #f8fafc; outline: none; color: #1e293b; font-weight: bold; }
+
+        /* Map Screen & Timer */
+        .map-screen { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: white; z-index: 3000; display: none; flex-direction: column; animation: slideUp 0.3s ease-out; }
+        @keyframes slideUp { from { transform: translateY(100%); } to { transform: translateY(0); } }
+        .map-header { padding: 15px 20px; background: white; display: flex; justify-content: space-between; align-items: center; box-shadow: 0 4px 15px rgba(0,0,0,0.05); z-index: 10; position: relative; }
+        .map-header h2 { margin: 0; font-size: 18px; color: #0f172a; display: flex; align-items: center; gap: 8px;}
+        #liveMap { flex: 1; width: 100%; background: #e2e8f0; }
+        .map-info-panel { position: absolute; bottom: 30px; left: 20px; right: 20px; background: rgba(255,255,255,0.95); backdrop-filter: blur(10px); padding: 20px; border-radius: 20px; box-shadow: 0 10px 30px rgba(0,0,0,0.15); z-index: 3010; border: 1px solid rgba(255,255,255,0.5); }
+        .map-dest-name { font-weight: 800; color: #0f172a; font-size: 18px; margin-bottom: 8px; display: flex; align-items: center; gap: 5px; }
+        .map-dist-box { display: flex; align-items: center; gap: 10px; background: #f8fafc; padding: 10px; border-radius: 12px; border: 1px solid #e2e8f0; margin-bottom: 15px;}
+        .map-dist-icon { font-size: 24px; }
+        .map-dist-text { font-size: 13px; color: #64748b; font-weight: bold; }
+        .map-dist-val { font-size: 16px; color: #3b82f6; font-weight: 900; }
+        .timer-box { background: #0f172a; color: white; padding: 15px; border-radius: 12px; text-align: center; margin-bottom: 15px; display: none; border: 2px solid #3b82f6;}
+        .timer-text { font-size: 32px; font-weight: 900; font-variant-numeric: tabular-nums; display: block; letter-spacing: 2px; color: #38bdf8;}
+        .timer-label { font-size: 11px; color: #94a3b8; text-transform: uppercase; letter-spacing: 1px;}
+
+        /* 🌟 หน้าต่างขอสิทธิ์เข้าถึงตำแหน่ง (Overlay) */
+        .permission-overlay { position: absolute; top: 0; left: 0; width: 100%; height: 100%; background: rgba(255,255,255,0.95); z-index: 4000; display: none; flex-direction: column; align-items: center; justify-content: center; padding: 20px; text-align: center; backdrop-filter: blur(5px); }
+        @keyframes bounce { 0%, 100% { transform: translateY(0); } 50% { transform: translateY(-15px); } }
     </style>
 </head>
 <body>
-<div class="app">
-    <aside class="sidebar">
-        <div class="logo"><h2>KhaiKhao</h2><span>POS</span></div>
-        <nav class="menu">
-            <a href="{% url 'pos:home' %}" class="menu-item active"><span>🏠</span><span>หน้าหลัก</span></a>
-            <a href="{% url 'history:home' %}" class="menu-item"><span>📜</span><span>ประวัติการขาย</span></a>
-            <a href="{% url 'expenses:home' %}" class="menu-item"><span>💵</span><span>บันทึกรายจ่าย</span></a>
-            <a href="{% url 'products:list' %}" class="menu-item"><span>📦</span><span>สินค้า</span></a>
-            <a href="{% url 'stocks:list' %}" class="menu-item"><span>🛒</span><span>สต๊อกของใช้</span></a>
-            <a href="{% url 'reports:home' %}" class="menu-item"><span>📊</span><span>รายงาน</span></a>
-            <a href="{% url 'tax:home' %}" class="menu-item"><span>📑</span><span>คำนวณภาษี</span></a>
-            <a href="{% url 'riders:home' %}" class="menu-item"><span>🛵</span><span>ติดตามไรเดอร์</span></a>
-        </nav>
-    </aside>
 
-    <main class="main">
-        <div class="rider-page">
-            <header class="page-header">
-                <h1>🛵 แดชบอร์ดจัดการจัดส่ง (ระบบจัดการจุดหมาย)</h1>
-                <p>เลือกลงพิกัดหอพักลูกค้า แชร์พิกัดไรเดอร์เรียลไทม์ และปิดจ็อบเมื่อจัดส่งสำเร็จ</p>
-            </header>
+<header class="app-header">
+    <h1>🛵 งานจัดส่งของฉัน</h1>
+    <p>เลือกลำดับหอพัก ดูรายการอาหาร และเปิดระบบนำทาง</p>
+</header>
 
-            <div class="map-container">
-                <div id="map"></div>
-
-                <div class="map-status">
-                    <span id="mapStatusDot" class="status-dot"></span>
-                    <span id="mapStatusText">รอเลือกออเดอร์จากตารางด้านล่าง 👇</span>
-                </div>
-
-                <div class="map-info">
-                    <div class="map-info-title">📋 ข้อมูลออเดอร์ <span id="infoReceipt" style="color:#2563eb;">-</span></div>
-
-                    <div class="gps-info">
-                        <div class="gps-row">
-                            <span class="gps-label">🚦 สถานะงาน</span>
-                            <span id="gpsStatus" class="gps-value">-</span>
-                        </div>
-                        <div class="gps-row">
-                            <span class="gps-label">🏢 หอพักปลายทาง</span>
-                            <span id="gpsDorm" class="gps-value">-</span>
-                        </div>
-                    </div>
-
-                    <!-- 1. กำหนดจุดหมายปลายทาง -->
-                    <div class="owner-action-section">
-                        <div style="font-weight: bold; color: #334155; margin-bottom: 8px;">📍 1. กำหนดจุดหมายปลายทาง</div>
-                        <div id="destAlert" style="font-size: 12px; color: #ef4444; margin-bottom: 8px; font-weight: bold;">
-                            โปรดคลิกบนแผนที่เพื่อปักหมุดจุดหมาย
-                        </div>
-                        <input type="text" id="ownerDormInput" placeholder="พิมพ์ชื่อหอพัก..." style="width: 100%; padding: 8px; border: 1px solid #cbd5e1; border-radius: 8px; font-size: 13px; margin-bottom: 8px;">
-                        
-                        <input type="hidden" id="tempDestLat">
-                        <input type="hidden" id="tempDestLng">
-                        
-                        <button onclick="saveDestination()" class="btn-action btn-blue">
-                            💾 บันทึกจุดหมาย (เริ่มจัดส่ง)
-                        </button>
-                    </div>
-
-                    <!-- 2. จัดการพิกัดไรเดอร์ -->
-                    <div class="owner-action-section">
-                        <div style="font-weight: bold; color: #334155; margin-bottom: 8px;">🛵 2. จัดการพิกัดไรเดอร์</div>
-                        
-                        <button id="btnStartOwnerTracking" onclick="startOwnerTracking()" class="btn-action btn-blue">
-                            🟢 แชร์พิกัดเจ้าของร้านเรียลไทม์
-                        </button>
-                        <button id="btnStopOwnerTracking" onclick="stopOwnerTracking()" class="btn-action btn-red" style="display: none;">
-                            🔴 หยุดแชร์พิกัด
-                        </button>
-
-                        <button id="btnCompleteDelivery" onclick="completeDelivery()" class="btn-action btn-green" style="margin-top: 15px; display: none; padding: 15px; font-size: 15px;">
-                            ✅ จัดส่งถึงมือลูกค้าแล้ว
-                        </button>
-                        <div id="ownerStatusText" style="font-size: 11px; margin-top: 8px; text-align: center; font-weight: bold;"></div>
-                    </div>
-                </div>
-            </div>
-
-            <!-- =====================================================
-                 โครงสร้างฟีเจอร์อนาคต: วิเคราะห์เส้นทางอัจฉริยะ 
-            ====================================================== -->
-            <div class="smart-route-panel">
-                <div class="route-info">
-                    <h3>🧠 ระบบจัดเรียงคิวจัดส่ง (Smart Routing) <span style="background: #e2e8f0; color: #475569; font-size: 10px; padding: 2px 6px; border-radius: 4px;">รออัปเดต</span></h3>
-                    <p>วิเคราะห์เส้นทางจากร้าน -> หอพักลูกค้า เรียงลำดับใกล้ไปไกลเพื่อประหยัดเวลาที่สุด</p>
-                </div>
-                <button class="btn-route" onclick="alert('ฟีเจอร์วิเคราะห์และจัดเรียงเส้นทางด้วย AI จะเปิดใช้งานในอัปเดตถัดไปครับ 🚀')">
-                    🗺️ คำนวณเส้นทางจัดส่ง
-                </button>
-            </div>
-
-            <!-- ตารางออเดอร์ -->
-            <div class="orders-section">
-                <div style="font-size: 18px; font-weight: 800; margin-bottom: 10px;">📦 รายการออเดอร์รอนำส่ง</div>
-                <div class="table-responsive">
-                    <table class="history-table">
-                        <thead>
-                            <tr>
-                                <th>เลขอ้างอิง</th>
-                                <th>วันที่สั่งซื้อ</th>
-                                <th>สถานะจัดส่ง</th>
-                                <th>จัดการ</th>
-                            </tr>
-                        </thead>
-                        <tbody>
-                            {% for order in orders %}
-                            <tr id="order-row-{{ order.id }}" onclick="selectOrder({{ order.id }}, '{{ order.receipt_number|escapejs }}')">
-                                <td style="font-weight: 800; color: #1e293b;">{{ order.receipt_number }}</td>
-                                <td style="color: #64748b;">{{ order.created_at|date:"d/m/Y H:i" }}</td>
-                                <td style="font-size: 12px; font-weight: bold; color: #475569;">
-                                    {% if order.delivery_info.status == 'DELIVERED' %}
-                                        <span style="color: #10b981;">✅ สำเร็จ</span>
-                                    {% elif order.delivery_info.status == 'GOING' %}
-                                        <span style="color: #3b82f6;">🛵 กำลังส่ง</span>
-                                    {% else %}
-                                        <span style="color: #f59e0b;">⏳ รอดำเนินการ</span>
-                                    {% endif %}
-                                </td>
-                                <td><button class="btn-track">📍 เลือก</button></td>
-                            </tr>
-                            {% endfor %}
-                        </tbody>
-                    </table>
-                </div>
-            </div>
-
+<div class="container">
+    {% for order in orders %}
+    {% with task=order.delivery_info %}
+    <div class="order-card" id="order-card-{{ order.id }}">
+        <div class="order-header">
+            <span class="order-id">บิล #{{ order.receipt_number|default:order.id }}</span>
+            <span class="badge {% if task.status == 'DELIVERED' %}badge-delivered{% elif task.status == 'GOING' %}badge-going{% else %}badge-pending{% endif %}">
+                {{ task.status|default:"PENDING" }}
+            </span>
         </div>
-    </main>
+        
+        <div class="info-row">
+            <span>เวลาสั่งซื้อ:</span>
+            <span>{{ order.created_at|date:"H:i (d/m)" }}</span>
+        </div>
+        <div class="info-row">
+            <span>ยอดชำระสุทธิ:</span>
+            <strong>฿{{ order.total_amount|floatformat:2 }}</strong>
+        </div>
+
+        {% if task.status == 'DELIVERED' and task.duration_minutes != None %}
+        <div class="time-box">
+            <span class="time-label">⏱️ ใช้เวลาจัดส่ง:</span>
+            <span class="time-val">{{ task.duration_minutes }} นาที</span>
+        </div>
+        {% endif %}
+
+        <div class="menu-box">
+            <div class="menu-title">📋 รายการที่สั่ง:</div>
+            <ul class="menu-list">
+                {% for item in order.items.all %}
+                    <li>{{ item.product.name }} <span class="menu-qty">(x{{ item.quantity }})</span></li>
+                {% empty %}
+                    <li style="list-style: none; margin-left: -20px; color: #94a3b8;">- ไม่มีรายการ -</li>
+                {% endfor %}
+            </ul>
+        </div>
+        
+        <div class="dest-box">
+            <div class="dest-icon">📍</div> 
+            <div class="dest-text">
+                <div class="dest-label">สถานที่จัดส่งปลายทาง</div>
+                <div class="dest-name">
+                    {% if task.destination %}
+                        {{ task.destination.name }}
+                        <span class="dest-zone">{{ task.destination.zone }}</span>
+                    {% else %}
+                        <span style="color: #ef4444; font-size: 14px;">รอไรเดอร์ระบุหอพัก...</span>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+
+        {% if task.status == 'DELIVERED' %}
+        <div style="background: #f8fafc; text-align: center; padding: 15px; border-radius: 12px; border: 1px solid #e2e8f0; color: #16a34a; font-weight: 800; font-size: 15px; margin-top: 15px;">
+            🎉 ส่งอาหารเรียบร้อยแล้ว
+        </div>
+        {% else %}
+        <div class="btn-grid">
+            <button class="btn btn-outline" onclick="openSelectModal('{{ order.id }}')">
+                ⚙️ เลือกหอพัก
+            </button>
+            
+            {% if task.destination and task.destination.latitude %}
+            <button class="btn btn-primary" onclick="openTrackingMap('{{ order.id }}', '{{ task.destination.name|escapejs }}', {{ task.destination.latitude }}, {{ task.destination.longitude }})">
+                🗺️ ดูเส้นทาง
+            </button>
+            {% else %}
+            <button class="btn btn-disabled" onclick="alert('กรุณาเลือกหอพักปลายทางก่อนดูเส้นทางครับ')">
+                🗺️ ดูเส้นทาง
+            </button>
+            {% endif %}
+        </div>
+        {% endif %}
+    </div>
+    {% endwith %}
+    {% empty %}
+    <div style="text-align: center; padding: 60px 20px; color: #94a3b8;">
+        <div style="font-size: 60px; margin-bottom: 15px; opacity: 0.5;">🛵</div>
+        <h3 style="margin: 0 0 5px; color: #475569;">ไม่มีงานจัดส่ง</h3>
+        <p style="margin: 0; font-size: 14px;">ออเดอร์ที่ถูกสั่งจากหน้าร้านจะแสดงที่นี่</p>
+    </div>
+    {% endfor %}
+</div>
+
+<!-- Modal เลือกหอพัก -->
+<div class="modal-overlay" id="selectDormModal" onclick="closeSelectModal(event)">
+    <div class="modal-content" onclick="event.stopPropagation()">
+        <div class="modal-handle"></div>
+        <div class="modal-title">เลือกสถานที่จัดส่ง</div>
+        <input type="hidden" id="modalOrderId">
+        <select id="modalDormSelect" class="form-select">
+            <option value="" disabled selected>-- ค้นหา / เลือกหอพัก --</option>
+            {% for d in dorms %}
+                <option value="{{ d.id }}">[{{ d.zone }}] {{ d.name }}</option>
+            {% endfor %}
+        </select>
+        <button class="btn btn-primary" style="width: 100%; padding: 16px; font-size: 16px; border-radius: 14px;" onclick="saveDestination()">
+            💾 ยืนยันการเลือก
+        </button>
+    </div>
+</div>
+
+<!-- Fullscreen Map & Delivery Timer -->
+<div class="map-screen" id="trackingScreen">
+    <div class="map-header">
+        <h2>🛰️ ระบบนำทางอัจฉริยะ</h2>
+        <button class="btn btn-outline" style="padding: 8px 16px; border-radius: 20px; font-size: 12px; margin: 0;" onclick="closeTrackingMap()">❌ ปิดแผนที่</button>
+    </div>
+    
+    <!-- 🌟 หน้าต่างขออนุญาต GPS ก่อนเริ่ม -->
+    <div class="permission-overlay" id="locationPermissionOverlay">
+        <div style="font-size: 60px; margin-bottom: 15px; animation: bounce 2s infinite;">📍</div>
+        <h3 style="color: #0f172a; margin: 0 0 10px;">เปิดใช้งาน GPS นำทาง</h3>
+        <p style="color: #64748b; font-size: 14px; margin-bottom: 25px;">ระบบต้องการเข้าถึงตำแหน่งปัจจุบันของคุณ<br>เพื่อวาดเส้นทางไปหาลูกค้าและอัปเดตแบบเรียลไทม์</p>
+        <button class="btn btn-primary" id="btnGrantLocation" style="width: 100%; max-width: 300px; padding: 15px; font-size: 16px; margin-bottom: 10px;" onclick="requestLocationPermission()">
+            ✅ อนุญาตเข้าถึงตำแหน่ง
+        </button>
+        <button class="btn btn-outline" style="width: 100%; max-width: 300px; padding: 15px; font-size: 16px;" onclick="closeTrackingMap()">
+            ❌ ยกเลิก
+        </button>
+    </div>
+
+    <div id="liveMap"></div>
+    
+    <div class="map-info-panel">
+        <div class="map-dest-name">
+            <span style="font-size: 20px;">🏢</span> <span id="trackDormName">-</span>
+        </div>
+        <div class="map-dist-box">
+            <div class="map-dist-icon">🧭</div>
+            <div>
+                <div class="map-dist-text">ระยะทางและเวลาประเมิน</div>
+                <div class="map-dist-val" id="trackDistance">กำลังค้นหาพิกัดของคุณ...</div>
+            </div>
+        </div>
+
+        <div class="timer-box" id="deliveryTimerBox">
+            <span class="timer-label">ระยะเวลาจัดส่ง</span>
+            <span class="timer-text" id="deliveryTimer">00:00</span>
+        </div>
+
+        <button class="btn btn-primary" id="btnStartDelivery" style="width: 100%; padding: 15px; font-size: 16px;" onclick="startDeliveryTimer()">
+            🚀 เริ่มจัดส่ง
+        </button>
+        <button class="btn btn-success" id="btnCompleteDelivery" style="width: 100%; padding: 15px; font-size: 16px; display: none;" onclick="completeDelivery()">
+            ✅ จัดส่งเสร็จสิ้น
+        </button>
+    </div>
+</div>
+
+<div class="bottom-nav">
+    <a href="{% url 'pos:home' %}" class="nav-item">
+        <span class="nav-icon">🏠</span> หน้าแรก
+    </a>
+    <a href="#" class="nav-item active">
+        <span class="nav-icon">🛵</span> งานจัดส่ง
+    </a>
+    <a href="{% url 'riders:dormitory_map' %}" class="nav-item">
+        <span class="nav-icon">📍</span> จัดการพิกัด
+    </a>
 </div>
 
 <script>
-    let mapInstance = null;
-    let riderMarker = null;
-    let destMarker = null;
-    let routeLine = null;
-    let timerId = null;
-    let ownerTrackingIntervalId = null;
-    let currentOrderId = null;
-
-    const defaultLat = 15.1218;
-    const defaultLng = 104.9038;
-
-    const destIcon = L.icon({
-        iconUrl: 'https://raw.githubusercontent.com/pointhi/leaflet-color-markers/master/img/marker-icon-2x-red.png',
-        shadowUrl: 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/0.7.7/images/marker-shadow.png',
-        iconSize: [25, 41], iconAnchor: [12, 41], popupAnchor: [1, -34]
-    });
-
-    function initializeMap() {
-        mapInstance = L.map("map", { zoomControl: false }).setView([defaultLat, defaultLng], 14);
-        L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png").addTo(mapInstance);
-        L.control.zoom({ position: 'bottomright' }).addTo(mapInstance);
-
-        mapInstance.on('click', function(e) {
-            if (!currentOrderId) return;
-            const lat = e.latlng.lat;
-            const lng = e.latlng.lng;
-            
-            if (!destMarker) {
-                destMarker = L.marker([lat, lng], {icon: destIcon}).addTo(mapInstance);
-            } else {
-                destMarker.setLatLng([lat, lng]);
-            }
-            
-            document.getElementById('tempDestLat').value = lat;
-            document.getElementById('tempDestLng').value = lng;
-            document.getElementById('destAlert').innerText = "📍 เล็งพิกัดแล้ว (กรอกชื่อและกดบันทึก)";
-            document.getElementById('destAlert').style.color = "#2563eb";
-        });
-    }
-
-    function selectOrder(orderId, receiptNumber) {
-        currentOrderId = orderId;
-        document.querySelectorAll(".history-table tbody tr").forEach(row => row.classList.remove("selected"));
-        document.getElementById("order-row-" + orderId).classList.add("selected");
-        document.getElementById("infoReceipt").textContent = receiptNumber;
-        
-        document.getElementById('tempDestLat').value = "";
-        document.getElementById('tempDestLng').value = "";
-        document.getElementById("ownerDormInput").value = "";
-        document.getElementById('destAlert').innerText = "โปรดคลิกบนแผนที่เพื่อปักหมุดจุดหมาย";
-        document.getElementById('destAlert').style.color = "#ef4444";
-        
-        stopOwnerTracking();
-        fetchLocation(orderId);
-        
-        clearInterval(timerId);
-        timerId = setInterval(() => { if (currentOrderId) fetchLocation(currentOrderId); }, 30000);
-    }
-
-    async function fetchLocation(orderId) {
-        try {
-            const res = await fetch("/riders/api/get/" + orderId + "/");
-            const data = await res.json();
-            updateUI(data);
-            updateMapElements(data);
-        } catch (e) { console.error(e); }
-    }
-
-    function updateUI(data) {
-        document.getElementById("gpsDorm").textContent = data.dormitory_name || "-";
-        if(document.getElementById("ownerDormInput").value === "" && data.dormitory_name) {
-            document.getElementById("ownerDormInput").value = data.dormitory_name;
-        }
-
-        let sText = "รอจัดส่ง (ยังไม่มีจุดหมาย)";
-        document.getElementById("btnCompleteDelivery").style.display = 'none';
-
-        if(data.status === "GOING") {
-            sText = "🛵 กำลังจัดส่ง";
-            document.getElementById("btnCompleteDelivery").style.display = 'flex';
-            document.getElementById('destAlert').innerText = "📍 บันทึกจุดหมายเรียบร้อยแล้ว";
-            document.getElementById('destAlert').style.color = "#10b981";
-        } else if(data.status === "DELIVERED") {
-            sText = "✅ จัดส่งสำเร็จแล้ว";
-            document.getElementById("btnCompleteDelivery").style.display = 'none';
-            document.getElementById('destAlert').innerText = "🎉 ออเดอร์นี้จัดส่งเรียบร้อยแล้ว";
-            document.getElementById('destAlert').style.color = "#10b981";
-        }
-        document.getElementById("gpsStatus").textContent = sText;
-    }
-
-    function updateMapElements(data) {
-        if (data.dest_lat && data.dest_lng) {
-            const dLat = parseFloat(data.dest_lat);
-            const dLng = parseFloat(data.dest_lng);
-            if (!destMarker) {
-                destMarker = L.marker([dLat, dLng], {icon: destIcon}).addTo(mapInstance);
-                destMarker.bindPopup("<b>🏠 จุดหมายลูกค้า</b>");
-            } else {
-                destMarker.setLatLng([dLat, dLng]);
-            }
-        } else {
-            if (destMarker) { mapInstance.removeLayer(destMarker); destMarker = null; }
-        }
-
-        if (data.lat && data.lng) {
-            const rLat = parseFloat(data.lat);
-            const rLng = parseFloat(data.lng);
-            if (!riderMarker) {
-                riderMarker = L.marker([rLat, rLng]).addTo(mapInstance);
-                riderMarker.bindPopup("<b>🛵 ตำแหน่งปัจจุบัน</b>");
-            } else {
-                riderMarker.setLatLng([rLat, rLng]);
+    function getCookie(name) {
+        let cookieValue = null;
+        if (document.cookie && document.cookie !== '') {
+            const cookies = document.cookie.split(';');
+            for (let i = 0; i < cookies.length; i++) {
+                const cookie = cookies[i].trim();
+                if (cookie.substring(0, name.length + 1) === (name + '=')) {
+                    cookieValue = decodeURIComponent(cookie.substring(name.length + 1));
+                    break;
+                }
             }
         }
+        return cookieValue;
+    }
+    const csrftoken = getCookie('csrftoken');
 
-        if (riderMarker && destMarker) {
-            const latlngs = [riderMarker.getLatLng(), destMarker.getLatLng()];
-            if (!routeLine) {
-                routeLine = L.polyline(latlngs, {color: '#3b82f6', dashArray: '10, 10', weight: 4}).addTo(mapInstance);
-            } else {
-                routeLine.setLatLngs(latlngs);
-            }
-            mapInstance.fitBounds(routeLine.getBounds(), {padding: [50, 50]});
-        } else if (riderMarker) {
-            mapInstance.setView(riderMarker.getLatLng(), 16);
-            if (routeLine) { mapInstance.removeLayer(routeLine); routeLine = null; }
-        } else if (destMarker) {
-            mapInstance.setView(destMarker.getLatLng(), 16);
-            if (routeLine) { mapInstance.removeLayer(routeLine); routeLine = null; }
-        }
+    // ----------------------------------------------------
+    function openSelectModal(orderId) {
+        document.getElementById('modalOrderId').value = orderId;
+        const modal = document.getElementById('selectDormModal');
+        modal.style.display = 'flex';
+        setTimeout(() => modal.classList.add('active'), 10);
+    }
+
+    function closeSelectModal(e) {
+        if(e) e.preventDefault();
+        const modal = document.getElementById('selectDormModal');
+        modal.classList.remove('active');
+        setTimeout(() => modal.style.display = 'none', 300);
     }
 
     async function saveDestination() {
-        if (!currentOrderId) return alert("กรุณาเลือกออเดอร์");
-        const dormName = document.getElementById("ownerDormInput").value.trim();
-        const lat = document.getElementById('tempDestLat').value || (destMarker ? destMarker.getLatLng().lat : null);
-        const lng = document.getElementById('tempDestLng').value || (destMarker ? destMarker.getLatLng().lng : null);
+        const orderId = document.getElementById('modalOrderId').value;
+        const dormId = document.getElementById('modalDormSelect').value;
 
-        if (!dormName || !lat) return alert("กรุณาคลิกเลือกจุดหมายบนแผนที่ และกรอกชื่อหอพักครับ");
+        if (!dormId) return alert("⚠️ กรุณาเลือกหอพักที่ต้องการจัดส่ง");
 
         try {
-            await fetch(`/riders/api/save-dest/${currentOrderId}/`, {
-                method: 'POST', headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ dormitory_name: dormName, dest_lat: lat, dest_lng: lng })
+            const res = await fetch(`/riders/api/save-destination/${orderId}/`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json', 'X-CSRFToken': csrftoken },
+                body: JSON.stringify({ dormitory_id: dormId })
             });
-            fetchLocation(currentOrderId);
-            alert("บันทึกจุดหมายสำเร็จ! ระบบเปลี่ยนสถานะเป็น 'กำลังจัดส่ง' แล้ว");
-        } catch(e) { alert("เกิดข้อผิดพลาดในการบันทึก"); }
+            const data = await res.json();
+            if (data.status === 'success') { location.reload(); } 
+            else { alert("❌ เกิดข้อผิดพลาด: " + data.message); }
+        } catch(e) { alert("❌ เซิร์ฟเวอร์ขัดข้อง"); }
+    }
+
+    // ----------------------------------------------------
+    let trackingMap = null;
+    let riderMarker = null;
+    let destMarker = null;
+    let routingControl = null;
+    let watchId = null;
+    let targetLat = null;
+    let targetLng = null;
+    let currentTrackingOrderId = null;
+    let deliveryStartTime = null;
+    let deliveryTimerInterval = null;
+
+    // 🌟 เปลี่ยนไอคอนตัวเราเองให้เป็นรูปรถไรเดอร์ 🛵 สวยๆ
+    const riderIcon = L.divIcon({
+        className: 'custom-rider-icon',
+        html: '<div style="font-size: 26px; background: white; border-radius: 50%; width: 45px; height: 45px; display: flex; align-items: center; justify-content: center; box-shadow: 0 4px 10px rgba(0,0,0,0.3); border: 3px solid #3b82f6;">🛵</div>',
+        iconSize: [45, 45],
+        iconAnchor: [22, 45],
+        popupAnchor: [0, -40]
+    });
+    const destIcon = L.icon({ 
+        iconUrl: 'https://raw.githubusercontent.com/pointhi/leaflet-color-markers/master/img/marker-icon-2x-red.png', 
+        shadowUrl: 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/0.7.7/images/marker-shadow.png', 
+        iconSize: [25, 41], iconAnchor: [12, 41], popupAnchor: [1, -34] 
+    });
+
+    function initMap() {
+        if (!trackingMap) {
+            trackingMap = L.map('liveMap', { zoomControl: false }).setView([15.1218, 104.9038], 14);
+            L.tileLayer('https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png', { attribution: '&copy; OpenStreetMap' }).addTo(trackingMap);
+        }
+    }
+
+    function openTrackingMap(orderId, destName, dLat, dLng) {
+        currentTrackingOrderId = orderId;
+        document.getElementById('trackDormName').innerText = destName;
+        document.getElementById('trackingScreen').style.display = 'flex';
+        
+        // โชว์หน้าต่างขออนุญาต GPS ก่อน
+        document.getElementById('locationPermissionOverlay').style.display = 'flex';
+        document.getElementById('btnGrantLocation').innerText = '✅ อนุญาตเข้าถึงตำแหน่ง';
+        
+        document.getElementById('btnStartDelivery').style.display = 'flex';
+        document.getElementById('btnStartDelivery').innerText = '🚀 เริ่มจัดส่ง';
+        document.getElementById('btnStartDelivery').disabled = false;
+        
+        document.getElementById('btnCompleteDelivery').style.display = 'none';
+        document.getElementById('deliveryTimerBox').style.display = 'none';
+        document.getElementById('deliveryTimer').innerText = '00:00';
+        clearInterval(deliveryTimerInterval);
+
+        targetLat = parseFloat(dLat);
+        targetLng = parseFloat(dLng);
+        
+        setTimeout(() => { initMap(); trackingMap.invalidateSize(); }, 300);
+    }
+
+    // 🌟 ฟังก์ชันขอสิทธิ์เข้าถึงตำแหน่ง
+    function requestLocationPermission() {
+        if (!navigator.geolocation) {
+            alert("เบราว์เซอร์ของคุณไม่รองรับ GPS");
+            return;
+        }
+
+        const btn = document.getElementById('btnGrantLocation');
+        btn.innerText = "⏳ กำลังดึงข้อมูล GPS...";
+
+        navigator.geolocation.getCurrentPosition(
+            (pos) => {
+                // ถ้าลูกค้าอนุญาตให้ปิดหน้าต่าง Overlay แล้วเริ่มวาดเส้นทาง
+                document.getElementById('locationPermissionOverlay').style.display = 'none';
+                startRouting();
+            },
+            (err) => {
+                alert("❌ คุณปฏิเสธการเข้าถึงตำแหน่ง หรือเกิดข้อผิดพลาด กรุณาอนุญาต GPS ในการตั้งค่ามือถือ");
+                btn.innerText = "✅ อนุญาตเข้าถึงตำแหน่ง";
+            },
+            { enableHighAccuracy: true, timeout: 10000 }
+        );
+    }
+
+    function startRouting() {
+        if (destMarker) trackingMap.removeLayer(destMarker);
+        if (routingControl) { trackingMap.removeControl(routingControl); routingControl = null; }
+        const destLatLng = L.latLng(targetLat, targetLng);
+        destMarker = L.marker(destLatLng, {icon: destIcon}).addTo(trackingMap).bindPopup("<b>จุดหมายของลูกค้า</b>").openPopup();
+
+        document.getElementById('trackDistance').innerText = "กำลังคำนวณเส้นทาง...";
+        
+        // 🌟 ติดตามตำแหน่งแบบ Live (หมุดรถจะขยับตามจริง)
+        watchId = navigator.geolocation.watchPosition(
+            (pos) => {
+                const riderLatLng = L.latLng(pos.coords.latitude, pos.coords.longitude);
+                
+                if (riderMarker) { 
+                    riderMarker.setLatLng(riderLatLng); 
+                } else { 
+                    riderMarker = L.marker(riderLatLng, {icon: riderIcon}).addTo(trackingMap).bindPopup("<b>คุณอยู่ที่นี่</b>"); 
+                }
+
+                if (routingControl) { 
+                    routingControl.setWaypoints([riderLatLng, destLatLng]); 
+                } else {
+                    routingControl = L.Routing.control({
+                        waypoints: [riderLatLng, destLatLng], 
+                        routeWhileDragging: false, 
+                        addWaypoints: false, 
+                        fitSelectedRoutes: true, 
+                        show: false, 
+                        lineOptions: { styles: [{color: '#3b82f6', weight: 6, opacity: 0.8}] }
+                    }).on('routesfound', function(e) {
+                        const summary = e.routes[0].summary;
+                        const distKm = (summary.totalDistance / 1000).toFixed(2);
+                        const timeMin = Math.max(1, Math.round(summary.totalTime % 3600 / 60));
+                        document.getElementById('trackDistance').innerText = `${distKm} กม. • ~ ${timeMin} นาที`;
+                    }).addTo(trackingMap);
+                }
+            },
+            (err) => { document.getElementById('trackDistance').innerText = "❌ สัญญาณ GPS ขาดหาย"; },
+            { enableHighAccuracy: true, maximumAge: 5000 }
+        );
+    }
+
+    async function startDeliveryTimer() {
+        if (!navigator.geolocation) return alert("อุปกรณ์ไม่รองรับระบบ GPS");
+        
+        const btnStart = document.getElementById('btnStartDelivery');
+        btnStart.disabled = true; btnStart.innerText = "⏳ กำลังบันทึกเวลา...";
+
+        try {
+            const res = await fetch(`/riders/api/start-delivery/${currentTrackingOrderId}/`, { method: 'POST', headers: { 'X-CSRFToken': csrftoken } });
+            if (res.ok) {
+                btnStart.style.display = 'none';
+                document.getElementById('deliveryTimerBox').style.display = 'block';
+                document.getElementById('btnCompleteDelivery').style.display = 'flex';
+                
+                deliveryStartTime = Date.now();
+                deliveryTimerInterval = setInterval(() => {
+                    let elapsed = Math.floor((Date.now() - deliveryStartTime) / 1000);
+                    let m = Math.floor(elapsed / 60).toString().padStart(2, '0');
+                    let s = (elapsed % 60).toString().padStart(2, '0');
+                    document.getElementById('deliveryTimer').innerText = `${m}:${s}`;
+                }, 1000);
+            } else {
+                alert("❌ ระบบมีปัญหา ไม่สามารถเริ่มงานได้");
+                btnStart.disabled = false; btnStart.innerText = "🚀 เริ่มจัดส่ง";
+            }
+        } catch(e) { alert("❌ เซิร์ฟเวอร์ไม่ตอบสนอง"); }
     }
 
     async function completeDelivery() {
-        if (confirm("ยืนยันว่าจัดส่งถึงมือลูกค้าเรียบร้อยแล้ว?")) {
-            await fetch(`/riders/api/complete/${currentOrderId}/`, { method: 'POST' });
-            stopOwnerTracking();
-            fetchLocation(currentOrderId);
+        if(!confirm("ยืนยันว่าจัดส่งอาหารถึงมือลูกค้าเรียบร้อยแล้วใช่ไหม?")) return;
+        
+        clearInterval(deliveryTimerInterval);
+        const btnComp = document.getElementById('btnCompleteDelivery');
+        btnComp.disabled = true; btnComp.innerText = "⏳ กำลังบันทึกข้อมูล...";
+        
+        try {
+            const res = await fetch(`/riders/api/complete-delivery/${currentTrackingOrderId}/`, { method: 'POST', headers: { 'X-CSRFToken': csrftoken } });
+            const data = await res.json();
             
-            const rowStatus = document.querySelector(`#order-row-${currentOrderId} td:nth-child(3)`);
-            if(rowStatus) rowStatus.innerHTML = '<span style="color: #10b981;">✅ สำเร็จ</span>';
+            if (data.status === 'success') {
+                alert(`🎉 จัดส่งสำเร็จเรียบร้อย!\n⏱️ ใช้เวลาเดินทางไปทั้งหมด: ${data.duration || 0} นาที`);
+                location.reload(); 
+            } else {
+                alert("❌ เกิดข้อผิดพลาด: " + data.message);
+                btnComp.disabled = false; btnComp.innerText = "✅ จัดส่งเสร็จสิ้น";
+            }
+        } catch(e) {
+            alert("❌ ไม่สามารถเชื่อมต่อเซิร์ฟเวอร์เพื่อปิดงานได้");
+            btnComp.disabled = false; btnComp.innerText = "✅ จัดส่งเสร็จสิ้น";
         }
     }
 
-    function startOwnerTracking() {
-        if (!currentOrderId) return alert("กรุณาเลือกออเดอร์");
-        if (navigator.geolocation) {
-            document.getElementById('btnStartOwnerTracking').style.display = 'none';
-            document.getElementById('btnStopOwnerTracking').style.display = 'flex';
-            document.getElementById("ownerStatusText").textContent = "กำลังส่งพิกัดเรียลไทม์... 🛰️";
-            document.getElementById("ownerStatusText").style.color = "#2563eb";
-            
-            sendOwnerGPS();
-            ownerTrackingIntervalId = setInterval(sendOwnerGPS, 30000);
-        } else {
-            alert("เบราว์เซอร์ไม่รองรับ GPS");
-        }
+    function closeTrackingMap() {
+        document.getElementById('trackingScreen').style.display = 'none';
+        document.getElementById('locationPermissionOverlay').style.display = 'none';
+        if (watchId) navigator.geolocation.clearWatch(watchId);
+        clearInterval(deliveryTimerInterval);
     }
-    
-    function stopOwnerTracking() {
-        clearInterval(ownerTrackingIntervalId);
-        ownerTrackingIntervalId = null;
-        document.getElementById('btnStartOwnerTracking').style.display = 'flex';
-        document.getElementById('btnStopOwnerTracking').style.display = 'none';
-        document.getElementById("ownerStatusText").textContent = "🔴 หยุดส่งพิกัดแล้ว";
-        document.getElementById("ownerStatusText").style.color = "#ef4444";
-    }
-    
-    function sendOwnerGPS() {
-        if (!currentOrderId) return;
-        navigator.geolocation.getCurrentPosition(async (pos) => {
-            await fetch(`/riders/api/update/${currentOrderId}/`, {
-                method: 'POST', headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ lat: pos.coords.latitude, lng: pos.coords.longitude })
-            });
-            fetchLocation(currentOrderId);
-        });
-    }
-
-    document.addEventListener("DOMContentLoaded", initializeMap);
 </script>
 </body>
 </html>

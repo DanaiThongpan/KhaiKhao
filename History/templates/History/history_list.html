@@ -89,8 +89,8 @@
             <span>POS</span>
         </div>
         <nav class="menu">
-            <a href="{% url 'pos:home' %}" class="menu-item active"><span>🏠</span><span>หน้าหลัก</span></a>
-            <a href="{% url 'history:home' %}" class="menu-item"><span>📜</span><span>ประวัติการขาย</span></a>
+            <a href="{% url 'pos:home' %}" class="menu-item"><span>🏠</span><span>หน้าหลัก</span></a>
+            <a href="{% url 'history:home' %}" class="menu-item active"><span>📜</span><span>ประวัติการขาย</span></a>
             <a href="{% url 'expenses:home' %}" class="menu-item"><span>💵</span><span>บันทึกรายจ่าย</span></a>
             <a href="{% url 'products:list' %}" class="menu-item"><span>📦</span><span>สินค้า</span></a>
             <a href="{% url 'stocks:list' %}" class="menu-item"><span>🛒</span><span>สต๊อกของใช้</span></a>
@@ -127,7 +127,7 @@
             </div>
         </header>
 
-        <!-- ================= ส่วนตัวกรองช่วงเวลา (แบบละเอียด) ================= -->
+        <!-- ================= ส่วนตัวกรองช่วงเวลา ================= -->
         <form method="GET" class="filter-card">
             <div style="flex: 1; min-width: 140px;">
                 <label style="font-size: 12px; color: #64748b; font-weight: bold; display: block; margin-bottom: 4px;">📅 ตัวกรองด่วน:</label>
@@ -176,17 +176,16 @@
                 document.getElementById('daysFilter').value = 'custom';
             }
         </script>
-        <!-- ================= จบส่วนตัวกรองช่วงเวลา ================= -->
 
         <div class="table-responsive">
             <table class="history-table">
                 <thead>
                     <tr>
                         <th style="width: 5%; text-align: center;">ออเดอร์ที่</th>
-                        <th style="width: 40%; text-align: left;">รายการสินค้า</th>
+                        <th style="width: 35%; text-align: left;">รายการสินค้า</th>
                         <th style="width: 15%; text-align: center;">วันที่ขาย</th>
                         <th style="width: 15%; text-align: center;">ยอดรวม</th>
-                        <th style="width: 10%; text-align: center;">สถานะ</th>
+                        <th style="width: 15%; text-align: center;">สถานะ / จัดส่ง</th>
                         <th style="width: 15%; text-align: center;">จัดการบิล</th>
                     </tr>
                 </thead>
@@ -214,7 +213,45 @@
                         </td>
                         <td style="text-align: center; white-space: nowrap;">{{ order.created_at|date:"d/m/Y H:i" }}</td>
                         <td style="text-align: center; font-weight: bold; color: #16a34a;">฿{{ order.total_amount|floatformat:2 }}</td>
-                        <td style="text-align: center;"><span class="status-badge">ชำระแล้ว</span></td>
+                        
+                        <!-- 🌟 เปลี่ยนกล่องสถานะ ให้แสดงหอพัก, สถานะการส่ง, และนาที -->
+                        <td style="text-align: center;">
+                            <span class="status-badge" style="margin-bottom: 5px; display: inline-block;">✅ ชำระแล้ว</span>
+                            
+                            {% if order.delivery_info %}
+                                {% if order.delivery_info.destination %}
+                                    <div style="font-size: 12px; color: #1e40af; font-weight: bold; background: #dbeafe; padding: 4px 8px; border-radius: 6px; display: inline-block; white-space: nowrap; margin-bottom: 5px;">
+                                        📍 {{ order.delivery_info.destination.name }}
+                                    </div>
+                                {% endif %}
+
+                                {% if order.delivery_info.status == 'DELIVERED' %}
+                                    <div style="font-size: 11px; color: #166534; font-weight: bold; background: #dcfce7; padding: 4px 8px; border-radius: 6px; display: inline-block; white-space: nowrap;">
+                                        🎉 ส่งสำเร็จ 
+                                        {% if order.delivery_info.duration_minutes != None %}
+                                            (⏱️ {{ order.delivery_info.duration_minutes }} นาที)
+                                        {% endif %}
+                                    </div>
+                                {% elif order.delivery_info.status == 'GOING' %}
+                                    <div style="font-size: 11px; color: #d97706; font-weight: bold; background: #fef3c7; padding: 4px 8px; border-radius: 6px; display: inline-block; white-space: nowrap;">
+                                        🚀 กำลังไปส่ง
+                                    </div>
+                                {% elif order.delivery_info.status == 'PENDING' and order.delivery_info.destination %}
+                                    <div style="font-size: 11px; color: #ea580c; font-weight: bold; background: #ffedd5; padding: 4px 8px; border-radius: 6px; display: inline-block; white-space: nowrap;">
+                                        ⏳ รอไรเดอร์จัดส่ง
+                                    </div>
+                                {% elif not order.delivery_info.destination %}
+                                    <div style="font-size: 11px; color: #64748b; font-weight: bold; background: #f1f5f9; padding: 4px 8px; border-radius: 6px; display: inline-block; white-space: nowrap;">
+                                        🏪 ทานหน้าร้าน
+                                    </div>
+                                {% endif %}
+                            {% else %}
+                                <div style="font-size: 11px; color: #64748b; font-weight: bold; background: #f1f5f9; padding: 4px 8px; border-radius: 6px; display: inline-block; white-space: nowrap;">
+                                    🏪 ทานหน้าร้าน
+                                </div>
+                            {% endif %}
+                        </td>
+
                         <td class="action-td" style="text-align: center;">
                             <div class="action-buttons">
                                 <button class="action-btn edit" onclick="openEditModal({{ order.id }}, '{{ order.receipt_number }}', 'items-{{ order.id }}')">
