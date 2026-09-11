@@ -3,7 +3,7 @@
 <html lang="th">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=0">
     <title>แผนที่หอพักรอบ ม.อุบล - KhaiKhao POS</title>
     
     <link rel="stylesheet" href="{% static 'css/style.css' %}">
@@ -11,41 +11,69 @@
     <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
 
     <style>
+        /* 🌟 Reset ค่าต่างๆ เพื่อป้องกันหน้าจอหด/ขยายผิดปกติในมือถือ 🌟 */
+        html, body { max-width: 100vw; overflow-x: hidden; font-family: 'Sarabun', 'Tahoma', sans-serif; background: #f8fafc; margin: 0; }
         * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
-        body { font-family: 'Sarabun', 'Tahoma', sans-serif; background: #f8fafc; margin: 0; }
+
+        .app { display: flex; min-height: 100vh; max-width: 100vw; overflow-x: hidden; }
+        .sidebar { width: 250px; flex-shrink: 0; background: #111827; color: white; display: flex; flex-direction: column; }
+        .main { flex: 1; display: flex; flex-direction: column; max-width: 100vw; overflow-x: hidden; }
+
         .page-header { margin: 25px 30px; padding-bottom: 15px; border-bottom: 2px dashed #e2e8f0; }
         .page-header h1 { margin: 0; font-size: 28px; color: #0f172a; }
         .page-header p { margin: 8px 0 0; color: #64748b; font-size: 15px; }
 
-        /* 🌟 ระบบ Layout แบบใหม่ (ซ้าย-ขวา) ไม่ลอยทับแผนที่ 🌟 */
-        .map-container { display: flex; gap: 20px; margin: 0 30px 20px 30px; height: 600px; }
-        
-        #map { flex: 1; height: 100%; border-radius: 16px; border: 4px solid white; box-shadow: 0 10px 25px -5px rgba(0,0,0,0.1); z-index: 1; order: 2; /* แผนที่อยู่ขวา */ }
+        /* ========================================================
+           🌟 โครงสร้างใหม่ แยกแผนที่ และ กล่องฟอร์ม ออกจากกัน 100% 🌟
+           ======================================================== */
+        .map-layout {
+            display: flex;
+            flex-direction: row;
+            gap: 20px;
+            margin: 0 30px 20px 30px;
+            align-items: stretch;
+            height: 600px;
+        }
 
-        .panel-box { width: 350px; height: 100%; background: white; border-radius: 16px; padding: 20px; overflow-y: auto; box-shadow: 0 4px 15px rgba(0,0,0,0.05); border: 1px solid #e2e8f0; flex-shrink: 0; order: 1; /* ฟอร์มอยู่ซ้าย */ }
-        .panel-right { border: 2px solid #f59e0b; }
+        #map {
+            flex: 1;
+            border-radius: 16px;
+            border: 4px solid white;
+            box-shadow: 0 10px 25px -5px rgba(0,0,0,0.1);
+            z-index: 1;
+        }
 
-        .panel-box::-webkit-scrollbar { width: 5px; }
-        .panel-box::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 10px; }
-
-        .mobile-toggle-btn { display: none; } /* ซ่อนปุ่มเปิด/ปิดแผง เพราะไม่ต้องลอยทับแล้ว */
+        .data-panel {
+            width: 380px;
+            background: white;
+            border-radius: 16px;
+            padding: 20px;
+            overflow-y: auto;
+            box-shadow: 0 4px 15px rgba(0,0,0,0.05);
+            border: 1px solid #e2e8f0;
+            flex-shrink: 0;
+        }
+        .data-panel::-webkit-scrollbar { width: 6px; }
+        .data-panel::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 10px; }
 
         /* Input & Buttons */
-        .search-input, .add-input { width: 100%; padding: 12px; border-radius: 8px; border: 1px solid #cbd5e1; font-size: 14px; outline: none; margin-bottom: 10px; background: white; font-family: 'Sarabun', sans-serif;}
+        .section-label { font-size: 14px; font-weight: bold; color: #334155; margin-bottom: 8px; display: block; }
+        .search-input, .add-input { width: 100%; padding: 14px; border-radius: 10px; border: 1px solid #cbd5e1; font-size: 15px; outline: none; margin-bottom: 15px; background: white; font-family: 'Sarabun', sans-serif;}
         .search-input:focus, .add-input:focus { border-color: #3b82f6; box-shadow: 0 0 0 3px rgba(59,130,246,0.1); }
 
-        .btn-green { background: #10b981; color: white; border: none; padding: 14px; border-radius: 8px; cursor: pointer; font-weight: bold; width: 100%; font-size: 14px; margin-bottom: 8px; transition: 0.2s; }
-        .btn-blue { background: #3b82f6; color: white; border: none; padding: 14px; border-radius: 8px; cursor: pointer; font-weight: bold; width: 100%; font-size: 14px; margin-bottom: 8px; transition: 0.2s; }
-        .btn-orange { background: #f59e0b; color: white; border: none; padding: 14px; border-radius: 8px; cursor: pointer; font-weight: bold; width: 100%; font-size: 14px; margin-bottom: 8px; transition: 0.2s; }
-        .btn-red { background: #ef4444; color: white; border: none; padding: 14px; border-radius: 8px; cursor: pointer; font-weight: bold; width: 100%; font-size: 14px; transition: 0.2s; }
-        .btn-icon { width: 48px; display: flex; align-items: center; justify-content: center; font-size: 18px; margin-bottom: 10px; flex-shrink: 0; padding: 0;}
+        .btn-green { background: #10b981; color: white; border: none; padding: 15px; border-radius: 10px; cursor: pointer; font-weight: bold; width: 100%; font-size: 15px; margin-bottom: 10px; transition: 0.2s; }
+        .btn-blue { background: #3b82f6; color: white; border: none; padding: 15px; border-radius: 10px; cursor: pointer; font-weight: bold; width: 100%; font-size: 15px; margin-bottom: 10px; transition: 0.2s; }
+        .btn-orange { background: #f59e0b; color: white; border: none; padding: 15px; border-radius: 10px; cursor: pointer; font-weight: bold; width: 100%; font-size: 15px; margin-bottom: 10px; transition: 0.2s; }
+        .btn-red { background: #ef4444; color: white; border: none; padding: 15px; border-radius: 10px; cursor: pointer; font-weight: bold; width: 100%; font-size: 15px; transition: 0.2s; }
+        .btn-icon { width: 50px; display: flex; align-items: center; justify-content: center; font-size: 18px; margin-bottom: 15px; flex-shrink: 0; padding: 0;}
         
-        .color-palette { display: flex; gap: 8px; flex-wrap: wrap; margin-bottom: 12px; }
-        .color-chip { width: 32px; height: 32px; border-radius: 50%; cursor: pointer; border: 2px solid #cbd5e1; transition: 0.1s; }
-        .color-chip.active { border-color: #0f172a; box-shadow: 0 0 0 3px #3b82f6; }
+        .color-palette { display: flex; gap: 8px; flex-wrap: wrap; margin-bottom: 15px; }
+        .color-chip { width: 35px; height: 35px; border-radius: 50%; cursor: pointer; border: 2px solid #cbd5e1; transition: 0.1s; }
+        .color-chip.active { border-color: #0f172a; box-shadow: 0 0 0 3px #3b82f6; transform: scale(1.1); }
 
+        /* Table */
         .table-section { margin: 0 30px 30px 30px; background: white; border-radius: 16px; box-shadow: 0 4px 6px -1px rgba(0,0,0,0.05); overflow: hidden; border: 1px solid #e2e8f0; padding: 20px; }
-        .table-responsive { width: 100%; overflow-x: auto; max-height: 500px; }
+        .table-responsive { width: 100%; overflow-x: auto; max-height: 500px; -webkit-overflow-scrolling: touch; display: block; }
         .history-table { width: 100%; border-collapse: collapse; min-width: 750px; }
         .history-table th { position: sticky; top: 0; background: #f8fafc; padding: 14px; font-size: 14px; color: #475569; border-bottom: 2px solid #e2e8f0; text-align: left; }
         .history-table td { padding: 12px 14px; border-bottom: 1px solid #f1f5f9; font-size: 14px; color: #1e293b; vertical-align: middle; }
@@ -55,34 +83,65 @@
         .btn-edit { background: #f59e0b; color: white; border: none; padding: 8px 12px; border-radius: 6px; cursor: pointer; font-weight: bold; font-size: 12px; margin-right: 4px; }
         .btn-delete { background: #ef4444; color: white; border: none; padding: 8px 12px; border-radius: 6px; cursor: pointer; font-weight: bold; font-size: 12px; }
         
-        .app { display: flex; min-height: 100vh; }
-        .sidebar { width: 250px; flex-shrink: 0; background: #111827; color: white; display: flex; flex-direction: column; }
-        .main { flex: 1; display: flex; flex-direction: column; }
+        /* ========================================================
+           🌟 โหมดมือถือบังคับเด็ดขาด (Force Mobile Overrides) 🌟
+           ======================================================== */
+        @media screen and (max-width: 1024px) {
+            body { padding-bottom: 80px !important; }
+            .app { flex-direction: column !important; display: block !important; }
+            
+            /* เมนูด้านล่างสุด */
+            .sidebar { 
+                position: fixed !important; 
+                bottom: 0 !important; 
+                top: auto !important;
+                left: 0 !important; 
+                right: 0 !important; 
+                width: 100% !important; 
+                height: 70px !important; 
+                flex-direction: row !important; 
+                background: #111827 !important; 
+                padding: 0 !important; 
+                justify-content: space-around !important; 
+                box-shadow: 0 -4px 15px rgba(0,0,0,0.1) !important;
+                z-index: 9999 !important;
+            }
+            .sidebar .logo { display: none !important; }
+            .sidebar .menu { display: flex !important; flex-direction: row !important; width: 100% !important; justify-content: space-around !important; padding: 0 !important; margin: 0 !important; }
+            .sidebar .menu-item { display: flex !important; flex-direction: column !important; align-items: center !important; justify-content: center !important; padding: 5px !important; width: 100% !important; font-size: 11px !important; }
+            .sidebar .menu-item span:nth-child(1) { font-size: 24px !important; margin-bottom: 4px !important; }
+            .sidebar .menu-item span:nth-child(2) { display: block !important; font-size: 11px !important; }
+            .sidebar .menu-item.active { background: transparent !important; color: #4ade80 !important; }
+            
+            .main { margin-left: 0 !important; width: 100% !important; }
+            .page-header { margin: 15px !important; padding-bottom: 10px !important; }
+            .page-header h1 { font-size: 22px !important; }
+            
+            /* เรียงแผนที่ไว้บน และฟอร์มไว้ล่าง (ไม่ซ้อนทับกัน) */
+            .map-layout { 
+                flex-direction: column !important; 
+                height: auto !important; 
+                margin: 0 15px 15px 15px !important; 
+                gap: 15px !important; 
+            }
+            
+            #map { 
+                width: 100% !important; 
+                height: 45vh !important; 
+                min-height: 350px !important; 
+                order: 1 !important; 
+            }
+            
+            .data-panel { 
+                width: 100% !important; 
+                height: auto !important; 
+                max-height: none !important; 
+                order: 2 !important; 
+                border-radius: 16px !important;
+            }
 
-        /* 🌟 ระบบ Layout สำหรับมือถือ (บน-ล่าง) 🌟 */
-        @media (max-width: 850px) {
-            body { padding-bottom: 80px; }
-            .app { flex-direction: column; }
-            .sidebar { position: fixed; bottom: 0; left: 0; right: 0; width: 100%; height: 70px; flex-direction: row; border-top: 1px solid #374151; z-index: 9999; background: #111827; padding: 0; justify-content: space-around; box-shadow: 0 -4px 15px rgba(0,0,0,0.1);}
-            .sidebar .logo { display: none; }
-            .sidebar .menu { display: flex; flex-direction: row; width: 100%; justify-content: space-around; padding: 0; margin: 0; }
-            .sidebar .menu-item { display: flex; flex-direction: column; align-items: center; justify-content: center; padding: 5px; width: 100%; font-size: 11px; }
-            .sidebar .menu-item span:nth-child(1) { font-size: 24px; margin-bottom: 4px; }
-            .sidebar .menu-item span:nth-child(2) { display: block !important; font-size: 11px; }
-            .sidebar .menu-item.active { background: transparent; color: #4ade80; }
-            
-            .main { margin-left: 0; }
-            .page-header { margin: 15px; padding-bottom: 10px; }
-            .page-header h1 { font-size: 22px; }
-            
-            .map-container { flex-direction: column; height: auto; margin: 0 15px 15px 15px; gap: 15px; }
-            
-            #map { width: 100%; height: 45vh; min-height: 350px; order: 1; /* แผนที่อยู่บน */ }
-            
-            .panel-box { width: 100%; height: auto; order: 2; /* ฟอร์มอยู่ล่าง */ }
-
-            .table-section { margin: 0 15px 20px 15px; padding: 15px; border-radius: 12px; }
-            .history-table th, .history-table td { padding: 12px 10px; font-size: 14px; }
+            .table-section { margin: 0 15px 20px 15px !important; padding: 15px !important; border-radius: 12px !important; }
+            .history-table th, .history-table td { padding: 12px 10px !important; font-size: 14px !important; }
         }
     </style>
 </head>
@@ -104,81 +163,85 @@
             <p>จัดการหมุด โซน และเลือกสีหมุดตามต้องการ</p>
         </header>
 
-        <!-- 🌟 โครงสร้างใหม่ แยกแผนที่และกล่องข้อมูลออกจากกันชัดเจน 🌟 -->
-        <div class="map-container">
+        <!-- 🌟 โครงสร้างใหม่: วางแผนที่กับฟอร์มเป็นกล่องแยกกัน ไม่บังกันแน่นอน 🌟 -->
+        <div class="map-layout">
             
+            <!-- 🗺️ ส่วนแผนที่ (ในมือถือจะอยู่ด้านบน) -->
             <div id="map"></div>
             
-            <div class="panel-box panel-left" id="panelAdd">
-                <div id="addPanelContent" class="panel-content">
-                    <div style="margin-bottom: 15px; padding-bottom: 15px; border-bottom: 2px dashed #cbd5e1;">
-                        <div style="font-weight: bold; color: #1e293b; margin-bottom: 8px;">🔍 ค้นหาและกรองโซน</div>
-                        <select id="zoneFilter" class="search-input" onchange="filterDorms()">
-                            <option value="all">🌍 แสดงทุกโซน</option>
-                        </select>
-                        <input type="text" id="dormSearch" class="search-input" placeholder="พิมพ์ชื่อหอพัก..." onkeyup="filterDorms()">
-                        <div style="font-size: 13px; color: #64748b;">
-                            พบหอพัก <span id="dormCount" style="font-weight: bold; color: #3b82f6;">0</span> แห่ง
-                        </div>
+            <!-- 📝 แผงข้อมูลเพิ่มหอพัก (ในมือถือจะเรียงต่ออยู่ด้านล่าง) -->
+            <div class="data-panel" id="panelAdd">
+                
+                <!-- กล่องค้นหา -->
+                <div style="margin-bottom: 20px; padding-bottom: 20px; border-bottom: 2px dashed #cbd5e1;">
+                    <div style="font-weight: 800; color: #1e293b; margin-bottom: 12px; font-size: 16px;">🔍 ค้นหาและกรองโซน</div>
+                    <select id="zoneFilter" class="search-input" onchange="filterDorms()">
+                        <option value="all">🌍 แสดงทุกโซน</option>
+                    </select>
+                    <input type="text" id="dormSearch" class="search-input" placeholder="พิมพ์ชื่อหอพัก..." onkeyup="filterDorms()">
+                    <div style="font-size: 14px; color: #64748b; font-weight: bold; text-align: right;">
+                        พบหอพัก <span id="dormCount" style="color: #3b82f6; font-size: 18px;">0</span> แห่ง
+                    </div>
+                </div>
+
+                <!-- กล่องเพิ่มข้อมูล -->
+                <div>
+                    <div style="font-weight: 800; color: #1e293b; margin-bottom: 15px; font-size: 18px;">➕ เพิ่มหอพักใหม่</div>
+                    
+                    <label class="section-label">ชื่อหอพัก:</label>
+                    <input type="text" id="newDormName" class="add-input" placeholder="กรอกชื่อหอพักใหม่...">
+                    
+                    <label class="section-label">โซนจัดส่ง:</label>
+                    <div id="newZoneSelectGroup" style="display: flex; gap: 8px;">
+                        <select id="newDormZoneSelect" class="add-input" style="flex: 1; margin-bottom: 15px;"></select>
+                        <button class="btn-blue btn-icon" onclick="toggleZoneInput('new')" title="เพิ่มโซนใหม่">➕</button>
+                    </div>
+                    <div id="newZoneInputGroup" style="display: none; gap: 8px;">
+                        <input type="text" id="newDormZoneInput" class="add-input" style="flex: 1; margin-bottom: 15px;" placeholder="พิมพ์ชื่อโซนใหม่...">
+                        <button class="btn-red btn-icon" onclick="toggleZoneInput('new')" title="ยกเลิก">❌</button>
                     </div>
 
-                    <div>
-                        <div style="font-weight: bold; color: #1e293b; margin-bottom: 12px; font-size: 16px;">➕ เพิ่มหอพักใหม่</div>
-                        
-                        <label style="font-size: 13px; font-weight: bold; color: #475569; margin-bottom: 5px; display: block;">ชื่อหอพัก:</label>
-                        <input type="text" id="newDormName" class="add-input" placeholder="กรอกชื่อหอพักใหม่...">
-                        
-                        <label style="font-size: 13px; font-weight: bold; color: #475569; margin-bottom: 5px; display: block;">โซนจัดส่ง:</label>
-                        <div id="newZoneSelectGroup" style="display: flex; gap: 8px;">
-                            <select id="newDormZoneSelect" class="add-input" style="flex: 1; margin-bottom: 10px;"></select>
-                            <button class="btn-blue btn-icon" onclick="toggleZoneInput('new')" title="เพิ่มโซนใหม่">➕</button>
-                        </div>
-                        <div id="newZoneInputGroup" style="display: none; gap: 8px;">
-                            <input type="text" id="newDormZoneInput" class="add-input" style="flex: 1; margin-bottom: 10px;" placeholder="พิมพ์ชื่อโซนใหม่...">
-                            <button class="btn-red btn-icon" onclick="toggleZoneInput('new')" title="ยกเลิก">❌</button>
-                        </div>
-
-                        <label style="font-size: 13px; font-weight: bold; color: #475569; margin-bottom: 5px; display: block;">สีหมุดบนแผนที่:</label>
-                        <div class="color-palette" id="newColorPalette">
-                            <div class="color-chip active" style="background: #3b82f6;" onclick="selectColor('new', 'blue', this)"></div>
-                            <div class="color-chip" style="background: #10b981;" onclick="selectColor('new', 'green', this)"></div>
-                            <div class="color-chip" style="background: #eab308;" onclick="selectColor('new', 'gold', this)"></div>
-                            <div class="color-chip" style="background: #ef4444;" onclick="selectColor('new', 'red', this)"></div>
-                            <div class="color-chip" style="background: #f97316;" onclick="selectColor('new', 'orange', this)"></div>
-                            <div class="color-chip" style="background: #8b5cf6;" onclick="selectColor('new', 'violet', this)"></div>
-                            <div class="color-chip" style="background: #ec4899;" onclick="selectColor('new', 'pink', this)"></div>
-                            <div class="color-chip" style="background: #0f172a;" onclick="selectColor('new', 'black', this)"></div>
-                        </div>
-                        <input type="hidden" id="newDormColor" value="blue">
-
-                        <button onclick="getCurrentLocationForDorm()" class="btn-green">📍 1. ดึงพิกัด GPS ปัจจุบัน</button>
-                        <div id="newDormCoords" style="font-size: 12px; color: #64748b; margin-bottom: 8px; display: none; background: #f8fafc; padding: 8px; border-radius: 6px; border: 1px solid #e2e8f0;">
-                            <b>Lat:</b> <span id="newLat">-</span> | <b>Lng:</b> <span id="newLng">-</span>
-                        </div>
-                        <button onclick="saveNewDormitory()" class="btn-blue">💾 2. บันทึกเข้าฐานข้อมูล</button>
-                        <div id="addDormStatus" style="font-size: 13px; font-weight: bold; margin-top: 10px; text-align: center;"></div>
+                    <label class="section-label">สีหมุดบนแผนที่:</label>
+                    <div class="color-palette" id="newColorPalette">
+                        <div class="color-chip active" style="background: #3b82f6;" onclick="selectColor('new', 'blue', this)"></div>
+                        <div class="color-chip" style="background: #10b981;" onclick="selectColor('new', 'green', this)"></div>
+                        <div class="color-chip" style="background: #eab308;" onclick="selectColor('new', 'gold', this)"></div>
+                        <div class="color-chip" style="background: #ef4444;" onclick="selectColor('new', 'red', this)"></div>
+                        <div class="color-chip" style="background: #f97316;" onclick="selectColor('new', 'orange', this)"></div>
+                        <div class="color-chip" style="background: #8b5cf6;" onclick="selectColor('new', 'violet', this)"></div>
+                        <div class="color-chip" style="background: #ec4899;" onclick="selectColor('new', 'pink', this)"></div>
+                        <div class="color-chip" style="background: #0f172a;" onclick="selectColor('new', 'black', this)"></div>
                     </div>
+                    <input type="hidden" id="newDormColor" value="blue">
+
+                    <button onclick="getCurrentLocationForDorm()" class="btn-green">📍 1. ดึงพิกัด GPS ปัจจุบัน</button>
+                    <div id="newDormCoords" style="font-size: 13px; color: #64748b; margin-bottom: 10px; display: none; background: #f8fafc; padding: 10px; border-radius: 8px; border: 1px solid #e2e8f0;">
+                        <b>Lat:</b> <span id="newLat">-</span> <br> <b>Lng:</b> <span id="newLng">-</span>
+                    </div>
+                    <button onclick="saveNewDormitory()" class="btn-blue">💾 2. บันทึกเข้าฐานข้อมูล</button>
+                    <div id="addDormStatus" style="font-size: 14px; font-weight: bold; margin-top: 10px; text-align: center;"></div>
                 </div>
             </div>
 
-            <div class="panel-box panel-right" id="panelEdit" style="display: none;">
-                <div style="font-weight: bold; color: #d97706; margin-bottom: 12px; font-size: 16px;">✏️ โหมดแก้ไขหอพัก</div>
+            <!-- ✏️ แผงแก้ไขข้อมูล (ซ่อนไว้ จะแสดงเมื่อกดปุ่มแก้ไขแทนแผงเพิ่มข้อมูล) -->
+            <div class="data-panel" id="panelEdit" style="display: none; border: 2px solid #f59e0b;">
+                <div style="font-weight: 800; color: #d97706; margin-bottom: 15px; font-size: 18px;">✏️ โหมดแก้ไขหอพัก</div>
                 <input type="hidden" id="editDormId">
                 
-                <label style="font-size: 13px; font-weight: bold; color: #475569; margin-bottom: 5px; display: block;">ชื่อหอพัก:</label>
+                <label class="section-label">ชื่อหอพัก:</label>
                 <input type="text" id="editDormName" class="add-input">
 
-                <label style="font-size: 13px; font-weight: bold; color: #475569; margin-bottom: 5px; display: block;">โซนจัดส่ง:</label>
+                <label class="section-label">โซนจัดส่ง:</label>
                 <div id="editZoneSelectGroup" style="display: flex; gap: 8px;">
-                    <select id="editDormZoneSelect" class="add-input" style="flex: 1; margin-bottom: 10px;"></select>
+                    <select id="editDormZoneSelect" class="add-input" style="flex: 1; margin-bottom: 15px;"></select>
                     <button class="btn-blue btn-icon" onclick="toggleZoneInput('edit')" title="เพิ่มโซนใหม่">➕</button>
                 </div>
                 <div id="editZoneInputGroup" style="display: none; gap: 8px;">
-                    <input type="text" id="editDormZoneInput" class="add-input" style="flex: 1; margin-bottom: 10px;" placeholder="พิมพ์ชื่อโซนใหม่...">
+                    <input type="text" id="editDormZoneInput" class="add-input" style="flex: 1; margin-bottom: 15px;" placeholder="พิมพ์ชื่อโซนใหม่...">
                     <button class="btn-red btn-icon" onclick="toggleZoneInput('edit')" title="ยกเลิก">❌</button>
                 </div>
                 
-                <label style="font-size: 13px; font-weight: bold; color: #475569; margin-bottom: 5px; display: block;">สีหมุดบนแผนที่:</label>
+                <label class="section-label">สีหมุดบนแผนที่:</label>
                 <div class="color-palette" id="editColorPalette">
                     <div class="color-chip active" style="background: #3b82f6;" onclick="selectColor('edit', 'blue', this)"></div>
                     <div class="color-chip" style="background: #10b981;" onclick="selectColor('edit', 'green', this)"></div>
@@ -191,26 +254,26 @@
                 </div>
                 <input type="hidden" id="editDormColor" value="blue">
 
-                <div style="background: #fef3c7; padding: 10px; border-radius: 8px; margin-bottom: 10px; font-size: 13px; color: #92400e; border: 1px solid #fde68a; line-height: 1.5;">
+                <div style="background: #fef3c7; padding: 12px; border-radius: 8px; margin-bottom: 15px; font-size: 13px; color: #92400e; border: 1px solid #fde68a; line-height: 1.5;">
                     💡 <b>วิธีย้ายหมุด:</b> ลาก <b>หมุดสีส้ม</b> บนแผนที่ หรือกดปุ่มดึงพิกัด GPS ด้านล่าง
                 </div>
 
-                <div style="display: flex; gap: 5px; margin-bottom: 10px;">
-                    <div style="flex: 1;"><input type="text" id="editLat" class="add-input" readonly style="background: #f8fafc; margin-bottom:0; font-size:12px; padding:8px;"></div>
-                    <div style="flex: 1;"><input type="text" id="editLng" class="add-input" readonly style="background: #f8fafc; margin-bottom:0; font-size:12px; padding:8px;"></div>
+                <div style="display: flex; gap: 8px; margin-bottom: 15px;">
+                    <div style="flex: 1;"><input type="text" id="editLat" class="add-input" readonly style="background: #f8fafc; margin-bottom:0; font-size:12px; padding:10px;"></div>
+                    <div style="flex: 1;"><input type="text" id="editLng" class="add-input" readonly style="background: #f8fafc; margin-bottom:0; font-size:12px; padding:10px;"></div>
                 </div>
 
-                <button onclick="getCurrentLocationForEdit()" class="btn-green">📍 ใช้พิกัด GPS ของเครื่องนี้แทน</button>
+                <button onclick="getCurrentLocationForEdit()" class="btn-green">📍 ใช้พิกัด GPS ปัจจุบันแทน</button>
                 <button onclick="submitEditDorm()" class="btn-orange">💾 บันทึกการแก้ไข</button>
                 <button onclick="cancelEditMode()" class="btn-red">❌ ยกเลิก</button>
                 
-                <div id="editDormStatus" style="font-size: 13px; font-weight: bold; margin-top: 10px; text-align: center;"></div>
+                <div id="editDormStatus" style="font-size: 14px; font-weight: bold; margin-top: 10px; text-align: center;"></div>
             </div>
         </div>
 
+        <!-- 📋 ตารางแสดงรายชื่อหอพัก -->
         <div class="table-section">
             <div style="font-size: 18px; font-weight: 800; margin-bottom: 15px; color: #0f172a;">📋 รายชื่อหอพักทั้งหมดในระบบ</div>
-            
             <div class="table-responsive">
                 <table class="history-table">
                     <thead>
@@ -387,14 +450,15 @@
     }
 
     function startEditMode(id) {
-        window.scrollTo({ top: document.getElementById('map').offsetTop - 20, behavior: 'smooth' });
-        
         const dorm = dormsData.find(x => x.id === id);
         if(!dorm) return;
 
         document.getElementById("panelAdd").style.display = "none";
         document.getElementById("panelEdit").style.display = "block";
         document.getElementById("editDormStatus").innerText = "";
+
+        // เลื่อนหน้าจอไปหาฟอร์มแก้ไขอัตโนมัติ (มีประโยชน์มากในมือถือ)
+        document.getElementById("panelEdit").scrollIntoView({ behavior: 'smooth', block: 'start' });
 
         document.getElementById("editZoneSelectGroup").style.display = "flex";
         document.getElementById("editZoneInputGroup").style.display = "none";
@@ -431,6 +495,9 @@
 
         document.getElementById("panelAdd").style.display = "block";
         document.getElementById("panelEdit").style.display = "none";
+        
+        // เลื่อนกลับไปหาฟอร์มหลัก
+        document.getElementById("panelAdd").scrollIntoView({ behavior: 'smooth', block: 'start' });
         renderMapAndTable(); 
     }
 
@@ -525,7 +592,10 @@
                 mapInstance.setView([lat, lng], 17);
                 statusEl.innerText = "✅ ดึงพิกัดสำเร็จ!";
                 statusEl.style.color = "#10b981";
-                window.scrollTo({ top: document.getElementById('map').offsetTop - 20, behavior: 'smooth' });
+                
+                // เลื่อนให้เห็นปุ่มบันทึกชัดๆ
+                document.getElementById("addDormStatus").scrollIntoView({ behavior: 'smooth', block: 'end' });
+                
                 setTimeout(() => { statusEl.innerText = ""; }, 3000);
             }, (err) => { 
                 statusEl.innerText = "❌ ไม่สามารถดึงพิกัดได้ (กรุณาเปิด GPS/Location บนมือถือ)";
