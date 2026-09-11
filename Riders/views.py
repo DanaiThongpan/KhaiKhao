@@ -13,22 +13,35 @@ from .models import DeliveryTask, Dormitory
 # =========================================================
 # 1. หน้า Dashboard สำหรับจัดการออเดอร์
 # =========================================================
+from django.utils.dateparse import parse_date
+
 @login_required
 def rider_dashboard(request):
     """ แสดงหน้าแดชบอร์ดหลักสำหรับเลือกออเดอร์และดูพิกัด """
-    # ดึงออเดอร์ของผู้ใช้ระบบ POS ล่าสุด
-    orders = Order.objects.filter(created_by=request.user).order_by('-created_at')[:30]
+    # 🌟 1. รับค่าวันที่จากช่องค้นหา (ถ้าไม่มีให้ใช้วันนี้)
+    filter_date = request.GET.get('date')
     
-    # ตรวจสอบและสร้าง DeliveryTask ผูกกับออเดอร์อัตโนมัติ
+    orders = Order.objects.filter(created_by=request.user)
+    
+    if filter_date:
+        parsed_date = parse_date(filter_date)
+        if parsed_date:
+            orders = orders.filter(created_at__date=parsed_date)
+    else:
+        # ถ้าไม่ได้เลือกวันที่มา ให้แสดงเฉพาะของ "วันนี้" เป็นค่าเริ่มต้น
+        orders = orders.filter(created_at__date=timezone.localtime().date())
+
+    orders = orders.order_by('-created_at')[:50] # จำกัด 50 ออเดอร์กันโหลดช้า
+    
     for order in orders:
         DeliveryTask.objects.get_or_create(order=order)
         
-    # ดึงรายชื่อหอพักทั้งหมดมาเผื่อใช้แสดงผลในแดชบอร์ด
     dorms = Dormitory.objects.all().order_by('zone', 'name')
         
     return render(request, 'Riders/dashboard.html', {
         'orders': orders,
-        'dorms': dorms
+        'dorms': dorms,
+        'selected_date': filter_date # ส่งค่ากลับไปโชว์ที่หน้าเว็บ
     })
 
 # =========================================================

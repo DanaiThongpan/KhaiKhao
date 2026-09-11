@@ -77,21 +77,21 @@
         .expense-checkbox-item:hover { background: #f1f5f9; }
         .expense-checkbox-item:last-child { border-bottom: none; }
         .expense-checkbox-item input { margin-right: 12px; transform: scale(1.3); cursor: pointer; accent-color: #ef4444; }
-        
+
         .compare-result { display: flex; justify-content: space-between; align-items: center; font-size: 18px; padding: 15px; border-radius: 8px; transition: 0.3s; background: #f0fdf4; border: 1px solid #bbf7d0; }
         .compare-result strong { font-size: 24px; }
 
         .no-bill-box { display: flex; justify-content: space-between; align-items: center; background: #fffbeb; border: 1px solid #fde68a; padding: 10px 15px; border-radius: 8px; margin-bottom: 15px; transition: 0.3s; }
         .no-bill-box:hover { background: #fef3c7; }
         .no-bill-text { font-size: 14px; font-weight: bold; color: #d97706; display: flex; align-items: center; gap: 8px; }
-        
+
         .switch { position: relative; display: inline-block; width: 46px; height: 24px; }
         .switch input { opacity: 0; width: 0; height: 0; }
         .slider { position: absolute; cursor: pointer; top: 0; left: 0; right: 0; bottom: 0; background-color: #d1d5db; transition: .4s; border-radius: 24px; }
         .slider:before { position: absolute; content: ""; height: 18px; width: 18px; left: 3px; bottom: 3px; background-color: white; transition: .4s; border-radius: 50%; box-shadow: 0 1px 3px rgba(0,0,0,0.2); }
-        input:checked + .slider { background-color: #16a34a; }
-        input:focus + .slider { box-shadow: 0 0 1px #16a34a; }
-        input:checked + .slider:before { transform: translateX(22px); }
+        .input:checked + .slider { background-color: #16a34a; }
+        .input:focus + .slider { box-shadow: 0 0 1px #16a34a; }
+        .input:checked + .slider:before { transform: translateX(22px); }
 
         @media (max-width: 1200px) {
             .sidebar { width: 70px; }
@@ -137,6 +137,7 @@
             <a href="{% url 'reports:home' %}" class="menu-item"><span>📊</span><span>รายงาน</span></a>
             <a href="{% url 'tax:home' %}" class="menu-item"><span>📑</span><span>คำนวณภาษี</span></a>
             <a href="{% url 'riders:home' %}" class="menu-item"><span>🛵</span><span>ติดตามไรเดอร์</span></a>
+            <a href="{% url 'shop_history:home' %}" class="menu-item"><span>🏪</span><span>ประวัติเปิด-ปิดร้าน</span></a>
         </nav>
         <div class="sidebar-bottom">
             {% if request.user.is_authenticated %}
@@ -163,7 +164,7 @@
                     </p>
                 </div>
             </div>
-            
+
             <div class="header-right" style="display: flex; align-items: center; gap: 15px;">
                 <div class="notification-wrapper">
                     <button class="bell-btn" onclick="toggleNotiPopup()">
@@ -202,7 +203,7 @@
                 <div style="font-size: 30px;">📦</div>
                 <div><span style="display: block; color: #6b7280; font-size: 13px;">สินค้าทั้งหมด</span><strong style="font-size: 18px;">{{ products|length }}</strong> <small>รายการ</small></div>
             </div>
-            
+
             <div class="summary-card clickable-card" onclick="openCompareModal()" style="display: flex; align-items: center; gap: 15px; padding: 15px; background: white; border-radius: 12px; border: 1px solid #e5e7eb; border-left: 4px solid #16a34a;">
                 <div style="font-size: 30px;">💰</div>
                 <div style="width: 100%;">
@@ -271,13 +272,13 @@
     <aside class="cart-sidebar">
         <div class="cart-header"><h2>ตะกร้าสินค้า</h2></div>
         <div class="cart-items" id="cartContainer"><div style="text-align: center; color: #9ca3af; margin-top: 50px;"><div style="font-size: 40px; margin-bottom: 10px;">🛒</div>ยังไม่มีสินค้าในตะกร้า</div></div>
-        
+
         <div class="cart-footer">
             <div class="summary-row">
                 <span>ยอดรวมสุทธิ:</span>
                 <span id="grandTotal" style="color: #16a34a; font-size: 22px;">฿0.00</span>
             </div>
-            
+
             <div class="no-bill-box">
                 <span class="no-bill-text">🌱 ลูกค้าไม่รับบิล</span>
                 <label class="switch">
@@ -302,7 +303,7 @@
             <button onclick="closeCompareModal()">✖</button>
         </div>
         <div class="modal-body">
-            
+
             <div style="display: flex; gap: 10px; margin-bottom: 15px; background: #f8fafc; padding: 10px; border-radius: 8px; border: 1px solid #e2e8f0;">
                 <div style="flex: 1;">
                     <label style="font-size: 12px; color: #64748b; font-weight: bold; display: block; margin-bottom: 4px;">ตั้งแต่วันที่:</label>
@@ -331,7 +332,7 @@
                 <span id="modalResultText">กำไรสุทธิ:</span>
                 <strong id="modalProfitAmount" style="color: #16a34a;">฿0.00</strong>
             </div>
-            
+
             <h4 style="margin: 0 0 10px 0; color: #374151; font-size: 14px; display: flex; justify-content: space-between; align-items: center;">
                 <span>ติ๊กเลือกรายจ่ายเพื่อนำมาหักลบ:</span>
                 <div style="display: flex; align-items: center; gap: 15px;">
@@ -343,11 +344,11 @@
                     </button>
                 </div>
             </h4>
-            
+
             <div class="compare-expense-list" id="expenseListContainer">
                 <div style="text-align: center; color: #9ca3af; padding: 20px;">⏳ กำลังโหลดข้อมูล...</div>
             </div>
-            
+
         </div>
     </div>
 </div>
@@ -363,10 +364,10 @@
         </div>
         <div class="modal-body">
             <p style="color: #64748b; margin-bottom: 10px;">ยอดชำระสุทธิ: <strong id="qrTotalText" style="color: #16a34a; font-size: 22px;">฿0.00</strong></p>
-            
+
             <!-- พื้นที่แสดงรูป QR Code -->
             <div id="qrcode" style="display: flex; justify-content: center; margin: 10px 0;"></div>
-            
+
             <!-- 🌟 เพิ่มส่วนเลือกหอพักใน Modal ชำระเงิน ตรงนี้ 🌟 -->
             <div style="background: #e0f2fe; border: 1px solid #bfdbfe; padding: 15px; border-radius: 8px; margin: 15px 0; text-align: left;">
                 <label style="font-size: 14px; font-weight: bold; color: #1e40af; display: block; margin-bottom: 8px;">
@@ -379,7 +380,7 @@
                     {% endfor %}
                 </select>
             </div>
-            
+
             <div style="background: #f8fafc; border: 1px solid #e2e8f0; padding: 15px; border-radius: 8px; margin: 15px 0; text-align: left;">
                 <label style="font-size: 14px; font-weight: bold; color: #334151; display: flex; justify-content: space-between; margin-bottom: 12px;">
                     <span>🖨️ รูปแบบการออกบิลหลังชำระเงิน:</span>
@@ -413,12 +414,13 @@
     <div class="modal-content" style="max-width: 400px; padding: 25px; text-align: center;">
         <div style="font-size: 45px; margin-bottom: 10px;">🎉</div>
         <h3 style="margin: 0 0 5px 0; color: #16a34a;">ชำระเงินสำเร็จ!</h3>
-        <p style="color: #64748b; font-size: 14px; margin-bottom: 20px;">เลขที่ใบเสร็จ: <strong id="billReceiptNum" style="color: #1f2937;">-</strong></p>
-        
+        <p style="color: #64748b; font-size: 14px; margin-bottom: 5px;">เลขที่ใบเสร็จ: <strong id="billReceiptNum" style="color: #1f2937;">-</strong></p>
+        <p id="screenBillDorm" style="display:none; color: #64748b; font-size: 14px; margin-bottom: 20px;"></p>
+
         <div id="billItemsSummary" style="background: #f8fafc; border: 1px dashed #cbd5e1; border-radius: 8px; padding: 15px; text-align: left; max-height: 200px; overflow-y: auto; margin-bottom: 20px; font-size: 14px;">
             <!-- รายการสินค้าในบิล -->
         </div>
-        
+
         <div style="display: flex; justify-content: space-between; font-weight: bold; font-size: 16px; margin-bottom: 20px; padding: 0 5px;">
             <span>ยอดรวมทั้งสิ้น:</span>
             <span id="billGrandTotal" style="color: #16a34a;">฿0.00</span>
@@ -442,7 +444,7 @@
         document.getElementById('compareModal').style.display = 'flex';
         fetchCompareData(); 
     }
-    
+
     function closeCompareModal() {
         document.getElementById('compareModal').style.display = 'none';
     }
@@ -458,14 +460,14 @@
         .then(res => res.json())
         .then(data => {
             if(data.error) { alert(data.error); return; }
-            
+
             const salesEl = document.getElementById('modalSalesAmount');
             salesEl.dataset.sales = data.sales_total;
             salesEl.innerText = data.sales_total.toLocaleString(undefined, {minimumFractionDigits: 2});
-            
+
             const listContainer = document.getElementById('expenseListContainer');
             listContainer.innerHTML = '';
-            
+
             if(data.expenses.length === 0) {
                 listContainer.innerHTML = `<div style="text-align: center; color: #9ca3af; padding: 20px;">ไม่มีบันทึกรายจ่ายในช่วงวันที่เลือก</div>`;
             } else {
@@ -484,7 +486,7 @@
                     `;
                 });
             }
-            
+
             document.getElementById('selectAllExp').checked = true;
             calculateCompare();
         })
@@ -511,17 +513,17 @@
         const sales = parseFloat(document.getElementById('modalSalesAmount').dataset.sales) || 0;
         const checkboxes = document.querySelectorAll('.exp-check');
         let totalExp = 0;
-        
+
         checkboxes.forEach(cb => { if (cb.checked) { totalExp += parseFloat(cb.value); } });
-        
+
         const profit = sales - totalExp;
         document.getElementById('modalSelectedExpense').innerText = totalExp.toLocaleString(undefined, {minimumFractionDigits: 2});
-        
+
         const profitEl = document.getElementById('modalProfitAmount');
         const resultBox = document.getElementById('modalResultBox');
         const resultText = document.getElementById('modalResultText');
         profitEl.innerText = '฿' + Math.abs(profit).toLocaleString(undefined, {minimumFractionDigits: 2});
-        
+
         const barTrack = document.getElementById('compareBarTrack');
         const barRed = document.getElementById('compareBarRed');
         const textExp = document.getElementById('barTextExpense');
@@ -544,7 +546,7 @@
                 textProf.innerText = (100 - expPercent) > 5 ? `กำไร ${(100 - expPercent).toFixed(0)}%` : '';
             }
         }
-        
+
         if (profit >= 0) {
             profitEl.style.color = '#16a34a'; resultBox.style.background = '#f0fdf4'; resultBox.style.borderColor = '#bbf7d0'; resultText.innerText = 'กำไรสุทธิ:';
         } else {
@@ -556,7 +558,7 @@
     // 2. NOTIFICATION POPUP (แจ้งเตือนบิลค้าง)
     // -----------------------------------------------------
     function toggleNotiPopup() { document.getElementById('notiPopup').classList.toggle('show'); }
-    
+
     document.addEventListener('click', function(event) {
         const wrapper = document.querySelector('.notification-wrapper');
         const popup = document.getElementById('notiPopup');
@@ -605,14 +607,14 @@
             let formattedPhone = '0066' + cleanTarget.substring(1);
             let targetTag = tlv('01', formattedPhone);
             merchantAccount = tlv('29', tlv('00', 'A000000677010111') + targetTag);
-            
+
         } else if (cleanTarget.length === 15) {
             const aid = tlv('00', 'A000000677010112');
             const billerId = tlv('01', '010753600010286');
             const ref1 = tlv('02', cleanTarget);
             const ref2 = tlv('03', 'SCB');
             merchantAccount = tlv('30', aid + billerId + ref1 + ref2);
-            
+
         } else {
             let targetTag = tlv('02', cleanTarget);
             merchantAccount = tlv('29', tlv('00', 'A000000677010111') + targetTag);
@@ -627,7 +629,7 @@
         let initMethodTag = tlv('01', initiationMethod);
 
         let data = payloadFormat + initMethodTag + merchantAccount + currency + amountStr + country + '6304';
-        
+
         function crc16(text) {
             let crc = 0xFFFF;
             for (let c = 0; c < text.length; c++) {
@@ -665,9 +667,9 @@
         }
 
         let totalPrice = cart.reduce((sum, item) => sum + (item.price * item.qty), 0);
-        
+
         document.getElementById('qrTotalText').innerText = '฿' + totalPrice.toLocaleString(undefined, {minimumFractionDigits: 2});
-        
+
         updatePrintSlotStatus(); 
 
         const noBillToggleCart = document.getElementById('no_bill_toggle_cart');
@@ -695,8 +697,10 @@
 
     function confirmQRPayment() {
         const selectedBillType = document.querySelector('input[name="billType"]:checked').value;
-        const selectedDormId = document.getElementById('checkoutDormSelect').value; // 🌟 ดึงค่าหอพักปลายทางที่เลือก
-        
+        const dormSelect = document.getElementById('checkoutDormSelect');
+        const selectedDormId = dormSelect.value;
+        const selectedDormName = selectedDormId ? dormSelect.options[dormSelect.selectedIndex].text : "";
+
         let qrContainer = document.getElementById('qrcode');
         let qrImgElement = qrContainer ? (qrContainer.querySelector('img') || qrContainer.querySelector('canvas')) : null;
         let qrDataUrl = '';
@@ -713,7 +717,6 @@
         const btnCheckout = document.getElementById('btnCheckout');
         btnCheckout.disabled = true; btnCheckout.innerText = "⏳ กำลังบันทึก...";
 
-        // 🌟 ส่งค่า dormitory_id ไปที่ API checkout ด้วย
         fetch("{% url 'pos:checkout' %}", {
             method: "POST", 
             headers: { 
@@ -734,17 +737,17 @@
             if (data.status === "success") {
                 const receiptNo = data.receipt;
                 cart = []; 
-                
+
                 const noBillToggleCart = document.getElementById('no_bill_toggle_cart');
                 if(noBillToggleCart) noBillToggleCart.checked = false;
 
                 if (selectedBillType === 'print') {
-                    triggerPrintReceipt(receiptNo, currentCart, totalPrice, qrDataUrl, shopName);
+                    triggerPrintReceipt(receiptNo, currentCart, totalPrice, qrDataUrl, shopName, selectedDormName);
                     setTimeout(() => { window.location.href = "{% url 'pos:home' %}"; }, 1500);
                 } else if (selectedBillType === 'image') {
-                    downloadSlipImage(receiptNo, currentCart, totalPrice, qrDataUrl, shopName);
+                    downloadSlipImage(receiptNo, currentCart, totalPrice, qrDataUrl, shopName, selectedDormName);
                 } else {
-                    showScreenBill(receiptNo, currentCart, totalPrice);
+                    showScreenBill(receiptNo, currentCart, totalPrice, shopName, selectedDormName);
                 }
             } else { 
                 alert("เกิดข้อผิดพลาด: " + data.message); 
@@ -760,10 +763,10 @@
         });
     }
 
-// =========================================================================
+    // =========================================================================
     // 4. ระบบการพิมพ์แบบสลิป บนกระดาษ A4 (6 ช่อง)
     // =========================================================================
-    function triggerPrintReceipt(receiptNo, items, total, qrDataUrl, shopName) {
+    function triggerPrintReceipt(receiptNo, items, total, qrDataUrl, shopName, selectedDormName) {
         let printWindow = window.open('', '_blank');
         let currentSlot = parseInt(localStorage.getItem('printSlotIndex')) || 0;
 
@@ -774,7 +777,7 @@
 
         let leftOffset = 15 + (col * 95);  
         let topOffset = 10 + (row * 95);   
-        
+
         let isM053 = shopName.includes("M053") || shopName.includes("เรื่องของหมู");
         let qrFooterDesc = isM053 ? 
             `🐷 โอนแล้วรอสักครู่นะคะ 🐷<br>
@@ -785,6 +788,14 @@
             📢 หากพบว่ายอดเงินไม่ถูกต้อง<br>
             ↘❗ กรุณาแจ้งทางร้านทันที<br>
             🙇🏻‍♀️ ขอบคุณค่ะ/ครับ 🙇`;
+
+        // 🌟 เพิ่มข้อมูลหอพักสำหรับร้าน P184
+        let isP184 = shopName.includes("P184");
+        let dormHtml = "";
+        if (isP184) {
+            let dormText = selectedDormName ? selectedDormName : "อยู่ระหว่างรวบรวมข้อมูลหอพัก";
+            dormHtml = `<div class="info-text">จุดส่ง: <strong>${dormText}</strong></div>`;
+        }
 
         let htmlContent = `
             <html>
@@ -815,6 +826,7 @@
                     <div class="line"></div>
                     <div class="info-text">เลขที่บิล: ${receiptNo}</div>
                     <div class="info-text">วันที่: ${new Date().toLocaleString('th-TH')}</div>
+                    ${dormHtml}
                     <div class="line"></div>
                     <div style="flex-grow: 1; overflow: hidden;">
         `;
@@ -825,11 +837,9 @@
         items.forEach(item => {
             const catName = (item.category || "").toLowerCase();
             const prodName = item.name.toLowerCase();
-            
-            // เช็คว่าเป็นรายการย่อยหรือไม่
+
             let isSubItem = excludeKeywords.some(kw => prodName.includes(kw) || catName.includes(kw));
-            
-            // บังคับให้ กับข้าว, น้ำเปล่า, ข้าวเปล่า เป็นรายการหลักเสมอ (มีเลขนำหน้า)
+
             if (prodName.includes("กับข้าว") || catName.includes("กับข้าว") || prodName.includes("น้ำเปล่า") || prodName.includes("ข้าวเปล่า") || prodName.includes("ข้าวปล่าว")) {
                 isSubItem = false;
             }
@@ -867,7 +877,7 @@
             </body>
             </html>
         `;
-        
+
         printWindow.document.write(htmlContent);
         printWindow.document.close();
     }
@@ -875,7 +885,7 @@
     // =========================================================================
     // 4.2 ระบบดาวน์โหลด e-Slip (สัดส่วนพอดีมือถือ)
     // =========================================================================
-    function downloadSlipImage(receiptNo, items, total, qrDataUrl, shopName) {
+    function downloadSlipImage(receiptNo, items, total, qrDataUrl, shopName, selectedDormName) {
         const slipContainer = document.createElement('div');
         slipContainer.style.position = 'absolute';
         slipContainer.style.left = '-9999px';
@@ -889,11 +899,19 @@
 
         const excludeKeywords = ["topping", "ท็อปปิ้ง", "พิเศษ", "เครื่องดื่ม", "เพิ่มเติม"];
         let mainIndex = 1;
-        
+
+        // 🌟 เพิ่มข้อมูลหอพักสำหรับร้าน P184
+        let isP184 = shopName.includes("P184");
+        let dormHtml = "";
+        if (isP184) {
+            let dormText = selectedDormName ? selectedDormName : "อยู่ระหว่างรวบรวมข้อมูลหอพัก";
+            dormHtml = `<div style="display: flex; justify-content: space-between; margin-top: 4px;"><span>จัดส่ง:</span> <span style="font-weight: 500; text-align: right; max-width: 70%;">${dormText}</span></div>`;
+        }
+
         let itemsHtml = items.map(item => {
             const catName = (item.category || "").toLowerCase();
             const prodName = item.name.toLowerCase();
-            
+
             let isSubItem = excludeKeywords.some(kw => prodName.includes(kw) || catName.includes(kw));
             if (prodName.includes("กับข้าว") || catName.includes("กับข้าว") || prodName.includes("น้ำเปล่า") || prodName.includes("ข้าวเปล่า") || prodName.includes("ข้าวปล่าว")) {
                 isSubItem = false;
@@ -926,6 +944,7 @@
                 <div style="margin-bottom: 20px; font-size: 14px; color: #4b5563; line-height: 1.6;">
                     <div style="display: flex; justify-content: space-between;"><span>เลขที่บิล:</span> <span style="font-weight: 500;">${receiptNo}</span></div>
                     <div style="display: flex; justify-content: space-between;"><span>วันที่:</span> <span>${new Date().toLocaleString('th-TH')}</span></div>
+                    ${dormHtml}
                 </div>
                 <div style="border-bottom: 2px dashed #fbcfe8; border-top: 2px dashed #fbcfe8; padding: 15px 0; margin-bottom: 15px;">
                     <div style="font-weight: bold; margin-bottom: 8px; color: #be185d;">รายการอาหาร:</div>
@@ -954,6 +973,7 @@
                 <div style="margin-bottom: 20px; font-size: 14px; color: #4b5563; line-height: 1.6;">
                     <div style="display: flex; justify-content: space-between;"><span>เลขที่บิล:</span> <span style="font-weight: 500;">${receiptNo}</span></div>
                     <div style="display: flex; justify-content: space-between;"><span>วันที่:</span> <span>${new Date().toLocaleString('th-TH')}</span></div>
+                    ${dormHtml}
                 </div>
                 <div style="border-bottom: 1px dashed #d1d5db; border-top: 1px dashed #d1d5db; padding: 15px 0; margin-bottom: 15px;">
                     ${itemsHtml}
@@ -966,10 +986,10 @@
                     ${qrDataUrl ? `<img src="${qrDataUrl}" style="width: 140px; height: 140px; margin-bottom: 12px; mix-blend-mode: multiply;">` : ''}
                     <p style="margin: 0; font-size: 13px; color: #4b5563; font-weight: bold; line-height: 1.5;">
                        ⚠️ กรุณาตรวจสอบความถูกต้องของยอดเงิน<br>
-                       ↘❗ ก่อนกดยืนยันทุกครั้ง<br>
-                       📢 หากพบว่ายอดเงินไม่ถูกต้อง<br>
-                       ↘❗ กรุณาแจ้งทางร้านทันที<br>
-                       🙇🏻‍♀️ ขอบคุณที่มาอุดหนุนนะค้าบ 🙇
+                        ↘❗ ก่อนกดยืนยันทุกครั้ง<br>
+                        📢 หากพบว่ายอดเงินไม่ถูกต้อง<br>
+                        ↘❗ กรุณาแจ้งทางร้านทันที<br>
+                        🙇🏻‍♀️ ขอบคุณที่มาอุดหนุนนะค้าบ 🙇
                     </p>
                 </div>
             `;
@@ -987,20 +1007,31 @@
         });
     }
 
-    function showScreenBill(receiptNo, items, total) {
+    function showScreenBill(receiptNo, items, total, shopName, selectedDormName) {
         document.getElementById('billReceiptNum').innerText = receiptNo;
-        document.getElementById('billGrandTotal').innerText = '฿' + total.toLocaleString(undefined, {minimumFractionDigits: 2});
         
+        let dormElem = document.getElementById('screenBillDorm');
+        if (shopName && shopName.includes("P184")) {
+            let dormText = selectedDormName ? selectedDormName : "อยู่ระหว่างรวบรวมข้อมูลหอพัก";
+            dormElem.innerHTML = `จัดส่ง: <strong style="color: #1f2937;">${dormText}</strong>`;
+            dormElem.style.display = "block";
+            document.getElementById('billReceiptNum').parentElement.style.marginBottom = "5px";
+        } else {
+            if(dormElem) dormElem.style.display = "none";
+        }
+
+        document.getElementById('billGrandTotal').innerText = '฿' + total.toLocaleString(undefined, {minimumFractionDigits: 2});
+
         let container = document.getElementById('billItemsSummary');
         container.innerHTML = '';
-        
+
         const excludeKeywords = ["topping", "ท็อปปิ้ง", "พิเศษ", "เครื่องดื่ม", "เพิ่มเติม"];
         let mainIdxScreen = 1;
 
         items.forEach(item => {
             const catName = (item.category || "").toLowerCase();
             const prodName = item.name.toLowerCase();
-            
+
             let isSubItem = excludeKeywords.some(kw => prodName.includes(kw) || catName.includes(kw));
             if (prodName.includes("กับข้าว") || catName.includes("กับข้าว") || prodName.includes("น้ำเปล่า") || prodName.includes("ข้าวเปล่า") || prodName.includes("ข้าวปล่าว")) {
                 isSubItem = false;
@@ -1073,10 +1104,10 @@
     searchInput.addEventListener("input", filterProducts);
 
     let cart = [];
-    
+
     function addToCart(id, name, price, category) {
         const existingItem = cart.find(item => item.id === id);
-        
+
         if (existingItem) {
             existingItem.qty += 1; 
         } else {
@@ -1088,7 +1119,7 @@
         }
         renderCart();
     }
-    
+
     function updateQty(id, change) {
         const item = cart.find(item => item.id === id);
         if (item) { item.qty += change; if (item.qty <= 0) cart = cart.filter(cartItem => cartItem.id !== id); renderCart(); }

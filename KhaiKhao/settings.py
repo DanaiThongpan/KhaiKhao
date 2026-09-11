@@ -49,6 +49,7 @@ INSTALLED_APPS = [
     'History',
     'Stocks',
     'Riders',
+    'ShopHistory',
 ]
 
 MIDDLEWARE = [

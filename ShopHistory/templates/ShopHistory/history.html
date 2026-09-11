@@ -1,0 +1,222 @@
+{% load static %}
+<!DOCTYPE html>
+<html lang="th">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>ประวัติการเปิด-ปิดร้าน - KhaiKhao POS</title>
+    <link rel="stylesheet" href="{% static 'css/style.css' %}">
+    <style>
+        * { box-sizing: border-box; }
+        .app { display: flex; min-height: 100vh; background: #f3f4f6; }
+        .sidebar { width: 250px; flex-shrink: 0; position: fixed; top: 0; left: 0; bottom: 0; background: #111827; color: white; z-index: 100; display: flex; flex-direction: column; }
+        .main { flex: 1; margin-left: 250px; padding: 30px; }
+
+        .header-card { background: white; padding: 25px; border-radius: 16px; box-shadow: 0 4px 6px rgba(0,0,0,0.05); display: flex; justify-content: space-between; align-items: center; margin-bottom: 25px; }
+        .header-title h1 { margin: 0; font-size: 24px; color: #1e293b; }
+        .header-title p { margin: 5px 0 0; color: #64748b; font-size: 14px; }
+        
+        .toggle-btn { padding: 12px 25px; border-radius: 12px; font-size: 16px; font-weight: bold; border: none; cursor: pointer; transition: 0.3s; display: flex; align-items: center; gap: 8px; box-shadow: 0 4px 10px rgba(0,0,0,0.1); }
+        .btn-open { background: #ef4444; color: white; } 
+        .btn-open:hover { background: #dc2626; }
+        .btn-closed { background: #10b981; color: white; } 
+        .btn-closed:hover { background: #059669; }
+
+        .table-responsive { width: 100%; overflow-x: auto; background: white; border-radius: 16px; box-shadow: 0 4px 6px rgba(0,0,0,0.05); }
+        .history-table { width: 100%; border-collapse: collapse; min-width: 850px; }
+        .history-table th, .history-table td { padding: 16px 20px; border-bottom: 1px solid #e2e8f0; text-align: center; vertical-align: middle; }
+        .history-table th { background: #f8fafc; font-weight: bold; color: #475569; font-size: 14px; }
+        .history-table tr:hover { background: #f8fafc; }
+
+        .badge { padding: 6px 12px; border-radius: 20px; font-size: 12px; font-weight: bold; display: inline-block;}
+        .badge-open { background: #dcfce7; color: #166534; border: 1px solid #bbf7d0;}
+        .badge-closed { background: #f1f5f9; color: #475569; border: 1px solid #cbd5e1;}
+
+        /* 🌟 สไตล์ใหม่สำหรับ ระยะเวลา และ ปุ่มจัดการ */
+        .duration-box { font-weight: 800; color: #3b82f6; background: #eff6ff; padding: 6px 12px; border-radius: 8px; display: inline-block; border: 1px solid #bfdbfe; font-size: 13px; }
+        .action-buttons { display: flex; gap: 8px; justify-content: center; }
+        .btn-sm { padding: 8px 12px; border-radius: 8px; font-size: 12px; font-weight: bold; cursor: pointer; border: none; display: inline-flex; align-items: center; gap: 5px; transition: 0.2s; border: 1px solid transparent; }
+        .btn-edit { background: #fffbeb; color: #d97706; border-color: #fcd34d; }
+        .btn-edit:hover { background: #fef3c7; transform: translateY(-1px); }
+        .btn-delete { background: #fee2e2; color: #dc2626; border-color: #fca5a5; }
+        .btn-delete:hover { background: #fecaca; transform: translateY(-1px); }
+
+        /* Modal สำหรับแก้ไข */
+        .modal-overlay { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(15, 23, 42, 0.6); backdrop-filter: blur(3px); z-index: 2000; display: none; align-items: center; justify-content: center; }
+        .modal-content { background: white; width: 95%; max-width: 450px; border-radius: 20px; padding: 25px; box-shadow: 0 10px 25px rgba(0,0,0,0.1); }
+        .form-group { margin-bottom: 15px; text-align: left; }
+        .form-group label { display: block; font-size: 13px; color: #475569; font-weight: bold; margin-bottom: 5px; }
+        .form-control { width: 100%; padding: 12px; border-radius: 10px; border: 1px solid #cbd5e1; font-size: 14px; outline: none; font-family: inherit; }
+        .form-control:focus { border-color: #3b82f6; box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.1); }
+
+        @media (max-width: 900px) {
+            .app { display: block; }
+            .main { margin-left: 0; padding: 15px; padding-bottom: 90px; }
+            .sidebar { position: fixed; bottom: 0; top: auto; width: 100%; height: 70px; flex-direction: row; border-top: 1px solid #374151; z-index: 9999; }
+            .sidebar .logo, .sidebar .sidebar-bottom { display: none; }
+            .sidebar .menu { flex-direction: row; width: 100%; justify-content: space-around; }
+            .sidebar .menu-item { flex-direction: column; padding: 5px; }
+            .sidebar .menu-item span:nth-child(2) { display: block !important; font-size: 10px; }
+            .header-card { flex-direction: column; align-items: stretch; gap: 15px; }
+        }
+    </style>
+</head>
+<body>
+
+<div class="app">
+    <aside class="sidebar">
+        <div class="logo"><h2>KhaiKhao</h2><span>POS</span></div>
+        <nav class="menu">
+            <a href="{% url 'pos:home' %}" class="menu-item"><span>🏠</span><span>หน้าหลัก</span></a>
+            <a href="{% url 'shop_history:home' %}" class="menu-item active"><span>🏪</span><span>เปิด-ปิดร้าน</span></a>
+            <!-- <a href="{% url 'shop_history:closures' %}" class="menu-item"><span>💤</span><span>ประวัติหยุดร้าน</span></a> -->
+            <a href="{% url 'shop_history:calendar' %}" class="menu-item"><span>📅</span><span>ปฏิทินร้าน</span></a>
+            <!-- <a href="{% url 'history:home' %}" class="menu-item"><span>📜</span><span>ประวัติการขาย</span></a> -->
+        </nav>
+    </aside>
+
+    <main class="main">
+        <div class="header-card">
+            <div class="header-title">
+                <h1>🏪 ประวัติการเปิด-ปิดร้าน</h1>
+                <p>จัดการสถานะร้านและดูประวัติการทำงานย้อนหลัง</p>
+            </div>
+            <div>
+                {% if is_currently_open %}
+                    <button class="toggle-btn btn-open" onclick="toggleShopStatus()">🔒 ปิดร้าน (พักเบรก/เลิกงาน)</button>
+                {% else %}
+                    <button class="toggle-btn btn-closed" onclick="toggleShopStatus()">🔓 เปิดร้านรับออเดอร์</button>
+                {% endif %}
+            </div>
+        </div>
+
+        <div class="table-responsive">
+            <table class="history-table">
+                <thead>
+                    <tr>
+                        <th style="width: 5%;">ลำดับ</th>
+                        <th style="width: 15%;">เวลาเปิดร้าน</th>
+                        <th style="width: 15%;">เวลาปิดร้าน</th>
+                        <th style="width: 15%;">จำนวนชั่วโมง</th>
+                        <th style="width: 15%;">สถานะ</th>
+                        <th style="width: 20%;">จัดการ</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for session in sessions %}
+                    <tr>
+                        <td style="color: #64748b; font-weight: bold;">{{ forloop.counter }}</td>
+                        <td style="color: #16a34a; font-weight: bold;">{{ session.open_time|date:"d/m/Y H:i" }}</td>
+                        <td style="color: #dc2626; font-weight: bold;">
+                            {% if session.close_time %}{{ session.close_time|date:"d/m/Y H:i" }}{% else %}-{% endif %}
+                        </td>
+                        <td>
+                            {% if session.duration_str %}
+                                <span class="duration-box">⏱️ {{ session.duration_str }}</span>
+                            {% else %}
+                                <span style="color: #94a3b8; font-size: 12px;">กำลังจับเวลา...</span>
+                            {% endif %}
+                        </td>
+                        <td>
+                            {% if session.is_open %}
+                                <span class="badge badge-open">🟢 เปิดอยู่</span>
+                            {% else %}
+                                <span class="badge badge-closed">⚪ ปิดแล้ว</span>
+                            {% endif %}
+                        </td>
+                        <td>
+                            <div class="action-buttons">
+                                <button class="btn-sm btn-edit" onclick="openEditModal({{ session.id }}, '{{ session.open_time|date:'Y-m-d\TH:i' }}', '{% if session.close_time %}{{ session.close_time|date:'Y-m-d\TH:i' }}{% endif %}')">
+                                    ✏️ แก้ไข
+                                </button>
+                                <button class="btn-sm btn-delete" onclick="deleteSession({{ session.id }})">
+                                    🗑️ ลบ
+                                </button>
+                            </div>
+                        </td>
+                    </tr>
+                    {% empty %}
+                    <tr>
+                        <td colspan="6" style="text-align: center; padding: 50px; color: #9ca3af;">
+                            <div style="font-size: 40px; margin-bottom: 10px;">🏪</div>
+                            ยังไม่มีประวัติการเปิดร้าน
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </main>
+</div>
+
+<!-- Modal แก้ไขเวลา -->
+<div class="modal-overlay" id="editModal">
+    <div class="modal-content">
+        <h3 style="margin: 0 0 15px 0; color: #1e293b;">✏️ แก้ไขเวลาเปิด-ปิดร้าน</h3>
+        <form id="editForm" method="POST">
+            {% csrf_token %}
+            <div class="form-group">
+                <label>เวลาเปิดร้าน:</label>
+                <input type="datetime-local" name="open_time" id="editOpenTime" class="form-control" required>
+            </div>
+            <div class="form-group">
+                <label>เวลาปิดร้าน: <span style="color: #94a3b8; font-weight: normal;">(เว้นว่างได้ถ้ายังไม่ปิด)</span></label>
+                <input type="datetime-local" name="close_time" id="editCloseTime" class="form-control">
+            </div>
+            <div style="display: flex; gap: 10px; margin-top: 25px;">
+                <button type="submit" style="flex: 1; padding: 12px; background: #3b82f6; color: white; border: none; border-radius: 10px; font-weight: bold; cursor: pointer;">💾 บันทึก</button>
+                <button type="button" onclick="closeEditModal()" style="flex: 1; padding: 12px; background: #f1f5f9; color: #475569; border: none; border-radius: 10px; font-weight: bold; cursor: pointer;">ยกเลิก</button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<script>
+    function getCookie(name) {
+        let cookieValue = null;
+        if (document.cookie && document.cookie !== '') {
+            const cookies = document.cookie.split(';');
+            for (let i = 0; i < cookies.length; i++) {
+                const cookie = cookies[i].trim();
+                if (cookie.substring(0, name.length + 1) === (name + '=')) {
+                    cookieValue = decodeURIComponent(cookie.substring(name.length + 1));
+                    break;
+                }
+            }
+        }
+        return cookieValue;
+    }
+
+    async function toggleShopStatus() {
+        if(!confirm("คุณต้องการเปิด/ปิดร้าน ใช่หรือไม่?")) return;
+        try {
+            const res = await fetch("{% url 'shop_history:toggle_status' %}", { method: "POST", headers: { "X-CSRFToken": getCookie('csrftoken') } });
+            const data = await res.json();
+            if(data.status === "success") location.reload();
+        } catch(e) { alert("❌ เกิดข้อผิดพลาด"); }
+    }
+
+    // ฟังก์ชันเปิด Modal แก้ไข
+    function openEditModal(id, openTime, closeTime) {
+        document.getElementById('editForm').action = `/shophistory/edit/${id}/`;
+        document.getElementById('editOpenTime').value = openTime;
+        document.getElementById('editCloseTime').value = closeTime || '';
+        document.getElementById('editModal').style.display = 'flex';
+    }
+
+    function closeEditModal() {
+        document.getElementById('editModal').style.display = 'none';
+    }
+
+    // ฟังก์ชันลบ
+    async function deleteSession(id) {
+        if(!confirm("⚠️ แน่ใจหรือไม่ว่าต้องการลบประวัตินี้? ข้อมูลจะหายไปถาวร")) return;
+        try {
+            const res = await fetch(`/shophistory/delete/${id}/`, { method: "POST", headers: { "X-CSRFToken": getCookie('csrftoken') } });
+            const data = await res.json();
+            if(data.status === "success") location.reload();
+        } catch(e) { alert("❌ เกิดข้อผิดพลาดในการลบ"); }
+    }
+</script>
+</body>
+</html>

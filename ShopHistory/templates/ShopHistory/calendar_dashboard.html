@@ -1,0 +1,171 @@
+{% load static %}
+<!DOCTYPE html>
+<html lang="th">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>ปฏิทินการเปิดร้านและยอดขาย - KhaiKhao POS</title>
+    <link rel="stylesheet" href="{% static 'css/style.css' %}">
+    <style>
+        * { box-sizing: border-box; }
+        .app { display: flex; min-height: 100vh; background: #f3f4f6; }
+        .sidebar { width: 250px; flex-shrink: 0; position: fixed; top: 0; left: 0; bottom: 0; background: #111827; color: white; z-index: 100; display: flex; flex-direction: column; }
+        .main { flex: 1; margin-left: 250px; padding: 30px; }
+
+        .header-card { background: white; padding: 20px 25px; border-radius: 16px; box-shadow: 0 4px 6px rgba(0,0,0,0.05); display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px; }
+        .header-title h1 { margin: 0; font-size: 24px; color: #1e293b; }
+        .header-title p { margin: 5px 0 0; color: #64748b; font-size: 14px; }
+        
+        /* Summary Cards */
+        .summary-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 15px; margin-bottom: 20px; }
+        .sum-card { background: white; padding: 20px; border-radius: 16px; display: flex; align-items: center; gap: 15px; box-shadow: 0 4px 6px rgba(0,0,0,0.03); border: 1px solid #e2e8f0;}
+        .sum-icon { width: 50px; height: 50px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 24px; flex-shrink: 0;}
+        
+        .sum-card.sales .sum-icon { background: #fef3c7; color: #d97706; }
+        .sum-card.sales { border-left: 5px solid #f59e0b; }
+        
+        .sum-card.open .sum-icon { background: #dcfce7; color: #16a34a; }
+        .sum-card.closed .sum-icon { background: #fee2e2; color: #dc2626; }
+        .sum-card.percent .sum-icon { background: #e0f2fe; color: #0284c7; }
+        .sum-text { font-size: 13px; color: #64748b; font-weight: bold;}
+        .sum-val { font-size: 24px; font-weight: 900; color: #1e293b; margin-top: 5px;}
+        .sum-val.text-green { color: #15803d; }
+
+        /* Calendar Styling */
+        .calendar-container { background: white; border-radius: 16px; padding: 25px; box-shadow: 0 4px 10px rgba(0,0,0,0.05); border: 1px solid #e2e8f0; }
+        .calendar-nav { display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px; }
+        .calendar-nav a { padding: 10px 15px; background: #f1f5f9; color: #334155; border-radius: 10px; text-decoration: none; font-weight: bold; border: 1px solid #cbd5e1; transition: 0.2s;}
+        .calendar-nav a:hover { background: #e2e8f0; }
+        .calendar-nav h2 { margin: 0; font-size: 22px; color: #0f172a; }
+
+        .cal-grid { display: grid; grid-template-columns: repeat(7, 1fr); gap: 10px; }
+        .cal-head { text-align: center; font-weight: bold; color: #64748b; padding-bottom: 10px; font-size: 14px; }
+        .cal-cell { aspect-ratio: 1; border-radius: 12px; display: flex; flex-direction: column; align-items: center; justify-content: center; transition: transform 0.2s; position: relative;}
+        
+        .day-number { font-size: 24px; font-weight: 900; }
+        .day-sales { font-size: 13px; font-weight: 800; color: #059669; margin-top: 4px; background: rgba(255,255,255,0.8); padding: 3px 8px; border-radius: 6px; box-shadow: 0 2px 4px rgba(0,0,0,0.05);}
+
+        /* สถานะปฏิทิน */
+        .day-open { background: #f0fdf4; color: #166534; border: 2px solid #4ade80; box-shadow: 0 4px 6px rgba(74,222,128,0.1); }
+        .day-open::after { content: "✅"; font-size: 12px; position: absolute; top: 6px; right: 6px; }
+        
+        .day-closed { background: #fef2f2; color: #b91c1c; border: 2px solid #f87171; }
+        .day-closed::after { content: "❌ หยุด"; font-size: 11px; position: absolute; bottom: 8px; color: #dc2626; font-weight: bold;}
+        
+        .day-future { background: #f8fafc; color: #cbd5e1; border: 2px dashed #e2e8f0; }
+        .day-other { visibility: hidden; }
+
+        @media (max-width: 900px) {
+            .app { display: block; }
+            .main { margin-left: 0; padding: 15px; padding-bottom: 90px; }
+            .sidebar { position: fixed; bottom: 0; top: auto; width: 100%; height: 70px; flex-direction: row; border-top: 1px solid #374151; z-index: 9999; }
+            .sidebar .logo, .sidebar .sidebar-bottom { display: none; }
+            .sidebar .menu { flex-direction: row; width: 100%; justify-content: space-around; }
+            .sidebar .menu-item { flex-direction: column; padding: 5px; }
+            .sidebar .menu-item span:nth-child(2) { display: block !important; font-size: 10px; }
+            .header-card { flex-direction: column; align-items: flex-start; gap: 15px; }
+            .cal-grid { gap: 5px; }
+            .cal-cell { border-radius: 8px; }
+            .day-number { font-size: 18px; }
+            .day-sales { font-size: 10px; padding: 2px 4px; }
+            .day-open::after { font-size: 10px; top: 4px; right: 4px; }
+            .day-closed::after { font-size: 9px; bottom: 4px; }
+        }
+    </style>
+</head>
+<body>
+
+<div class="app">
+    <aside class="sidebar">
+        <div class="logo"><h2>KhaiKhao</h2><span>POS</span></div>
+        <nav class="menu">
+            <a href="{% url 'pos:home' %}" class="menu-item"><span>🏠</span><span>หน้าหลัก</span></a>
+            <a href="{% url 'shop_history:home' %}" class="menu-item"><span>🏪</span><span>เปิด-ปิดร้าน</span></a>
+            <!-- <a href="{% url 'shop_history:closures' %}" class="menu-item"><span>💤</span><span>ประวัติหยุดร้าน</span></a> -->
+            <a href="{% url 'shop_history:calendar' %}" class="menu-item active"><span>📅</span><span>ปฏิทินร้าน</span></a>
+            <!-- <a href="{% url 'history:home' %}" class="menu-item"><span>📜</span><span>ประวัติการขาย</span></a> -->
+        </nav>
+    </aside>
+
+    <main class="main">
+        <div class="header-card">
+            <div class="header-title">
+                <h1>📅 แดชบอร์ดสถิติ และยอดขาย</h1>
+                <p>สรุปยอดขายรายวันและสถิติการเปิดร้านประจำเดือน</p>
+            </div>
+        </div>
+
+        <div class="summary-grid">
+            <!-- 🌟 การ์ดแสดงยอดขายรวม -->
+            <div class="sum-card sales">
+                <div class="sum-icon">💰</div>
+                <div>
+                    <div class="sum-text">ยอดขายรวมเดือนนี้</div>
+                    <div class="sum-val text-green">฿{{ monthly_total_sales|floatformat:0 }}</div>
+                </div>
+            </div>
+            
+            <div class="sum-card open">
+                <div class="sum-icon">✅</div>
+                <div>
+                    <div class="sum-text">เปิดร้านไปแล้ว</div>
+                    <div class="sum-val">{{ open_count }} วัน</div>
+                </div>
+            </div>
+            <div class="sum-card closed">
+                <div class="sum-icon">❌</div>
+                <div>
+                    <div class="sum-text">หยุดพักร้าน</div>
+                    <div class="sum-val">{{ closed_count }} วัน</div>
+                </div>
+            </div>
+            <div class="sum-card percent">
+                <div class="sum-icon">🔥</div>
+                <div>
+                    <div class="sum-text">ความขยันเปิดร้าน</div>
+                    <div class="sum-val">{{ open_percent|floatformat:1 }}%</div>
+                </div>
+            </div>
+        </div>
+
+        <div class="calendar-container">
+            <div class="calendar-nav">
+                <a href="?month={{ prev_month }}&year={{ prev_year }}">⬅️ เดือนก่อนหน้า</a>
+                <h2>{{ month_name }}</h2>
+                <a href="?month={{ next_month }}&year={{ next_year }}">เดือนถัดไป ➡️</a>
+            </div>
+
+            <div class="cal-grid">
+                <div class="cal-head" style="color: #ef4444;">อา.</div>
+                <div class="cal-head">จ.</div>
+                <div class="cal-head">อ.</div>
+                <div class="cal-head">พ.</div>
+                <div class="cal-head">พฤ.</div>
+                <div class="cal-head">ศ.</div>
+                <div class="cal-head" style="color: #3b82f6;">ส.</div>
+
+                {% for week in calendar_data %}
+                    {% for day in week %}
+                        <div class="cal-cell 
+                            {% if day.status == 'open' %}day-open
+                            {% elif day.status == 'closed' %}day-closed
+                            {% elif day.status == 'future' %}day-future
+                            {% else %}day-other{% endif %}">
+                            
+                            <div class="day-number">{{ day.day }}</div>
+                            
+                            <!-- 🌟 แสดงยอดขายเฉพาะวันที่เปิดร้าน -->
+                            {% if day.status == 'open' %}
+                                <div class="day-sales">฿{{ day.sales|floatformat:0 }}</div>
+                            {% endif %}
+                            
+                        </div>
+                    {% endfor %}
+                {% endfor %}
+            </div>
+        </div>
+    </main>
+</div>
+
+</body>
+</html>

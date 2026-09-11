@@ -1,0 +1,118 @@
+{% load static %}
+<!DOCTYPE html>
+<html lang="th">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>ประวัติการหยุดร้าน - KhaiKhao POS</title>
+    <link rel="stylesheet" href="{% static 'css/style.css' %}">
+    <style>
+        * { box-sizing: border-box; }
+        .app { display: flex; min-height: 100vh; background: #f3f4f6; }
+        .sidebar { width: 250px; flex-shrink: 0; position: fixed; top: 0; left: 0; bottom: 0; background: #111827; color: white; z-index: 100; display: flex; flex-direction: column; }
+        .main { flex: 1; margin-left: 250px; padding: 30px; }
+
+        .header-card { background: white; padding: 25px; border-radius: 16px; box-shadow: 0 4px 6px rgba(0,0,0,0.05); display: flex; justify-content: space-between; align-items: center; margin-bottom: 25px; border-left: 5px solid #dc2626; }
+        .header-title h1 { margin: 0; font-size: 24px; color: #1e293b; }
+        .header-title p { margin: 5px 0 0; color: #64748b; font-size: 14px; }
+        
+        .btn-link { padding: 10px 20px; background: #f1f5f9; color: #334155; border: 1px solid #cbd5e1; border-radius: 8px; font-weight: bold; text-decoration: none; display: inline-flex; align-items: center; gap: 8px; transition: 0.2s; }
+        .btn-link:hover { background: #e2e8f0; }
+
+        .table-responsive { width: 100%; overflow-x: auto; background: white; border-radius: 16px; box-shadow: 0 4px 6px rgba(0,0,0,0.05); }
+        .history-table { width: 100%; border-collapse: collapse; min-width: 800px; }
+        .history-table th, .history-table td { padding: 16px 20px; border-bottom: 1px solid #e2e8f0; text-align: center; }
+        .history-table th { background: #f8fafc; font-weight: bold; color: #475569; font-size: 14px; }
+        .history-table tr:hover { background: #f8fafc; }
+
+        .badge { padding: 6px 12px; border-radius: 20px; font-size: 12px; font-weight: bold; }
+        .badge-closed { background: #fee2e2; color: #b91c1c; border: 1px solid #fecaca;}
+        .badge-opened { background: #dcfce7; color: #166534; border: 1px solid #bbf7d0;}
+
+        .duration-box { font-weight: 900; color: #d97706; background: #fffbeb; padding: 4px 10px; border-radius: 8px; display: inline-block; border: 1px solid #fde68a;}
+
+        @media (max-width: 900px) {
+            .app { display: block; }
+            .main { margin-left: 0; padding: 15px; padding-bottom: 90px; }
+            .sidebar { position: fixed; bottom: 0; top: auto; width: 100%; height: 70px; flex-direction: row; border-top: 1px solid #374151; z-index: 9999; }
+            .sidebar .logo, .sidebar .sidebar-bottom { display: none; }
+            .sidebar .menu { flex-direction: row; width: 100%; justify-content: space-around; }
+            .sidebar .menu-item { flex-direction: column; padding: 5px; }
+            .sidebar .menu-item span:nth-child(2) { display: block !important; font-size: 10px; }
+            .header-card { flex-direction: column; align-items: flex-start; gap: 15px; }
+        }
+    </style>
+</head>
+<body>
+
+<div class="app">
+    <aside class="sidebar">
+        <div class="logo"><h2>KhaiKhao</h2><span>POS</span></div>
+        <nav class="menu">
+            <a href="{% url 'pos:home' %}" class="menu-item"><span>🏠</span><span>หน้าหลัก</span></a>
+            <a href="{% url 'shop_history:home' %}" class="menu-item active"><span>🏪</span><span>เปิด-ปิดร้าน</span></a>
+            <!-- <a href="{% url 'history:home' %}" class="menu-item"><span>📜</span><span>ประวัติการขาย</span></a> -->
+            <a href="{% url 'shop_history:closures' %}" class="menu-item"><span>💤</span><span>เวลาเปิด-ปิดร้าน</span></a>
+            <a href="{% url 'shop_history:calendar' %}" class="menu-item"><span>📅</span><span>ปฏิทินร้าน</span></a>
+        </nav>
+    </aside>
+
+    <main class="main">
+        <div class="header-card">
+            <div class="header-title">
+                <h1>💤 ประวัติการหยุดร้าน</h1>
+                <p>คำนวณระยะเวลาตั้งแต่กด "ปิดร้าน" จนถึง "เปิดร้าน" ในรอบถัดไป</p>
+            </div>
+            <div>
+                <a href="{% url 'shop_history:home' %}" class="btn-link">⬅️ กลับไปหน้าเปิด-ปิดร้าน</a>
+            </div>
+        </div>
+
+        <div class="table-responsive">
+            <table class="history-table">
+                <thead>
+                    <tr>
+                        <th style="width: 10%;">ลำดับ</th>
+                        <th style="width: 25%;">เวลาที่เริ่มหยุด (ปิดร้าน)</th>
+                        <th style="width: 25%;">เวลาที่กลับมาเปิด</th>
+                        <th style="width: 20%;">ระยะเวลาที่หยุดไป</th>
+                        <th style="width: 20%;">สถานะปัจจุบัน</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for closure in closures %}
+                    <tr>
+                        <td style="color: #64748b; font-weight: bold;">{{ forloop.counter }}</td>
+                        <td style="color: #dc2626; font-weight: bold;">{{ closure.closed_at|date:"d/m/Y H:i" }}</td>
+                        <td style="color: #16a34a; font-weight: bold;">
+                            {% if closure.opened_at %}
+                                {{ closure.opened_at|date:"d/m/Y H:i" }}
+                            {% else %}
+                                -
+                            {% endif %}
+                        </td>
+                        <td><span class="duration-box">⏳ {{ closure.duration }}</span></td>
+                        <td>
+                            {% if closure.status == "กำลังหยุดร้าน" %}
+                                <span class="badge badge-closed">💤 กำลังหยุดพัก</span>
+                            {% else %}
+                                <span class="badge badge-opened">✅ กลับมาเปิดแล้ว</span>
+                            {% endif %}
+                        </td>
+                    </tr>
+                    {% empty %}
+                    <tr>
+                        <td colspan="5" style="text-align: center; padding: 50px; color: #9ca3af;">
+                            <div style="font-size: 40px; margin-bottom: 10px;">🕒</div>
+                            ยังไม่มีข้อมูลการหยุดร้าน
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </main>
+</div>
+
+</body>
+</html>
