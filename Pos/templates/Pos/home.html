@@ -138,6 +138,13 @@
             <a href="{% url 'tax:home' %}" class="menu-item"><span>📑</span><span>คำนวณภาษี</span></a>
             <a href="{% url 'riders:home' %}" class="menu-item"><span>🛵</span><span>ติดตามไรเดอร์</span></a>
             <a href="{% url 'shop_history:home' %}" class="menu-item"><span>🏪</span><span>ประวัติเปิด-ปิดร้าน</span></a>
+            
+            <!-- 🌟 ปุ่มเข้า BackOffice เฉพาะ Admin 🌟 -->
+            {% if request.user.is_superuser or request.user.role == 'admin' %}
+            <a href="{% url 'backoffice:home' %}" class="menu-item" style="background: #1e293b; border-left: 3px solid #3b82f6; margin-top: 15px;">
+                <span>👑</span><span>เข้าสู่ BackOffice</span>
+            </a>
+            {% endif %}
         </nav>
         <div class="sidebar-bottom">
             {% if request.user.is_authenticated %}

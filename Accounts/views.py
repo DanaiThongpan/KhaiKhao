@@ -48,7 +48,7 @@ def user_login(request):
             # ================================================
             # เช็คว่าเป็น Admin หรือ Superuser หรือไม่
             if user.is_superuser or getattr(user, 'role', '') == "admin":
-                return redirect("/")  # เปลี่ยน URL ไปหน้า dashboard ของ admin ได้
+                return redirect("backoffice:home")  # เปลี่ยน URL ไปหน้า dashboard ของ admin ได้
             
             # เช็คว่าเป็น Owner หรือไม่
             elif getattr(user, 'role', '') == "owner":

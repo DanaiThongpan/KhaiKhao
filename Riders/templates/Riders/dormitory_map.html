@@ -5,7 +5,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=0">
     <title>แผนที่หอพักรอบ ม.อุบล - KhaiKhao POS</title>
-    
+
     <link rel="stylesheet" href="{% static 'css/style.css' %}">
     <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css">
     <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
@@ -66,7 +66,7 @@
         .btn-orange { background: #f59e0b; color: white; border: none; padding: 15px; border-radius: 10px; cursor: pointer; font-weight: bold; width: 100%; font-size: 15px; margin-bottom: 10px; transition: 0.2s; }
         .btn-red { background: #ef4444; color: white; border: none; padding: 15px; border-radius: 10px; cursor: pointer; font-weight: bold; width: 100%; font-size: 15px; transition: 0.2s; }
         .btn-icon { width: 50px; display: flex; align-items: center; justify-content: center; font-size: 18px; margin-bottom: 15px; flex-shrink: 0; padding: 0;}
-        
+
         .color-palette { display: flex; gap: 8px; flex-wrap: wrap; margin-bottom: 15px; }
         .color-chip { width: 35px; height: 35px; border-radius: 50%; cursor: pointer; border: 2px solid #cbd5e1; transition: 0.1s; }
         .color-chip.active { border-color: #0f172a; box-shadow: 0 0 0 3px #3b82f6; transform: scale(1.1); }
@@ -78,31 +78,31 @@
         .history-table th { position: sticky; top: 0; background: #f8fafc; padding: 14px; font-size: 14px; color: #475569; border-bottom: 2px solid #e2e8f0; text-align: left; }
         .history-table td { padding: 12px 14px; border-bottom: 1px solid #f1f5f9; font-size: 14px; color: #1e293b; vertical-align: middle; }
         .history-table tbody tr:hover { background: #f8fafc; }
-        
+
         .zone-badge { display: inline-block; padding: 6px 10px; border-radius: 6px; font-size: 12px; font-weight: bold; }
         .btn-edit { background: #f59e0b; color: white; border: none; padding: 8px 12px; border-radius: 6px; cursor: pointer; font-weight: bold; font-size: 12px; margin-right: 4px; }
         .btn-delete { background: #ef4444; color: white; border: none; padding: 8px 12px; border-radius: 6px; cursor: pointer; font-weight: bold; font-size: 12px; }
-        
+
         /* ========================================================
            🌟 โหมดมือถือบังคับเด็ดขาด (Force Mobile Overrides) 🌟
            ======================================================== */
         @media screen and (max-width: 1024px) {
             body { padding-bottom: 80px !important; }
             .app { flex-direction: column !important; display: block !important; }
-            
+
             /* เมนูด้านล่างสุด */
-            .sidebar { 
-                position: fixed !important; 
-                bottom: 0 !important; 
+            .sidebar {
+                position: fixed !important;
+                bottom: 0 !important;
                 top: auto !important;
-                left: 0 !important; 
-                right: 0 !important; 
-                width: 100% !important; 
-                height: 70px !important; 
-                flex-direction: row !important; 
-                background: #111827 !important; 
-                padding: 0 !important; 
-                justify-content: space-around !important; 
+                left: 0 !important;
+                right: 0 !important;
+                width: 100% !important;
+                height: 70px !important;
+                flex-direction: row !important;
+                background: #111827 !important;
+                padding: 0 !important;
+                justify-content: space-around !important;
                 box-shadow: 0 -4px 15px rgba(0,0,0,0.1) !important;
                 z-index: 9999 !important;
             }
@@ -112,31 +112,31 @@
             .sidebar .menu-item span:nth-child(1) { font-size: 24px !important; margin-bottom: 4px !important; }
             .sidebar .menu-item span:nth-child(2) { display: block !important; font-size: 11px !important; }
             .sidebar .menu-item.active { background: transparent !important; color: #4ade80 !important; }
-            
+
             .main { margin-left: 0 !important; width: 100% !important; }
             .page-header { margin: 15px !important; padding-bottom: 10px !important; }
             .page-header h1 { font-size: 22px !important; }
-            
+
             /* เรียงแผนที่ไว้บน และฟอร์มไว้ล่าง (ไม่ซ้อนทับกัน) */
-            .map-layout { 
-                flex-direction: column !important; 
-                height: auto !important; 
-                margin: 0 15px 15px 15px !important; 
-                gap: 15px !important; 
+            .map-layout {
+                flex-direction: column !important;
+                height: auto !important;
+                margin: 0 15px 15px 15px !important;
+                gap: 15px !important;
             }
-            
-            #map { 
-                width: 100% !important; 
-                height: 45vh !important; 
-                min-height: 350px !important; 
-                order: 1 !important; 
+
+            #map {
+                width: 100% !important;
+                height: 45vh !important;
+                min-height: 350px !important;
+                order: 1 !important;
             }
-            
-            .data-panel { 
-                width: 100% !important; 
-                height: auto !important; 
-                max-height: none !important; 
-                order: 2 !important; 
+
+            .data-panel {
+                width: 100% !important;
+                height: auto !important;
+                max-height: none !important;
+                order: 2 !important;
                 border-radius: 16px !important;
             }
 
@@ -165,13 +165,13 @@
 
         <!-- 🌟 โครงสร้างใหม่: วางแผนที่กับฟอร์มเป็นกล่องแยกกัน ไม่บังกันแน่นอน 🌟 -->
         <div class="map-layout">
-            
+
             <!-- 🗺️ ส่วนแผนที่ (ในมือถือจะอยู่ด้านบน) -->
             <div id="map"></div>
-            
+
             <!-- 📝 แผงข้อมูลเพิ่มหอพัก (ในมือถือจะเรียงต่ออยู่ด้านล่าง) -->
             <div class="data-panel" id="panelAdd">
-                
+
                 <!-- กล่องค้นหา -->
                 <div style="margin-bottom: 20px; padding-bottom: 20px; border-bottom: 2px dashed #cbd5e1;">
                     <div style="font-weight: 800; color: #1e293b; margin-bottom: 12px; font-size: 16px;">🔍 ค้นหาและกรองโซน</div>
@@ -187,10 +187,10 @@
                 <!-- กล่องเพิ่มข้อมูล -->
                 <div>
                     <div style="font-weight: 800; color: #1e293b; margin-bottom: 15px; font-size: 18px;">➕ เพิ่มหอพักใหม่</div>
-                    
+
                     <label class="section-label">ชื่อหอพัก:</label>
                     <input type="text" id="newDormName" class="add-input" placeholder="กรอกชื่อหอพักใหม่...">
-                    
+
                     <label class="section-label">โซนจัดส่ง:</label>
                     <div id="newZoneSelectGroup" style="display: flex; gap: 8px;">
                         <select id="newDormZoneSelect" class="add-input" style="flex: 1; margin-bottom: 15px;"></select>
@@ -227,7 +227,7 @@
             <div class="data-panel" id="panelEdit" style="display: none; border: 2px solid #f59e0b;">
                 <div style="font-weight: 800; color: #d97706; margin-bottom: 15px; font-size: 18px;">✏️ โหมดแก้ไขหอพัก</div>
                 <input type="hidden" id="editDormId">
-                
+
                 <label class="section-label">ชื่อหอพัก:</label>
                 <input type="text" id="editDormName" class="add-input">
 
@@ -240,7 +240,7 @@
                     <input type="text" id="editDormZoneInput" class="add-input" style="flex: 1; margin-bottom: 15px;" placeholder="พิมพ์ชื่อโซนใหม่...">
                     <button class="btn-red btn-icon" onclick="toggleZoneInput('edit')" title="ยกเลิก">❌</button>
                 </div>
-                
+
                 <label class="section-label">สีหมุดบนแผนที่:</label>
                 <div class="color-palette" id="editColorPalette">
                     <div class="color-chip active" style="background: #3b82f6;" onclick="selectColor('edit', 'blue', this)"></div>
@@ -266,7 +266,7 @@
                 <button onclick="getCurrentLocationForEdit()" class="btn-green">📍 ใช้พิกัด GPS ปัจจุบันแทน</button>
                 <button onclick="submitEditDorm()" class="btn-orange">💾 บันทึกการแก้ไข</button>
                 <button onclick="cancelEditMode()" class="btn-red">❌ ยกเลิก</button>
-                
+
                 <div id="editDormStatus" style="font-size: 14px; font-weight: bold; margin-top: 10px; text-align: center;"></div>
             </div>
         </div>
@@ -297,7 +297,7 @@
     let dormsData = {{ dorms_json|safe }};
     let mapInstance = null;
     let markerLayer = L.layerGroup();
-    let markersDict = {}; 
+    let markersDict = {};
     let tempNewDormMarker = null;
     let editDraggableMarker = null;
 
@@ -316,7 +316,10 @@
 
     document.addEventListener("DOMContentLoaded", function() {
         mapInstance = L.map("map", { zoomControl: false }).setView([15.1218, 104.9038], 14);
-        L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png").addTo(mapInstance);
+        L.tileLayer('https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png', {
+            maxZoom: 19,
+            attribution: '&copy; OpenStreetMap contributors &copy; CARTO'
+        }).addTo(mapInstance);
         L.control.zoom({ position: 'bottomright' }).addTo(mapInstance);
         markerLayer.addTo(mapInstance);
 
@@ -339,7 +342,7 @@
         const selectGroup = document.getElementById(mode + "ZoneSelectGroup");
         const inputGroup = document.getElementById(mode + "ZoneInputGroup");
         const inputField = document.getElementById(mode + "DormZoneInput");
-        
+
         if (selectGroup.style.display !== "none") {
             selectGroup.style.display = "none";
             inputGroup.style.display = "flex";
@@ -357,7 +360,7 @@
         const editSelect = document.getElementById("editDormZoneSelect");
         addSelect.innerHTML = "";
         editSelect.innerHTML = "";
-        
+
         uniqueZones.forEach(z => {
             addSelect.innerHTML += `<option value="${z}">${z}</option>`;
             editSelect.innerHTML += `<option value="${z}">${z}</option>`;
@@ -369,7 +372,7 @@
         uniqueZones.forEach(z => {
             filterSelect.innerHTML += `<option value="${z}">${z}</option>`;
         });
-        
+
         if (uniqueZones.includes(currentFilter)) filterSelect.value = currentFilter;
         else filterSelect.value = "all";
     }
@@ -382,7 +385,7 @@
 
         const zoneQuery = document.getElementById("zoneFilter").value;
         const textQuery = document.getElementById("dormSearch").value.toLowerCase();
-        
+
         let count = 0;
         dormsData.sort((a, b) => a.zone.localeCompare(b.zone) || a.name.localeCompare(b.name));
 
@@ -393,7 +396,7 @@
             if(d.lat && d.lng && matchName && matchZone) {
                 const markerIcon = getMarkerIcon(d.color);
                 const marker = L.marker([d.lat, d.lng], {icon: markerIcon});
-                
+
                 marker.bindPopup(`
                     <div style="text-align: center; min-width: 170px; padding: 5px;">
                         <b style="font-size:15px; color:#1e293b;">🏢 ${d.name}</b><br>
@@ -435,7 +438,7 @@
             }
         });
         document.getElementById("dormCount").innerText = count;
-        
+
         if (count === 1 && textQuery.length > 2) {
             const firstDorm = dormsData.find(d => d.name.toLowerCase().includes(textQuery) && (zoneQuery === "all" || d.zone === zoneQuery));
             if(firstDorm) {
@@ -467,8 +470,8 @@
         document.getElementById("editDormName").value = dorm.name;
         document.getElementById("editLat").value = dorm.lat;
         document.getElementById("editLng").value = dorm.lng;
-        document.getElementById("editDormZoneSelect").value = dorm.zone || ""; 
-        
+        document.getElementById("editDormZoneSelect").value = dorm.zone || "";
+
         const colorPalette = document.getElementById("editColorPalette");
         const targetColorDiv = colorPalette.querySelector(`[onclick*="'${dorm.color || 'blue'}',"]`);
         if(targetColorDiv) selectColor('edit', dorm.color, targetColorDiv);
@@ -495,10 +498,10 @@
 
         document.getElementById("panelAdd").style.display = "block";
         document.getElementById("panelEdit").style.display = "none";
-        
+
         // เลื่อนกลับไปหาฟอร์มหลัก
         document.getElementById("panelAdd").scrollIntoView({ behavior: 'smooth', block: 'start' });
-        renderMapAndTable(); 
+        renderMapAndTable();
     }
 
     function getCurrentLocationForEdit() {
@@ -544,24 +547,24 @@
         try {
             const res = await fetch(`/riders/api/edit-dormitory/${id}/`, {
                 method: "POST", headers: { "Content-Type": "application/json" },
-                body: JSON.stringify({ name: name, lat: lat, lng: lng, zone: zone, color: color }) 
+                body: JSON.stringify({ name: name, lat: lat, lng: lng, zone: zone, color: color })
             });
             const data = await res.json();
 
             if (data.status === "success") {
                 statusEl.style.color = "#10b981";
                 statusEl.innerText = "✅ บันทึกสำเร็จ!";
-                
+
                 const dIndex = dormsData.findIndex(x => x.id === parseInt(id));
                 if(dIndex > -1) {
                     dormsData[dIndex].name = data.name;
                     dormsData[dIndex].lat = data.lat;
                     dormsData[dIndex].lng = data.lng;
-                    dormsData[dIndex].zone = data.zone; 
-                    dormsData[dIndex].color = data.color; 
+                    dormsData[dIndex].zone = data.zone;
+                    dormsData[dIndex].color = data.color;
                 }
 
-                updateDynamicZones(); 
+                updateDynamicZones();
                 renderMapAndTable();
                 setTimeout(() => { cancelEditMode(); }, 1500);
             } else {
@@ -588,16 +591,16 @@
                 const selectedColor = document.getElementById("newDormColor").value || "blue";
                 if (tempNewDormMarker) tempNewDormMarker.setLatLng([lat, lng]);
                 else tempNewDormMarker = L.marker([lat, lng], {icon: getMarkerIcon(selectedColor)}).addTo(mapInstance);
-                
+
                 mapInstance.setView([lat, lng], 17);
                 statusEl.innerText = "✅ ดึงพิกัดสำเร็จ!";
                 statusEl.style.color = "#10b981";
-                
+
                 // เลื่อนให้เห็นปุ่มบันทึกชัดๆ
                 document.getElementById("addDormStatus").scrollIntoView({ behavior: 'smooth', block: 'end' });
-                
+
                 setTimeout(() => { statusEl.innerText = ""; }, 3000);
-            }, (err) => { 
+            }, (err) => {
                 statusEl.innerText = "❌ ไม่สามารถดึงพิกัดได้ (กรุณาเปิด GPS/Location บนมือถือ)";
                 statusEl.style.color = "#ef4444";
             }, { enableHighAccuracy: true });
@@ -629,20 +632,20 @@
         try {
             const res = await fetch("/riders/api/add-dormitory/", {
                 method: "POST", headers: { "Content-Type": "application/json" },
-                body: JSON.stringify({ name: name, lat: parseFloat(latText), lng: parseFloat(lngText), zone: zone, color: color }) 
+                body: JSON.stringify({ name: name, lat: parseFloat(latText), lng: parseFloat(lngText), zone: zone, color: color })
             });
             const data = await res.json();
 
             if (data.status === "success") {
                 statusEl.style.color = "#10b981";
                 statusEl.innerText = "🎉 บันทึกหอพักใหม่สำเร็จ!";
-                
+
                 if(tempNewDormMarker) { mapInstance.removeLayer(tempNewDormMarker); tempNewDormMarker = null; }
 
                 dormsData.unshift({ id: data.id, name: data.name, lat: data.lat, lng: data.lng, zone: data.zone, color: data.color });
-                
-                updateDynamicZones(); 
-                renderMapAndTable(); 
+
+                updateDynamicZones();
+                renderMapAndTable();
 
                 document.getElementById("newZoneSelectGroup").style.display = "flex";
                 document.getElementById("newZoneInputGroup").style.display = "none";

@@ -16,6 +16,8 @@ Including another URLconf
 """
 from django.contrib import admin
 from django.urls import include, path
+from django.conf import settings # 🌟 1. เพิ่มบรรทัดนี้
+from django.conf.urls.static import static # 🌟 2. เพิ่มบรรทัดนี้
 
 urlpatterns = [
     path('admin/', admin.site.urls),
@@ -29,4 +31,10 @@ urlpatterns = [
     path('stocks/', include('Stocks.urls')),
     path('riders/', include('Riders.urls')),
     path('shophistory/', include('ShopHistory.urls')),
+    path('heatmap/', include('Heatmap.urls')),
+    path('backoffice/', include('BackOffice.urls')), 
 ]
+
+# 🌟 3. เพิ่มบรรทัดนี้ต่อท้ายสุด
+if settings.DEBUG:
+    urlpatterns += static(settings.MEDIA_URL, document_root=settings.MEDIA_ROOT)

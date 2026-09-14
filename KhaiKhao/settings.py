@@ -50,6 +50,8 @@ INSTALLED_APPS = [
     'Stocks',
     'Riders',
     'ShopHistory',
+    'Heatmap',
+    'BackOffice'
 ]
 
 MIDDLEWARE = [
