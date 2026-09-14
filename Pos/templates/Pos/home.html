@@ -25,7 +25,7 @@
         .qty-btn:hover { background: #e5e7eb; }
         .cart-footer { padding: 20px; border-top: 1px solid #e5e7eb; background: #fff; }
         .summary-row { display: flex; justify-content: space-between; font-size: 18px; font-weight: bold; margin-bottom: 15px; align-items: center;}
-        .btn-checkout { width: 100%; padding: 15px; background: #16a34a; color: white; border: none; border-radius: 8px; font-size: 16px; font-weight: bold; cursor: pointer; }
+        .btn-checkout { width: 100%; padding: 15px; background: #16a34a; color: white; border: none; border-radius: 8px; font-size: 16px; font-weight: bold; cursor: pointer; transition: 0.2s; }
         .btn-checkout:disabled { background: #9ca3af; cursor: not-allowed; }
 
         .product-card { cursor: pointer; transition: 0.2s; }
@@ -139,7 +139,6 @@
             <a href="{% url 'riders:home' %}" class="menu-item"><span>🛵</span><span>ติดตามไรเดอร์</span></a>
             <a href="{% url 'shop_history:home' %}" class="menu-item"><span>🏪</span><span>ประวัติเปิด-ปิดร้าน</span></a>
             
-            <!-- 🌟 ปุ่มเข้า BackOffice เฉพาะ Admin 🌟 -->
             {% if request.user.is_superuser or request.user.role == 'admin' %}
             <a href="{% url 'backoffice:home' %}" class="menu-item" style="background: #1e293b; border-left: 3px solid #3b82f6; margin-top: 15px;">
                 <span>👑</span><span>เข้าสู่ BackOffice</span>
@@ -176,33 +175,52 @@
                 <div class="notification-wrapper">
                     <button class="bell-btn" onclick="toggleNotiPopup()">
                         🔔
-                        {% if unpaid_expenses|length > 0 %}
-                            <span class="badge">{{ unpaid_expenses|length }}</span>
+                        {% if total_noti_count > 0 %}
+                            <span class="badge">{{ total_noti_count }}</span>
                         {% endif %}
                     </button>
                     <div class="noti-popup" id="notiPopup">
-                        <div class="noti-header">⚠️ แจ้งเตือนบิลค้างจ่าย / ใกล้ครบกำหนด!</div>
+                        <div class="noti-header">⚠️ แจ้งเตือนบิลค้าง / สต๊อกของใช้หมด</div>
                         <div class="noti-body">
-                            {% for exp in unpaid_expenses %}
-                                <div class="noti-item" id="expense-item-{{ exp.id }}">
-                                    <div class="noti-title">{{ exp.name }}</div>
-                                    <div class="noti-amount">- ยอด ฿{{ exp.amount|floatformat:2 }}</div>
-                                    <div class="noti-status {% if exp.days_left < 0 %}overdue{% elif exp.days_left == 0 %}today{% endif %}">
-                                        {% if exp.days_left < 0 %}🔴 เลยกำหนดมาแล้ว {{ exp.days_left|stringformat:"s"|slice:"1:" }} วัน!
-                                        {% elif exp.days_left == 0 %}🔥 ครบกำหนดจ่ายวันนี้!
-                                        {% else %}⚠️ อีก {{ exp.days_left }} วันครบกำหนด{% endif %}
+                            {% if total_noti_count == 0 %}
+                                <div style="padding: 20px; text-align: center; color: #9ca3af;">🎉 ไม่มีแจ้งเตือน เยี่ยมมาก!</div>
+                            {% else %}
+                                
+                                {% for item in out_of_stock_items %}
+                                    <div class="noti-item" style="background: #fef2f2; border-left: 4px solid #ef4444;">
+                                        <div class="noti-title">📦 {{ item.name }}</div>
+                                        <div class="noti-status overdue" style="margin-bottom: 0;">❌ สต๊อกหมดแล้ว! กรุณาเติมของ</div>
                                     </div>
-                                    <button class="btn-mark-paid" onclick="markAsPaid({{ exp.id }})">✅ กดมาร์คว่าจ่ายแล้ว</button>
-                                </div>
-                            {% empty %}
-                                <div style="padding: 20px; text-align: center; color: #9ca3af;">🎉 ไม่มีบิลค้างจ่าย เยี่ยมมาก!</div>
-                            {% endfor %}
+                                {% endfor %}
+
+                                {% for exp in unpaid_expenses %}
+                                    <div class="noti-item" id="expense-item-{{ exp.id }}">
+                                        <div class="noti-title">{{ exp.name }}</div>
+                                        <div class="noti-amount">- ยอด ฿{{ exp.amount|floatformat:2 }}</div>
+                                        <div class="noti-status {% if exp.days_left < 0 %}overdue{% elif exp.days_left == 0 %}today{% endif %}">
+                                            {% if exp.days_left < 0 %}🔴 เลยกำหนดมาแล้ว {{ exp.days_left|stringformat:"s"|slice:"1:" }} วัน!
+                                            {% elif exp.days_left == 0 %}🔥 ครบกำหนดจ่ายวันนี้!
+                                            {% else %}⚠️ อีก {{ exp.days_left }} วันครบกำหนด{% endif %}
+                                        </div>
+                                        <button class="btn-mark-paid" onclick="markAsPaid({{ exp.id }})">✅ กดมาร์คว่าจ่ายแล้ว</button>
+                                    </div>
+                                {% endfor %}
+
+                            {% endif %}
                         </div>
                     </div>
                 </div>
                 <span class="shop-status">● เปิดให้บริการ</span>
             </div>
         </header>
+
+        <!-- 🌟 ป้ายแจ้งเตือนกล่องหมดโชว์เด่นๆ หน้าแรก 🌟 -->
+        {% if has_box_item and box_quantity <= 0 %}
+        <div style="background: #fef2f2; border: 1px solid #f87171; color: #b91c1c; padding: 12px 20px; border-radius: 8px; margin-bottom: 20px; font-weight: bold; display: flex; align-items: center; gap: 10px; box-shadow: 0 2px 4px rgba(239, 68, 68, 0.1);">
+            <span style="font-size: 24px;">📦⚠️</span> 
+            สต๊อก "กล่อง" หมดแล้ว! (เหลือ 0 ใบ) กรุณาเติมสต๊อกก่อนทำรายการอาหารที่ต้องใช้กล่อง
+        </div>
+        {% endif %}
 
         <!-- SUMMARY -->
         <section class="summary">
@@ -251,7 +269,8 @@
                     <div class="products-grid">
                         {% for product in category.products.all %}
                             {% if product.is_active %}
-                                <article class="product-card" data-name="{{ product.name }}" data-code="{{ product.code }}" data-category="{{ category.name }}" onclick="addToCart('{{ product.id }}', '{{ product.name|escapejs }}', {{ product.selling_price }}, '{{ category.name|escapejs }}')">
+                                <article class="product-card" data-name="{{ product.name }}" data-code="{{ product.code }}" data-category="{{ category.name }}" 
+                                         onclick="addToCart('{{ product.id }}', '{{ product.name|escapejs }}', {{ product.selling_price }}, '{{ category.name|escapejs }}')">
                                     <div class="product-image">
                                         {% if product.image %}<img src="{{ product.image.url }}" alt="{{ product.name }}">
                                         {% else %}<div class="no-image"><span>🍱</span><small>ไม่มีรูปภาพ</small></div>{% endif %}
@@ -372,10 +391,8 @@
         <div class="modal-body">
             <p style="color: #64748b; margin-bottom: 10px;">ยอดชำระสุทธิ: <strong id="qrTotalText" style="color: #16a34a; font-size: 22px;">฿0.00</strong></p>
 
-            <!-- พื้นที่แสดงรูป QR Code -->
             <div id="qrcode" style="display: flex; justify-content: center; margin: 10px 0;"></div>
 
-            <!-- 🌟 เพิ่มส่วนเลือกหอพักใน Modal ชำระเงิน ตรงนี้ 🌟 -->
             <div style="background: #e0f2fe; border: 1px solid #bfdbfe; padding: 15px; border-radius: 8px; margin: 15px 0; text-align: left;">
                 <label style="font-size: 14px; font-weight: bold; color: #1e40af; display: block; margin-bottom: 8px;">
                     📍 เลือกหอพักปลายทาง (สำหรับจัดส่ง):
@@ -441,7 +458,6 @@
      SCRIPTS
 ===================================================== -->
 <script>
-    // ดึงหมายเลขพร้อมเพย์/แม่มณีเฉพาะของร้านที่ Login อยู่จาก Django Context
     const PROMPTPAY_ID = "{{ shop_promptpay }}"; 
 
     // -----------------------------------------------------
@@ -562,7 +578,7 @@
     }
 
     // -----------------------------------------------------
-    // 2. NOTIFICATION POPUP (แจ้งเตือนบิลค้าง)
+    // 2. NOTIFICATION POPUP
     // -----------------------------------------------------
     function toggleNotiPopup() { document.getElementById('notiPopup').classList.toggle('show'); }
 
@@ -599,7 +615,7 @@
     }
 
     // -----------------------------------------------------
-    // 3. PROMPTPAY & SCB MAEMANEE (BILLER ID) PAYLOAD
+    // 3. PROMPTPAY PAYLOAD
     // -----------------------------------------------------
     function generatePromptPayPayload(target, amount) {
         function tlv(tag, value) {
@@ -770,9 +786,9 @@
         });
     }
 
-    // =========================================================================
+    // -----------------------------------------------------
     // 4. ระบบการพิมพ์แบบสลิป บนกระดาษ A4 (6 ช่อง)
-    // =========================================================================
+    // -----------------------------------------------------
     function triggerPrintReceipt(receiptNo, items, total, qrDataUrl, shopName, selectedDormName) {
         let printWindow = window.open('', '_blank');
         let currentSlot = parseInt(localStorage.getItem('printSlotIndex')) || 0;
@@ -796,7 +812,6 @@
             ↘❗ กรุณาแจ้งทางร้านทันที<br>
             🙇🏻‍♀️ ขอบคุณค่ะ/ครับ 🙇`;
 
-        // 🌟 เพิ่มข้อมูลหอพักสำหรับร้าน P184
         let isP184 = shopName.includes("P184");
         let dormHtml = "";
         if (isP184) {
@@ -889,9 +904,9 @@
         printWindow.document.close();
     }
 
-    // =========================================================================
+    // -----------------------------------------------------
     // 4.2 ระบบดาวน์โหลด e-Slip (สัดส่วนพอดีมือถือ)
-    // =========================================================================
+    // -----------------------------------------------------
     function downloadSlipImage(receiptNo, items, total, qrDataUrl, shopName, selectedDormName) {
         const slipContainer = document.createElement('div');
         slipContainer.style.position = 'absolute';
@@ -907,7 +922,6 @@
         const excludeKeywords = ["topping", "ท็อปปิ้ง", "พิเศษ", "เครื่องดื่ม", "เพิ่มเติม"];
         let mainIndex = 1;
 
-        // 🌟 เพิ่มข้อมูลหอพักสำหรับร้าน P184
         let isP184 = shopName.includes("P184");
         let dormHtml = "";
         if (isP184) {
@@ -1110,7 +1124,14 @@
     }
     searchInput.addEventListener("input", filterProducts);
 
+    // -----------------------------------------------------
+    // 6. CART SYSTEM 🌟 อัปเดตให้เช็คสต๊อกเฉพาะกล่อง (อาหารสั่งได้ปกติ)
+    // -----------------------------------------------------
     let cart = [];
+
+    // ดึงค่าคงเหลือของกล่องมาจาก Backend
+    const HAS_BOX_ITEM = {{ has_box_item|yesno:"true,false" }};
+    const BOX_QUANTITY = {{ box_quantity|default:0 }};
 
     function addToCart(id, name, price, category) {
         const existingItem = cart.find(item => item.id === id);
@@ -1129,24 +1150,61 @@
 
     function updateQty(id, change) {
         const item = cart.find(item => item.id === id);
-        if (item) { item.qty += change; if (item.qty <= 0) cart = cart.filter(cartItem => cartItem.id !== id); renderCart(); }
+        if (item) {
+            item.qty += change; 
+            if (item.qty <= 0) cart = cart.filter(cartItem => cartItem.id !== id); 
+            renderCart(); 
+        }
     }
+
     function removeItem(id) { cart = cart.filter(item => item.id !== id); renderCart(); }
+
     function renderCart() {
         const container = document.getElementById('cartContainer');
         const grandTotalEl = document.getElementById('grandTotal');
         const btnCheckout = document.getElementById('btnCheckout');
+        
         if (cart.length === 0) {
             container.innerHTML = `<div style="text-align: center; color: #9ca3af; margin-top: 50px;"><div style="font-size: 40px; margin-bottom: 10px;">🛒</div>ยังไม่มีสินค้าในตะกร้า</div>`;
-            grandTotalEl.innerText = '฿0.00'; btnCheckout.disabled = true; return;
+            grandTotalEl.innerText = '฿0.00'; 
+            btnCheckout.disabled = true; 
+            btnCheckout.style.background = "#16a34a"; // รีเซ็ตสีปุ่ม
+            btnCheckout.innerText = "รับชำระเงิน (QR พร้อมเพย์/แม่มณี)";
+            return;
         }
-        container.innerHTML = ''; let totalPrice = 0;
+
+        container.innerHTML = ''; 
+        let totalPrice = 0;
+        let requiredBoxes = 0;
+        const excludeKeywordsBox = ["topping", "ท็อปปิ้ง", "กับข้าว", "พิเศษ", "เครื่องดื่ม", "โปรโมชั่น", "เพิ่มเติม", "ของทานเล่น", "ค่าจัดส่ง", "โปรโมชั่นส่วนลด"];
+
         cart.forEach(item => {
-            const itemTotal = item.price * item.qty; totalPrice += itemTotal;
+            const itemTotal = item.price * item.qty; 
+            totalPrice += itemTotal;
+            
+            // คำนวณยอดการใช้กล่อง
+            const catName = (item.category || "").toLowerCase();
+            const prodName = item.name.toLowerCase();
+            const isExcluded = excludeKeywordsBox.some(kw => prodName.includes(kw) || catName.includes(kw));
+            if (!isExcluded) {
+                requiredBoxes += item.qty;
+            }
+
             container.innerHTML += `<div class="cart-item"><div class="cart-item-info"><h4>${item.name}</h4><div class="qty-controls"><button class="qty-btn" onclick="updateQty('${item.id}', -1)">-</button><span>${item.qty}</span><button class="qty-btn" onclick="updateQty('${item.id}', 1)">+</button></div></div><div style="text-align: right;"><div style="font-weight: bold; margin-bottom: 5px;">฿${itemTotal.toLocaleString(undefined, {minimumFractionDigits: 2})}</div><span onclick="removeItem('${item.id}')" style="color: #ef4444; font-size: 12px; cursor: pointer;">ลบ</span></div></div>`;
         });
+
         grandTotalEl.innerText = `฿${totalPrice.toLocaleString(undefined, {minimumFractionDigits: 2})}`;
-        btnCheckout.disabled = false;
+        
+        // 🌟 ตรวจสอบว่ากล่องพอหรือไม่ 🌟
+        if (HAS_BOX_ITEM && requiredBoxes > BOX_QUANTITY) {
+            btnCheckout.disabled = true;
+            btnCheckout.style.background = "#dc2626"; // ปุ่มสีแดง
+            btnCheckout.innerText = `⚠️ กล่องไม่พอ (ต้องการ ${requiredBoxes} ใบ, มี ${Math.floor(BOX_QUANTITY)} ใบ)`;
+        } else {
+            btnCheckout.disabled = false;
+            btnCheckout.style.background = "#16a34a"; // ปุ่มสีเขียวปกติ
+            btnCheckout.innerText = "รับชำระเงิน (QR พร้อมเพย์/แม่มณี)";
+        }
     }
 </script>
 
