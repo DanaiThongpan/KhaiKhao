@@ -801,8 +801,8 @@
         let leftOffset = 15 + (col * 95);  
         let topOffset = 10 + (row * 95);   
 
-        let isM053 = shopName.includes("M053") || shopName.includes("เรื่องของหมู");
-        let qrFooterDesc = isM053 ? 
+        let isDeliveryShop = shopName.includes("P184");
+        let qrFooterDesc = (shopName.includes("M053") || shopName.includes("เรื่องของหมู")) ? 
             `🐷 โอนแล้วรอสักครู่นะคะ 🐷<br>
             ⚠️ รบกวนตรวจสอบยอดเงินก่อนยืนยัน ⚠️<br>
             ขอบคุณที่อุดหนุนร้านเรื่องของหมูค่ะ 🙏` : 
@@ -812,9 +812,8 @@
             ↘❗ กรุณาแจ้งทางร้านทันที<br>
             🙇🏻‍♀️ ขอบคุณค่ะ/ครับ 🙇`;
 
-        let isP184 = shopName.includes("P184");
         let dormHtml = "";
-        if (isP184) {
+        if (isDeliveryShop) {
             let dormText = selectedDormName ? selectedDormName : "อยู่ระหว่างรวบรวมข้อมูลหอพัก";
             dormHtml = `<div class="info-text">จุดส่ง: <strong>${dormText}</strong></div>`;
         }
@@ -847,7 +846,7 @@
                     </div>
                     <div class="line"></div>
                     <div class="info-text">เลขที่บิล: ${receiptNo}</div>
-                    <div class="info-text">วันที่: ${new Date().toLocaleString('th-TH')}</div>
+                    <div class="info-text">วันที่: ${new Date().toLocaleDateString('th-TH')}</div>
                     ${dormHtml}
                     <div class="line"></div>
                     <div style="flex-grow: 1; overflow: hidden;">
@@ -922,9 +921,9 @@
         const excludeKeywords = ["topping", "ท็อปปิ้ง", "พิเศษ", "เครื่องดื่ม", "เพิ่มเติม"];
         let mainIndex = 1;
 
-        let isP184 = shopName.includes("P184");
+        let isDeliveryShop = shopName.includes("P184");
         let dormHtml = "";
-        if (isP184) {
+        if (isDeliveryShop) {
             let dormText = selectedDormName ? selectedDormName : "อยู่ระหว่างรวบรวมข้อมูลหอพัก";
             dormHtml = `<div style="display: flex; justify-content: space-between; margin-top: 4px;"><span>จัดส่ง:</span> <span style="font-weight: 500; text-align: right; max-width: 70%;">${dormText}</span></div>`;
         }
@@ -964,7 +963,7 @@
                 </div>
                 <div style="margin-bottom: 20px; font-size: 14px; color: #4b5563; line-height: 1.6;">
                     <div style="display: flex; justify-content: space-between;"><span>เลขที่บิล:</span> <span style="font-weight: 500;">${receiptNo}</span></div>
-                    <div style="display: flex; justify-content: space-between;"><span>วันที่:</span> <span>${new Date().toLocaleString('th-TH')}</span></div>
+                    <div style="display: flex; justify-content: space-between;"><span>วันที่:</span> <span>${new Date().toLocaleDateString('th-TH')}</span></div>
                     ${dormHtml}
                 </div>
                 <div style="border-bottom: 2px dashed #fbcfe8; border-top: 2px dashed #fbcfe8; padding: 15px 0; margin-bottom: 15px;">
@@ -993,7 +992,7 @@
                 </div>
                 <div style="margin-bottom: 20px; font-size: 14px; color: #4b5563; line-height: 1.6;">
                     <div style="display: flex; justify-content: space-between;"><span>เลขที่บิล:</span> <span style="font-weight: 500;">${receiptNo}</span></div>
-                    <div style="display: flex; justify-content: space-between;"><span>วันที่:</span> <span>${new Date().toLocaleString('th-TH')}</span></div>
+                    <div style="display: flex; justify-content: space-between;"><span>วันที่:</span> <span>${new Date().toLocaleDateString('th-TH')}</span></div>
                     ${dormHtml}
                 </div>
                 <div style="border-bottom: 1px dashed #d1d5db; border-top: 1px dashed #d1d5db; padding: 15px 0; margin-bottom: 15px;">
@@ -1007,10 +1006,10 @@
                     ${qrDataUrl ? `<img src="${qrDataUrl}" style="width: 140px; height: 140px; margin-bottom: 12px; mix-blend-mode: multiply;">` : ''}
                     <p style="margin: 0; font-size: 13px; color: #4b5563; font-weight: bold; line-height: 1.5;">
                        ⚠️ กรุณาตรวจสอบความถูกต้องของยอดเงิน<br>
-                        ↘❗ ก่อนกดยืนยันทุกครั้ง<br>
-                        📢 หากพบว่ายอดเงินไม่ถูกต้อง<br>
-                        ↘❗ กรุณาแจ้งทางร้านทันที<br>
-                        🙇🏻‍♀️ ขอบคุณที่มาอุดหนุนนะค้าบ 🙇
+                       ↘❗ ก่อนกดยืนยันทุกครั้ง<br>
+                       📢 หากพบว่ายอดเงินไม่ถูกต้อง<br>
+                       ↘❗ กรุณาแจ้งทางร้านทันที<br>
+                       🙇🏻‍♀️ ขอบคุณที่มาอุดหนุนนะค้าบ 🙇
                     </p>
                 </div>
             `;

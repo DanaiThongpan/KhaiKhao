@@ -20,6 +20,9 @@
         .btn-clear { background: #ef4444; color: white; border: none; padding: 0 15px; border-radius: 8px; font-family: 'Sarabun'; font-weight: bold; font-size: 14px; cursor: pointer; box-shadow: 0 4px 6px rgba(239, 68, 68, 0.3); height: 38px; transition: 0.2s; display: flex; align-items: center; gap: 5px;}
         .btn-clear:hover { background: #dc2626; transform: translateY(-1px); }
 
+        .btn-fullscreen { background: #1e293b; color: #38bdf8; border: 1px solid #3b82f6; padding: 6px 15px; border-radius: 8px; font-family: 'Sarabun'; font-weight: bold; font-size: 13px; cursor: pointer; transition: 0.2s; display: flex; align-items: center; gap: 5px; }
+        .btn-fullscreen:hover { background: #334155; }
+
         .filter-date-select { background: #1e293b; color: #38bdf8; border: 1px solid #3b82f6; padding: 8px 12px; border-radius: 8px; font-family: 'Sarabun'; font-weight: bold; font-size: 14px; outline: none; cursor: pointer; height: 38px;}
         .filter-date-select:hover { background: #334155; }
         ::-webkit-calendar-picker-indicator { filter: invert(1); cursor: pointer; }
@@ -33,14 +36,22 @@
         .c-completed .num { color: #10b981; }
 
         .boards-wrapper { display: grid; grid-template-columns: repeat(auto-fit, minmax(350px, 1fr)); gap: 20px; align-items: start; }
-        .board-container { background: #1e293b; border-radius: 12px; border: 1px solid #334155; padding: 20px; min-height: 400px; box-shadow: 0 10px 20px rgba(0,0,0,0.2);}
+        .board-container { background: #1e293b; border-radius: 12px; border: 1px solid #334155; padding: 20px; min-height: 400px; box-shadow: 0 10px 20px rgba(0,0,0,0.2); margin-bottom: 20px;}
         
+        /* สไตล์พิเศษสำหรับกระดานตอนขยายเต็มจอ */
+        .board-fullscreen { background: #0f172a !important; padding: 30px !important; border: none !important; border-top: 5px solid #f59e0b !important; border-radius: 0 !important; overflow-y: auto !important; }
+        .board-fullscreen .board-title { font-size: 24px !important; padding-bottom: 20px; margin-bottom: 25px; }
+        .board-fullscreen .shop-group-title { font-size: 20px !important; }
+
+        /* ปรับให้แสดงออเดอร์รอทำเป็น Grid สวยๆ */
+        #preparing-container { display: grid; grid-template-columns: repeat(auto-fit, minmax(320px, 1fr)); gap: 20px; align-items: start; }
+
         .board-title { margin: 0 0 15px 0; font-size: 16px; color: #cbd5e1; border-bottom: 1px solid #334155; padding-bottom: 10px; display: flex; justify-content: space-between; align-items: center;}
         .title-orange { color: #f59e0b; font-weight: 800; }
         .title-blue { color: #3b82f6; font-weight: 800; }
         .title-green { color: #10b981; font-weight: 800; }
         
-        .shop-group { background: #162032; border: 1px solid #334155; border-radius: 10px; margin-bottom: 15px; padding: 15px; }
+        .shop-group { background: #162032; border: 1px solid #334155; border-radius: 10px; padding: 15px; height: 100%; }
         .shop-group-title { margin: 0 0 12px 0; color: #e2e8f0; font-size: 15px; border-bottom: 1px dashed #334155; padding-bottom: 8px; display: flex; align-items: center; gap: 8px;}
         
         .order-list { display: flex; flex-direction: column; gap: 10px; }
@@ -103,7 +114,6 @@
                 <option value="custom" style="display: none;">📅 ระบุวันที่จากปฏิทิน</option>
             </select>
             
-            <!-- 🌟 ปุ่มล้างขยะระบบของแอดมิน 🌟 -->
             <button class="btn-clear" onclick="forceClearAllPending()">
                 🧹 ล้างขยะ (เคลียร์ออเดอร์ค้าง)
             </button>
@@ -128,21 +138,30 @@
         </div>
     </div>
 
-    <div class="boards-wrapper">
-        <div class="board-container" style="border-top: 4px solid #f59e0b;">
-            <div class="board-title title-orange">🍳 รอครัว / รอไรเดอร์มารับ</div>
-            <div id="preparing-container">
-                <div style="text-align: center; color: #64748b; padding: 40px;">⏳ กำลังเชื่อมต่อข้อมูล...</div>
+    <!-- 🌟 บอร์ด 1: ออเดอร์รอทำ (Pending) - แยกออกมาให้ใหญ่เต็มจอ 🌟 -->
+    <div class="board-container" id="pendingBoard" style="border-top: 4px solid #f59e0b;">
+        <div class="board-title title-orange">
+            <div style="display:flex; align-items:center; gap:8px;">
+                🍳 รอครัว / รอไรเดอร์มารับ
             </div>
+            <!-- ปุ่มกด Full Screen -->
+            <button id="fullscreenBtn" class="btn-fullscreen" onclick="toggleFullScreen()">
+                📺 เปิดโหมดเต็มจอ
+            </button>
         </div>
-
-        <div class="board-container" style="border-top: 4px solid #3b82f6;">
-            <div class="board-title title-blue">🛵 ออเดอร์ที่กำลังทยอยส่ง</div>
-            <div id="rider-stats-container" style="margin-bottom: 20px;"></div>
-            <div id="delivering-container"></div>
+        <div id="preparing-container">
+            <div style="text-align: center; color: #64748b; padding: 40px; grid-column: 1 / -1;">⏳ กำลังเชื่อมต่อข้อมูล...</div>
         </div>
     </div>
+
+    <!-- 🌟 บอร์ด 2: ออเดอร์กำลังทยอยส่ง (เลื่อนลงมาอยู่ด้านล่าง) 🌟 -->
+    <div class="board-container" style="border-top: 4px solid #3b82f6;">
+        <div class="board-title title-blue">🛵 ออเดอร์ที่กำลังทยอยส่ง</div>
+        <div id="rider-stats-container" style="margin-bottom: 20px;"></div>
+        <div id="delivering-container"></div>
+    </div>
     
+    <!-- 🌟 บอร์ด 3: ออเดอร์สำเร็จแล้ว 🌟 -->
     <div style="margin-top: 30px; margin-bottom: 15px; border-bottom: 2px dashed #334155; padding-bottom: 10px;">
         <h2 style="margin: 0; color: #10b981; font-size: 18px; display: flex; align-items: center; justify-content: space-between; gap: 8px;">
             <span>✅ ออเดอร์ที่จัดส่งสำเร็จแล้ว</span>
@@ -161,7 +180,46 @@
     <script>
         let allCompletedOrders = [];
 
-        // 🌟 1. ฟังก์ชันล้างขยะสำหรับแอดมิน (เรียก API ลับ) 🌟
+        // 🌟 ฟังก์ชันเปิดโหมดเต็มจอ (Fullscreen API) 🌟
+        function toggleFullScreen() {
+            const board = document.getElementById('pendingBoard');
+            if (!document.fullscreenElement) {
+                if (board.requestFullscreen) {
+                    board.requestFullscreen().catch(err => alert(`เกิดข้อผิดพลาด: ${err.message}`));
+                } else if (board.webkitRequestFullscreen) { /* Safari */
+                    board.webkitRequestFullscreen();
+                } else if (board.msRequestFullscreen) { /* IE11 */
+                    board.msRequestFullscreen();
+                }
+            } else {
+                if (document.exitFullscreen) {
+                    document.exitFullscreen();
+                } else if (document.webkitExitFullscreen) { /* Safari */
+                    document.webkitExitFullscreen();
+                } else if (document.msExitFullscreen) { /* IE11 */
+                    document.msExitFullscreen();
+                }
+            }
+        }
+
+        // 🌟 ดักจับอีเวนต์เมื่อหน้าจอเข้า/ออก Fullscreen เพื่อเปลี่ยนหน้าตา 🌟
+        document.addEventListener('fullscreenchange', (event) => {
+            const btn = document.getElementById('fullscreenBtn');
+            const board = document.getElementById('pendingBoard');
+            if (document.fullscreenElement) {
+                btn.innerHTML = '❌ ออกจากโหมดเต็มจอ';
+                btn.style.color = '#ef4444';
+                btn.style.borderColor = '#ef4444';
+                board.classList.add('board-fullscreen');
+            } else {
+                btn.innerHTML = '📺 เปิดโหมดเต็มจอ';
+                btn.style.color = '#38bdf8';
+                btn.style.borderColor = '#3b82f6';
+                board.classList.remove('board-fullscreen');
+            }
+        });
+
+        // 🌟 ฟังก์ชันอื่นๆ คงเดิม 🌟
         async function forceClearAllPending() {
             if(!confirm("⚠️ ยืนยันการล้างขยะ?\n\nระบบจะเข้าไปค้นหาออเดอร์ที่ 'ค้างระบบ' ไม่ว่าจะเก่าแค่ไหน แล้วปรับเป็น 'ส่งสำเร็จ' ให้ทั้งหมดครับ")) return;
             
@@ -174,7 +232,7 @@
                 
                 if (data.status === 'success') {
                     alert(`✅ เคลียร์ออเดอร์ค้างระบบสำเร็จจำนวน ${data.cleared_count} บิล!`);
-                    fetchLiveMonitor(); // โหลดข้อมูลใหม่ทันที
+                    fetchLiveMonitor(); 
                 } else {
                     alert("❌ เกิดข้อผิดพลาด: " + data.message);
                 }
@@ -214,7 +272,7 @@
         function renderPreparingOrders(orders) {
             const container = document.getElementById('preparing-container');
             if (orders.length === 0) {
-                container.innerHTML = `<div style="text-align: center; color: #475569; padding: 20px; font-size: 14px;">✨ ไม่มีออเดอร์ค้างในครัว</div>`;
+                container.innerHTML = `<div style="text-align: center; color: #475569; padding: 20px; font-size: 14px; grid-column: 1 / -1;">✨ ไม่มีออเดอร์ค้างในครัว</div>`;
                 return;
             }
 
@@ -335,8 +393,10 @@
 
             const grouped = groupBy(orders, 'shop');
             let html = '';
+            // ให้บอร์ดกำลังส่งใช้ Grid แบบเดียวกับรอดำเนินการเพื่อให้หน้าจอใหญ่เต็มตาได้
+            html += `<div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(320px, 1fr)); gap: 20px; align-items: start;">`;
             for (const shop in grouped) {
-                html += `<div class="shop-group">
+                html += `<div class="shop-group" style="margin-bottom: 0;">
                             <h3 class="shop-group-title"><span style="font-size:20px;">🏪</span> ${shop} <span style="font-size:12px; color:#64748b; font-weight:normal;">(กำลังส่ง ${grouped[shop].length} บิล)</span></h3>
                             <div class="order-list">`;
                 
@@ -359,6 +419,7 @@
                 });
                 html += `</div></div>`;
             }
+            html += `</div>`;
             container.innerHTML = html;
         }
 
