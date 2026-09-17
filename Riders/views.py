@@ -425,3 +425,32 @@ def reset_trip_api(request):
         request.session['trip_number'] = 1
         return JsonResponse({"status": "success"})
     return JsonResponse({"status": "invalid method"}, status=405)
+
+@csrf_exempt
+def complete_batch_delivery_api(request):
+    """ API สำหรับเคลียร์ออเดอร์ตกค้างทีละหลายๆ บิล (ปิดงานแบบข้ามเวลา ไม่นำมาคิดสถิติ) """
+    if request.method == 'POST':
+        try:
+            data = json.loads(request.body)
+            order_ids = data.get('order_ids', [])
+            
+            for oid in order_ids:
+                order = get_object_or_404(Order, id=oid)
+                task, _ = DeliveryTask.objects.get_or_create(order=order)
+                
+                task.status = 'DELIVERED' 
+                
+                # 🌟 1. ดันเวลาเสร็จสิ้น กลับไปเป็นวันเดียวและเวลาเดียวกับที่ลูกค้าสั่ง 
+                # (ทำให้มันไม่เด้งมาปนกับยอดของวันนี้แน่นอน)
+                task.completed_at = order.created_at
+                
+                # 🌟 2. ล้างค่าเวลาทิ้ง (None) เพื่อไม่ให้กราฟเอา 0 นาทีไปหารเป็นค่าเฉลี่ยเวลาวิ่งของไรเดอร์
+                if not task.started_at:
+                    task.duration_minutes = None
+                    
+                task.save()
+                
+            return JsonResponse({"status": "success"})
+        except Exception as e:
+            return JsonResponse({"status": "error", "message": str(e)}, status=500)
+    return JsonResponse({"status": "invalid method"}, status=405)

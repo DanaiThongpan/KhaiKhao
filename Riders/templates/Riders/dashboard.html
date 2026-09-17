@@ -7,11 +7,8 @@
     <title>แดชบอร์ดงานจัดส่ง - KhaiKhao Delivery</title>
     
     <link rel="stylesheet" href="{% static 'css/style.css' %}">
-    
     <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css">
-    <link rel="stylesheet" href="https://unpkg.com/leaflet-routing-machine@latest/dist/leaflet-routing-machine.css" />
     <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
-    <script src="https://unpkg.com/leaflet-routing-machine@latest/dist/leaflet-routing-machine.js"></script>
 
     <style>
         * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
@@ -26,7 +23,6 @@
         
         .container { padding: 0 15px; margin-top: 15px; position: relative; z-index: 20; }
 
-        /* 🌟 เพิ่ม position: relative เพื่อให้วาง Checkbox ได้ 🌟 */
         .order-card { position: relative; background: white; border-radius: 20px; padding: 18px; margin-bottom: 15px; box-shadow: 0 8px 15px rgba(0,0,0,0.04); border: 1px solid rgba(226, 232, 240, 0.8); transition: transform 0.2s; }
         .order-card:active { transform: scale(0.98); }
         .order-header { display: flex; justify-content: space-between; align-items: center; border-bottom: 2px dashed #f1f5f9; padding-bottom: 12px; margin-bottom: 12px; }
@@ -62,7 +58,6 @@
         .btn-success { background: #10b981; color: white; box-shadow: 0 4px 10px rgba(16, 185, 129, 0.3); }
         .btn-warning { background: #f59e0b; color: white; box-shadow: 0 4px 10px rgba(245, 158, 11, 0.3); }
         .btn-outline { background: white; color: #3b82f6; border: 2px solid #e2e8f0; }
-        .btn-outline:active { background: #f1f5f9; }
         .btn-disabled { background: #e2e8f0; color: #94a3b8; cursor: not-allowed; box-shadow: none; }
 
         .bottom-nav { position: fixed; bottom: 0; width: 100%; background: white; display: flex; justify-content: space-around; padding: 12px 0 15px; box-shadow: 0 -5px 20px rgba(0,0,0,0.06); z-index: 1000; border-top-left-radius: 20px; border-top-right-radius: 20px; }
@@ -86,7 +81,6 @@
 </head>
 <body>
 
-<!-- 🌟 ส่วน Header ใหม่ (เพิ่มข้อมูลรอบที่วิ่ง และ ปุ่มรีเซ็ต) 🌟 -->
 <header class="app-header">
     <div style="display: flex; justify-content: space-between; align-items: flex-start;">
         <div>
@@ -110,7 +104,6 @@
             <option value="all" {% if days_filter == 'all' %}selected{% endif %}>📂 ดูงานทั้งหมด</option>
         </select>
 
-        <!-- 🌟 checkbox กรองเฉพาะงานที่ยังไม่ส่ง -->
         <label style="display:flex; align-items:center; gap:8px; margin-top:10px; background:white; padding:12px 15px; border-radius:12px; border:1px solid #cbd5e1; font-weight:bold; font-size:14px; color:#1e293b; cursor:pointer;">
             <input type="checkbox" name="undelivered_only" value="1"
                    {% if undelivered_only %}checked{% endif %}
@@ -119,6 +112,14 @@
             🚫 แสดงเฉพาะงานที่ยังไม่ได้ส่ง
         </label>
     </form>
+
+    <!-- 🌟 ปุ่มเลือกทั้งหมด (สำหรับเคลียร์งานขยะ) 🌟 -->
+    <div style="margin-top: 15px; padding: 12px 15px; background: #e0f2fe; border: 1px solid #bae6fd; border-radius: 12px;">
+        <label style="display:flex; align-items:center; gap:8px; font-weight:bold; font-size:14px; color:#0369a1; cursor:pointer; width: 100%;">
+            <input type="checkbox" id="selectAllCheckbox" onchange="toggleSelectAll()" style="transform: scale(1.5); accent-color: #0284c7;">
+            ☑️ เลือกออเดอร์ที่แสดงอยู่ทั้งหมด
+        </label>
+    </div>
 </div>
 
 <div class="container">
@@ -126,7 +127,7 @@
     {% with task=order.delivery_info %}
     <div class="order-card" id="order-card-{{ order.id }}">
         
-        <!-- 🌟 Checkbox ไว้ให้ไรเดอร์เลือกตัดรอบ 🌟 -->
+        <!-- Checkbox สำหรับติ๊กเลือก -->
         {% if task.status == 'PENDING' %}
             <div style="position: absolute; top: 15px; right: 15px; z-index: 10; background: white; border-radius: 6px; padding: 2px;">
                 <input type="checkbox" class="order-checkbox" value="{{ order.id }}" onchange="toggleBatchBar()" style="transform: scale(1.6); accent-color: #3b82f6; cursor: pointer;">
@@ -203,11 +204,10 @@
                 </button>
             </div>
 
-            <!-- ถ้ากำลังไปส่ง ค่อยโชว์ปุ่มส่งสำเร็จ -->
             <div style="margin-top: 10px;">
                 {% if task.status == 'PENDING' %}
                     <div style="text-align: center; color: #94a3b8; font-size: 13px; margin-top: 10px; font-weight: bold;">
-                        👆 กรุณาติ๊กกล่องมุมขวาบน เพื่อนำบิลนี้ไปรวมจัดส่ง
+                        👆 กรุณาติ๊กกล่องเพื่อนำบิลนี้ไปส่ง
                     </div>
                 {% elif task.status == 'GOING' or task.status == 'DELIVERING' or task.status == 'STARTED' %}
                     <button class="btn btn-success" style="width: 100%; padding: 15px; font-size: 16px;" onclick="completeDeliveryCard('{{ order.id }}', event)">
@@ -227,15 +227,20 @@
     {% endfor %}
 </div>
 
-<!-- 🌟 แถบเครื่องมือ "ตัดรอบ" ด้านล่างจอ 🌟 -->
-<div id="batchActionBar" class="batch-bar">
-    <div>
-        <span style="color: #94a3b8; font-size: 12px;">เลือกรวมส่งในรอบนี้</span>
+<!-- 🌟 แถบเครื่องมือรวม "ปิดงานเก่า" และ "เริ่มวิ่ง" 🌟 -->
+<div id="batchActionBar" class="batch-bar" style="flex-wrap: wrap; gap: 10px;">
+    <div style="flex: 1;">
+        <span style="color: #94a3b8; font-size: 12px;">เลือกแล้ว</span>
         <div style="color: white; font-size: 18px; font-weight: bold;"><span id="selectedCount" style="color: #38bdf8;">0</span> รายการ</div>
     </div>
-    <button class="btn btn-primary" onclick="startBatchDelivery()" style="padding: 12px 25px; border-radius: 12px; font-size: 16px;">
-        🚀 เริ่มวิ่งรอบนี้
-    </button>
+    <div style="display: flex; gap: 8px;">
+        <button class="btn btn-success" onclick="completeBatchDelivery()" style="padding: 10px 12px; border-radius: 12px; font-size: 14px; background: #10b981;">
+            🧹 ปิดงานทิ้ง
+        </button>
+        <button class="btn btn-primary" onclick="startBatchDelivery()" style="padding: 10px 15px; border-radius: 12px; font-size: 14px;">
+            🚀 เริ่มวิ่งรอบนี้
+        </button>
+    </div>
 </div>
 
 <!-- Modal เลือกหอพัก -->
@@ -279,9 +284,16 @@
     }
     const csrftoken = getCookie('csrftoken');
 
-    // ----------------------------------------------------
-    // 🌟 ระบบเลือกบิลและตัดรอบส่ง 🌟
-    // ----------------------------------------------------
+    // 🌟 ระบบติ๊กเลือกทั้งหมด 🌟
+    function toggleSelectAll() {
+        const selectAllCb = document.getElementById('selectAllCheckbox');
+        const checkboxes = document.querySelectorAll('.order-checkbox');
+        checkboxes.forEach(cb => {
+            cb.checked = selectAllCb.checked;
+        });
+        toggleBatchBar();
+    }
+
     function toggleBatchBar() {
         const checkboxes = document.querySelectorAll('.order-checkbox:checked');
         const bar = document.getElementById('batchActionBar');
@@ -295,6 +307,35 @@
         }
     }
 
+    // 🌟 ฟังก์ชันปิดออเดอร์เก่า (ล้างขยะ) ทิ้งทีเดียว 🌟
+    async function completeBatchDelivery() {
+        const checkboxes = document.querySelectorAll('.order-checkbox:checked');
+        let orderIds = [];
+        checkboxes.forEach(cb => orderIds.push(cb.value));
+
+        if(orderIds.length === 0) return;
+        if(!confirm(`⚠️ ต้องการล้างออเดอร์ขยะ ${orderIds.length} รายการนี้\nปรับเป็น "จัดส่งสำเร็จ" เพื่อลบออกจากกระดานค้าง ใช่ไหม?`)) return;
+
+        try {
+            const res = await fetch("{% url 'riders:complete_batch_delivery_api' %}", {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json', 'X-CSRFToken': csrftoken },
+                body: JSON.stringify({ order_ids: orderIds })
+            });
+            const data = await res.json();
+            
+            if (data.status === 'success') {
+                alert("✅ ล้างออเดอร์ตกค้างเรียบร้อยแล้ว");
+                location.reload();
+            } else {
+                alert("❌ เกิดข้อผิดพลาด: " + data.message);
+            }
+        } catch(e) {
+            alert("❌ เซิร์ฟเวอร์ไม่ตอบสนอง");
+        }
+    }
+
+    // ฟังก์ชันเริ่มวิ่งงาน
     async function startBatchDelivery() {
         const checkboxes = document.querySelectorAll('.order-checkbox:checked');
         let orderIds = [];
@@ -312,7 +353,7 @@
             const data = await res.json();
             
             if (data.status === 'success') {
-                alert("✅ จัดส่งรอบนี้เรียบร้อย (ระบบอัปเดตกระดานและตัดเป็นรอบถัดไปแล้ว)");
+                alert("✅ จัดส่งรอบนี้เรียบร้อย");
                 location.reload();
             } else {
                 alert("❌ เกิดข้อผิดพลาด: " + data.message);
@@ -333,10 +374,7 @@
         } catch(e) { alert("❌ เซิร์ฟเวอร์ไม่ตอบสนอง"); }
     }
 
-
-    // ----------------------------------------------------
     // จับเวลาแบบ Real-time
-    // ----------------------------------------------------
     function updateLiveTimers() {
         document.querySelectorAll('.live-timer').forEach(el => {
             let startTimeStr = el.getAttribute('data-start');
@@ -358,10 +396,6 @@
     setInterval(updateLiveTimers, 1000);
     updateLiveTimers();
 
-
-    // ----------------------------------------------------
-    // ฟังก์ชันเดิมอื่นๆ (ปิดงาน / เลือกหอ)
-    // ----------------------------------------------------
     async function completeDeliveryCard(orderId, event) {
         if(!confirm("✅ ยืนยันว่าจัดส่งอาหารถึงมือลูกค้าเรียบร้อยแล้วใช่ไหม?")) return;
         const btn = event.currentTarget;
