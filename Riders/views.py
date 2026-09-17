@@ -8,7 +8,8 @@ from django.core.serializers.json import DjangoJSONEncoder
 
 from Pos.models import Order
 from .models import DeliveryTask, Dormitory, RiderProfile
-
+from datetime import timedelta
+from django.db.models import Q
 
 # =========================================================
 # 1. หน้า Dashboard สำหรับจัดการออเดอร์
@@ -18,44 +19,47 @@ from django.utils.dateparse import parse_date
 @login_required
 def rider_dashboard(request):
     """ แสดงหน้าแดชบอร์ดหลักสำหรับเลือกออเดอร์และดูพิกัด """
-    # 🌟 อ่านค่าตัวกรองวันที่ (ให้ตรงกับ <select name="days"> ใน template)
+    # 🌟 1. รับค่าตัวกรองจากหน้า HTML ที่เราเพิ่งเพิ่มเข้าไป
     days_filter = request.GET.get('days', '0')
-    # 🌟 อ่านค่าตัวกรอง "เฉพาะงานที่ยังไม่ส่ง"
-    undelivered_only = request.GET.get('undelivered_only') == '1'
-
+    undelivered_only = request.GET.get('undelivered_only', None)
+    
+    # ดึงออเดอร์ทั้งหมดของร้านนี้
     orders = Order.objects.filter(created_by=request.user)
-
-    today = timezone.localtime().date()
-
-    if days_filter == 'all':
-        pass  # ไม่กรองวันที่ - เอาทั้งหมด
+    now_date = timezone.localtime().date()
+    
+    # 🌟 2. กรองตามวัน
+    if days_filter == '0':
+        orders = orders.filter(created_at__date=now_date)
     elif days_filter == '1':
-        start_date = today - timezone.timedelta(days=1)
-        orders = orders.filter(created_at__date__gte=start_date)
+        target_date = now_date - timedelta(days=1)
+        orders = orders.filter(created_at__date=target_date)
+    elif days_filter == 'all':
+        pass # ดึงทั้งหมด ไม่ต้องกรองวันที่
+        
+    # 🌟 3. กรองเฉพาะงานที่ยังไม่ส่ง (ซ่อนงานที่ส่งสำเร็จแล้ว)
+    if undelivered_only == '1':
+        orders = orders.exclude(delivery_info__status__in=['DELIVERED', 'COMPLETED'])
+        
+    # เรียงลำดับจากใหม่ไปเก่า
+    orders = orders.order_by('-created_at')
+    
+    # 🌟 4. ขยายลิมิตการดึงข้อมูล 
+    if days_filter == 'all' or undelivered_only == '1':
+        orders = orders[:500] # ขยายเป็น 500 บิล เพื่อให้เคลียร์ขยะเก่าๆ ได้ครบ
     else:
-        # ค่า default '0' = เฉพาะวันนี้
-        orders = orders.filter(created_at__date=today)
-
-    orders = orders.order_by('-created_at')[:50]  # จำกัด 50 ออเดอร์กันโหลดช้า
-
-    # สร้าง DeliveryTask ให้ครบทุกออเดอร์ก่อน (ต้องทำก่อนกรองสถานะ)
+        orders = orders[:50] # ถ้าดูของวันนี้ปกติ ล็อกไว้ 50 บิลให้เว็บโหลดเร็ว
+        
+    # วนลูปเช็กและสร้าง DeliveryTask ให้บิลเก่าๆ
     for order in orders:
         DeliveryTask.objects.get_or_create(order=order)
-
-    # 🌟 กรองเฉพาะงานที่ยังไม่ได้ส่ง (ถ้าติ๊กเลือก)
-    if undelivered_only:
-        orders = [
-            o for o in orders
-            if o.delivery_info.status not in ('DELIVERED', 'COMPLETED')
-        ]
-
+        
     dorms = Dormitory.objects.all().order_by('zone', 'name')
-
+        
     return render(request, 'Riders/dashboard.html', {
         'orders': orders,
         'dorms': dorms,
-        'days_filter': days_filter,
-        'undelivered_only': undelivered_only,
+        'days_filter': days_filter, # ส่งค่ากลับไปให้ Dropdown จำค่าเดิม
+        'undelivered_only': undelivered_only, # ส่งค่ากลับไปให้ Checkbox จำค่าเดิม
     })
 
 # =========================================================
@@ -454,3 +458,4 @@ def complete_batch_delivery_api(request):
         except Exception as e:
             return JsonResponse({"status": "error", "message": str(e)}, status=500)
     return JsonResponse({"status": "invalid method"}, status=405)
+

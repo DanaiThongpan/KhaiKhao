@@ -322,3 +322,29 @@ def api_live_monitor(request):
         'completed_orders': completed_orders,
         'rider_stats': final_rider_stats
     })
+
+from django.views.decorators.csrf import csrf_exempt
+import json
+from Riders.models import DeliveryTask
+
+@csrf_exempt
+def force_clear_pending_api(request):
+    """ API สำหรับแอดมิน ล้างออเดอร์ PENDING ที่ตกค้างลึกๆ ทิ้งทั้งหมด """
+    if request.method == 'POST':
+        try:
+            tasks = DeliveryTask.objects.filter(status='PENDING')
+            count = tasks.count()
+            
+            for task in tasks:
+                task.status = 'DELIVERED' # ปิดงานทิ้ง
+                task.completed_at = task.order.created_at # ย้อนเวลากลับไปอดีต
+                
+                if not task.started_at:
+                    task.duration_minutes = None # ไม่เอามาคิดเป็นสถิติ
+                    
+                task.save()
+                
+            return JsonResponse({"status": "success", "cleared_count": count})
+        except Exception as e:
+            return JsonResponse({"status": "error", "message": str(e)}, status=500)
+    return JsonResponse({"status": "invalid method"}, status=405)

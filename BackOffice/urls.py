@@ -8,4 +8,6 @@ urlpatterns = [
     path('shop/<int:shop_id>/', views.shop_manage, name='shop_manage'), # 🌟 เพิ่มบรรทัดนี้
     path('live-monitor/', views.live_monitor, name='live_monitor'),
     path('api/live-monitor/', views.api_live_monitor, name='api_live_monitor'),
+# ... path เดิมที่มีอยู่แล้ว ...
+    path('api/force-clear-pending/', views.force_clear_pending_api, name='force_clear_pending_api'), # 🌟 เพิ่มบรรทัดนี้
 ]
