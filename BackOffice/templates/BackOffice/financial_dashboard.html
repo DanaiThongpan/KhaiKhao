@@ -1,0 +1,129 @@
+{% load static %}
+<!DOCTYPE html>
+<html lang="th">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Financial Dashboard - KhaiKhao Center</title>
+    <!-- โหลด Chart.js -->
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <style>
+        body { font-family: 'Sarabun', sans-serif; background: #0f172a; color: #f8fafc; margin: 0; padding: 20px; }
+        * { box-sizing: border-box; }
+        
+        .header { display: flex; justify-content: space-between; align-items: center; border-bottom: 2px dashed #334155; padding-bottom: 15px; margin-bottom: 20px; }
+        .header h1 { margin: 0; color: #38bdf8; font-size: 22px; }
+        .btn-back { background: #334155; color: white; padding: 8px 15px; border-radius: 6px; text-decoration: none; font-weight: bold; font-size: 14px; transition: 0.2s; }
+        .btn-back:hover { background: #475569; }
+
+        .dashboard-grid { display: grid; grid-template-columns: 1fr; gap: 20px; max-width: 1000px; margin: 0 auto; }
+        @media (min-width: 768px) { .dashboard-grid { grid-template-columns: 1fr 1fr; } }
+        
+        .card { background: #1e293b; border-radius: 15px; border: 1px solid #334155; padding: 25px; box-shadow: 0 10px 20px rgba(0,0,0,0.2); }
+        .card h3 { margin: 0 0 15px; color: #cbd5e1; font-size: 16px; border-bottom: 1px dashed #334155; padding-bottom: 10px;}
+        
+        .stat-item { display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px; padding: 15px; background: #0f172a; border-radius: 10px; border: 1px solid #334155;}
+        .stat-item .label { font-size: 15px; color: #94a3b8; font-weight: bold;}
+        .stat-item .value { font-size: 24px; font-weight: 900; }
+        
+        .text-green { color: #10b981; }
+        .text-red { color: #ef4444; }
+        .text-blue { color: #38bdf8; }
+
+        .chart-container { position: relative; height: 300px; width: 100%; display: flex; justify-content: center; }
+    </style>
+</head>
+<body>
+
+    <div class="header">
+        <h1>📊 สรุปรายรับ-รายจ่าย (ภาพรวม)</h1>
+        <a href="{% url 'backoffice:home' %}" class="btn-back">⬅️ กลับหน้าหลัก</a>
+    </div>
+
+    <div class="dashboard-grid">
+        
+        <!-- ฝั่งซ้าย: ตัวเลขสรุป -->
+        <div class="card">
+            <h3>💰 สรุปตัวเลขทางการเงิน</h3>
+            
+            <div class="stat-item">
+                <div class="label">📈 รายรับรวม (Income)</div>
+                <div class="value text-green">฿{{ total_income|floatformat:2 }}</div>
+            </div>
+            
+            <div class="stat-item">
+                <div class="label">📉 รายจ่ายรวม (Expense)</div>
+                <div class="value text-red">฿{{ total_expense|floatformat:2 }}</div>
+            </div>
+            
+            <div class="stat-item" style="border-color: #38bdf8;">
+                <div class="label">✨ กำไรสุทธิ (Net Profit)</div>
+                <div class="value text-blue">฿{{ net_profit|floatformat:2 }}</div>
+            </div>
+
+            <div style="font-size: 12px; color: #64748b; margin-top: 15px; text-align: center;">
+                * หมายเหตุ: รายจ่ายในหน้าจอนี้เป็นการคำนวณจำลองจากต้นทุน 30% ของรายรับ
+            </div>
+        </div>
+
+        <!-- ฝั่งขวา: แผนภูมิวงกลม -->
+        <div class="card">
+            <h3>🍩 สัดส่วนรายรับ vs รายจ่าย</h3>
+            <div class="chart-container">
+                <canvas id="financePieChart"></canvas>
+            </div>
+        </div>
+
+    </div>
+
+    <script>
+        // ข้อมูลตัวเลขที่ได้มาจาก Backend (views.py)
+        const income = {{ total_income }};
+        const expense = {{ total_expense }};
+
+        // ตั้งค่าการวาดกราฟวงกลม
+        const ctx = document.getElementById('financePieChart').getContext('2d');
+        const financePieChart = new Chart(ctx, {
+            type: 'doughnut', // สามารถเปลี่ยนเป็น 'pie' ได้ถ้าอยากได้วงกลมทึบ
+            data: {
+                labels: ['กำไรสุทธิ', 'รายจ่าย/ต้นทุน'],
+                datasets: [{
+                    data: [income - expense, expense],
+                    backgroundColor: [
+                        '#10b981', // สีเขียว กำไร
+                        '#ef4444'  // สีแดง รายจ่าย
+                    ],
+                    borderColor: '#1e293b',
+                    borderWidth: 4,
+                    hoverOffset: 10
+                }]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                cutout: '65%', // ความกลวงตรงกลาง
+                plugins: {
+                    legend: {
+                        position: 'bottom',
+                        labels: {
+                            color: '#cbd5e1',
+                            font: { family: 'Sarabun', size: 14 }
+                        }
+                    },
+                    tooltip: {
+                        callbacks: {
+                            label: function(context) {
+                                let label = context.label || '';
+                                if (label) { label += ': '; }
+                                label += '฿' + context.parsed.toLocaleString('th-TH', {minimumFractionDigits: 2});
+                                return label;
+                            }
+                        }
+                    }
+                }
+            }
+        });
+    </script>
+
+</body>
+</html>

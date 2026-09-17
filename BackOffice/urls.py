@@ -10,4 +10,6 @@ urlpatterns = [
     path('api/live-monitor/', views.api_live_monitor, name='api_live_monitor'),
 # ... path เดิมที่มีอยู่แล้ว ...
     path('api/force-clear-pending/', views.force_clear_pending_api, name='force_clear_pending_api'), # 🌟 เพิ่มบรรทัดนี้
+# ... path อื่นๆ ...
+    path('financial-dashboard/', views.financial_dashboard, name='financial_dashboard'), # 🌟 เพิ่มบรรทัดนี้
 ]

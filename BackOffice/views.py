@@ -348,3 +348,33 @@ def force_clear_pending_api(request):
         except Exception as e:
             return JsonResponse({"status": "error", "message": str(e)}, status=500)
     return JsonResponse({"status": "invalid method"}, status=405)
+
+from django.db.models import Sum
+# ถ้ายังไม่ได้ import timezone กับ Order ให้แน่ใจว่าด้านบนมี 2 ตัวนี้แล้ว
+# from django.utils import timezone
+# from Pos.models import Order
+
+@user_passes_test(is_admin, login_url='/login/')
+def financial_dashboard(request):
+    # ดึงออเดอร์ที่จัดส่งสำเร็จแล้วทั้งหมด
+    completed_orders = Order.objects.filter(
+        delivery_info__status__in=['DELIVERED', 'COMPLETED']
+    )
+    
+    # คำนวณรายรับรวมทั้งหมด
+    total_income = sum(order.total_amount for order in completed_orders)
+    
+    # 🌟 สมมติรายจ่าย (เช่น ค่าไรเดอร์ ต้นทุนของร้าน) = 30% ของรายรับ
+    # (ถ้ามี Model บันทึกรายจ่าย สามารถ Query มาใส่ตรงนี้ได้เลย)
+    total_expense = float(total_income) * 0.30 
+    
+    # กำไรสุทธิ
+    net_profit = float(total_income) - total_expense
+
+    context = {
+        'total_income': float(total_income),
+        'total_expense': total_expense,
+        'net_profit': net_profit,
+    }
+    
+    return render(request, 'BackOffice/financial_dashboard.html', context)
