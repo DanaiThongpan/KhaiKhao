@@ -40,6 +40,11 @@
         .bg-orange-light { background: rgba(245, 158, 11, 0.15); color: #f59e0b; border: 1px solid rgba(245, 158, 11, 0.3); }
 
         .chart-container { position: relative; height: 300px; width: 100%; display: flex; justify-content: center; }
+
+        .shop-list { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 15px; margin-top: 15px;}
+        .shop-card { background: #0f172a; border: 1px solid #3b82f6; padding: 15px; border-radius: 10px; display: flex; justify-content: space-between; align-items: center;}
+        .shop-name { color: #cbd5e1; font-weight: bold; font-size: 14px; display: flex; align-items: center; gap: 8px;}
+        .shop-val { color: #38bdf8; font-weight: 900; font-size: 18px; }
     </style>
 </head>
 <body>
@@ -55,7 +60,6 @@
         <div class="card">
             <h3>💰 สรุปตัวเลขทางการเงินรวม</h3>
             
-            <!-- รายรับ -->
             <div class="stat-item">
                 <div class="label">📈 ยอดขายรวมทั้งระบบ (ทุกสาขา)</div>
                 <div class="value-box">
@@ -64,16 +68,14 @@
                 </div>
             </div>
             
-            <!-- รายจ่าย -->
             <div class="stat-item">
                 <div class="label">📉 รายจ่ายจริง (จากระบบ Expense)</div>
                 <div class="value-box">
                     <div class="value text-red">฿{{ total_expense|floatformat:2 }}</div>
-                    <div class="pct bg-red-light">กินสัดส่วน {{ expense_pct|floatformat:1 }}%</div>
+                    <div class="pct bg-red-light">คิดเป็นสัดส่วน {{ expense_pct|floatformat:1 }}%</div>
                 </div>
             </div>
             
-            <!-- กำไรสุทธิ (ปรับสีอัตโนมัติตามการขาดทุน/กำไร) -->
             <div class="stat-item" style="border-color: {% if net_profit >= 0 %}#10b981{% else %}#f59e0b{% endif %};">
                 <div class="label">✨ กำไรสุทธิทั้งหมด</div>
                 <div class="value-box">
@@ -93,9 +95,29 @@
 
         <!-- ฝั่งขวา: แผนภูมิวงกลม -->
         <div class="card">
-            <h3>🍩 สัดส่วนรายรับ vs รายจ่าย</h3>
+            <h3>🍩 สัดส่วนยอดขาย vs รายจ่าย</h3>
             <div class="chart-container">
                 <canvas id="financePieChart"></canvas>
+            </div>
+        </div>
+
+        <!-- แถวด้านล่าง: แยกยอดขายตามร้านค้า -->
+        <div class="card" style="grid-column: 1 / -1;">
+            <h3>🏪 ยอดขายแยกตามแต่ละสาขา (ร้านค้า)</h3>
+            <div class="shop-list">
+                {% for shop in shop_sales %}
+                <div class="shop-card">
+                    <div class="shop-name">
+                        <span style="font-size: 20px;">🧑‍🍳</span> 
+                        {{ shop.created_by__username|default:"พนักงานหน้าร้านทั่วไป" }}
+                    </div>
+                    <div class="shop-val">฿{{ shop.total_sales|floatformat:2 }}</div>
+                </div>
+                {% empty %}
+                <div style="text-align: center; color: #64748b; padding: 20px; width: 100%;">
+                    ยังไม่มีข้อมูลยอดขาย
+                </div>
+                {% endfor %}
             </div>
         </div>
 
@@ -106,7 +128,7 @@
         const expense = {{ total_expense }};
         let profit = {{ net_profit }};
         
-        // กราฟไม่สามารถแสดงค่าติดลบได้ ถ้าขาดทุน ให้กราฟกำไรเป็น 0
+        // ให้กราฟแสดงเฉพาะส่วนที่เป็นกำไรเท่านั้น (ถ้าขาดทุนให้ฝั่งกำไรในวงกลมเป็น 0)
         const displayProfit = profit > 0 ? profit : 0; 
         const total = income > 0 ? income : 1; 
 
@@ -137,9 +159,6 @@
                             label: function(context) {
                                 let label = context.label || '';
                                 let value = context.parsed;
-                                
-                                // ถ้าต้นทุนเกิน 100% กราฟจะแสดงเป็นสัดส่วนระหว่าง ทุน กับ กำไร
-                                // แต่เราจะคำนวณ % เทียบกับรายรับให้ดูง่ายๆ
                                 let percentage = ((value / total) * 100).toFixed(1);
                                 
                                 if (label) { label += ': '; }

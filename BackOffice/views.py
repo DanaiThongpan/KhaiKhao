@@ -361,28 +361,30 @@ def is_admin(user):
 @user_passes_test(is_admin, login_url='/login/')
 def financial_dashboard(request):
     # ==========================================
-    # 1. คำนวณรายรับ (Income) จากบิลที่ส่งสำเร็จแล้ว
+    # 1. 💰 คำนวณรายรับ (Income) - ดึงจากบิลทั้งหมด
     # ==========================================
-    completed_orders = Order.objects.filter(
-        delivery_info__status__in=['DELIVERED', 'COMPLETED']
-    )
-    total_income_agg = completed_orders.aggregate(total=Sum('total_amount'))
+    # ไม่กรอง Delivery แล้ว ดึงจากยอดบิลทั้งหมดที่ขายได้เลย
+    total_income_agg = Order.objects.aggregate(total=Sum('total_amount'))
     total_income = float(total_income_agg['total'] or 0)
     
+    # ดึงยอดขาย "แยกตามร้านค้าแต่ละร้าน"
+    shop_sales = Order.objects.values('created_by__username').annotate(
+        total_sales=Sum('total_amount')
+    ).order_by('-total_sales')
+
     # ==========================================
-    # 2. 🌟 คำนวณรายจ่ายของจริง (Expense)
+    # 2. 📉 คำนวณรายจ่ายของจริง (Expense)
     # ==========================================
-    # ดึงรายจ่ายทั้งหมดที่ติ๊ก "จ่ายแล้ว" (is_paid=True)
+    # ดึงรายจ่ายทั้งหมดที่เป็น is_paid=True (จ่ายแล้ว)
     expense_agg = Expense.objects.filter(is_paid=True).aggregate(total=Sum('amount'))
     total_expense = float(expense_agg['total'] or 0)
     
     # ==========================================
-    # 3. สรุปกำไรสุทธิและเปอร์เซ็นต์
+    # 3. ✨ สรุปกำไรสุทธิและเปอร์เซ็นต์
     # ==========================================
     net_profit = total_income - total_expense
 
     income_pct = 100.0 if total_income > 0 else 0.0
-    # ถ้ามีรายได้ ค่อยคำนวณ % ถ้าไม่มีรายได้ให้เป็น 0 ป้องกัน Error หารด้วยศูนย์
     if total_income > 0:
         expense_pct = (total_expense / total_income) * 100
         profit_pct = (net_profit / total_income) * 100
@@ -397,6 +399,7 @@ def financial_dashboard(request):
         'income_pct': income_pct,
         'expense_pct': expense_pct,
         'profit_pct': profit_pct,
+        'shop_sales': shop_sales, # 🌟 ส่งข้อมูลยอดขายแยกสาขาไปที่หน้าเว็บ
     }
     
     return render(request, 'BackOffice/financial_dashboard.html', context)
