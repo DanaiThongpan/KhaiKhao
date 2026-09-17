@@ -261,3 +261,4 @@ def process_checkout(request):
             return JsonResponse({"status": "error", "message": str(e)}, status=500)
 
     return JsonResponse({"status": "error", "message": "Invalid request"}, status=400)
+

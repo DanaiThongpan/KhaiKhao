@@ -73,5 +73,7 @@ class DeliveryTask(models.Model):
     completed_at = models.DateTimeField(null=True, blank=True, verbose_name="เวลาส่งสำเร็จ")
     duration_minutes = models.IntegerField(null=True, blank=True, verbose_name="ใช้เวลาไป (นาที)")
 
+    trip_number = models.IntegerField(default=1, verbose_name="รอบการจัดส่ง")
+
     def __str__(self):
         return f"Task for Order: {self.order.receipt_number}"

@@ -20,4 +20,7 @@ urlpatterns = [
     path('api/delete-dormitory/<int:dorm_id>/', views.delete_dormitory_api, name='delete_dormitory'),
     path('api/start-delivery/<int:order_id>/', views.start_delivery_api, name='start_delivery'),
     path('api/complete-delivery/<int:order_id>/', views.complete_delivery_api, name='complete_delivery'),
+    path('api/cut-trip/', views.cut_trip_api, name='cut_trip_api'), # 🌟 เพิ่มบรรทัดนี้
+    path('api/start-batch-delivery/', views.start_batch_delivery_api, name='start_batch_delivery_api'), # 🌟 เพิ่ม
+    path('api/reset-trip/', views.reset_trip_api, name='reset_trip_api'), # 🌟 เพิ่ม
 ]

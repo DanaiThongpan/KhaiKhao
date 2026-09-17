@@ -7,7 +7,7 @@ from django.views.decorators.csrf import csrf_exempt
 from django.core.serializers.json import DjangoJSONEncoder
 
 from Pos.models import Order
-from .models import DeliveryTask, Dormitory
+from .models import DeliveryTask, Dormitory, RiderProfile
 
 
 # =========================================================
@@ -312,4 +312,102 @@ def complete_delivery_api(request, order_id):
             })
         except Exception as e:
             return JsonResponse({"status": "error", "message": str(e)}, status=500)
+    return JsonResponse({"status": "invalid method"}, status=405)
+
+# ... import เดิม ...
+
+@csrf_exempt
+def cut_trip_api(request):
+    """ API สำหรับให้ไรเดอร์กดปุ่ม 'ตัดรอบ' """
+    if request.method == 'POST':
+        # ดึงรอบปัจจุบันขึ้นมา +1
+        current_trip = request.session.get('trip_number', 1)
+        request.session['trip_number'] = current_trip + 1
+        return JsonResponse({"status": "success", "new_trip": current_trip + 1})
+    return JsonResponse({"status": "invalid method"}, status=405)
+
+# =======================================================
+# 1. แก้ไข API ตัดรอบทีละหลายออเดอร์
+# =======================================================
+@csrf_exempt
+def start_batch_delivery_api(request):
+    if request.method == 'POST':
+        try:
+            if not request.user.is_authenticated:
+                return JsonResponse({"status": "error", "message": "เซสชันหลุด กรุณาล็อกอินใหม่"}, status=401)
+
+            data = json.loads(request.body)
+            order_ids = data.get('order_ids', [])
+            
+            if not order_ids:
+                return JsonResponse({"status": "error", "message": "ไม่ได้เลือกออเดอร์"}, status=400)
+
+            current_trip = request.session.get('trip_number', 1)
+
+            # 🌟 แก้เป็น created_by ตามโครงสร้าง Database ของคุณ
+            rider_profile, created = RiderProfile.objects.get_or_create(
+                created_by=request.user, 
+                defaults={'name': request.user.username}
+            )
+
+            for oid in order_ids:
+                order = get_object_or_404(Order, id=oid)
+                task, _ = DeliveryTask.objects.get_or_create(order=order)
+                
+                task.status = 'GOING'
+                task.started_at = timezone.now()
+                task.rider = rider_profile # ผูกกับ RiderProfile
+                
+                try:
+                    task.trip_number = current_trip
+                except Exception:
+                    pass
+                    
+                task.save()
+            
+            request.session['trip_number'] = current_trip + 1
+            return JsonResponse({"status": "success"})
+            
+        except Exception as e:
+            return JsonResponse({"status": "error", "message": str(e)}, status=500)
+    return JsonResponse({"status": "invalid method"}, status=405)
+
+
+# =======================================================
+# 2. แก้ไข API เริ่มงานรายออเดอร์
+# =======================================================
+@csrf_exempt
+def start_delivery_api(request, order_id):
+    if request.method == 'POST':
+        try:
+            order = get_object_or_404(Order, id=order_id)
+            task, _ = DeliveryTask.objects.get_or_create(order=order)
+            
+            task.status = 'GOING'
+            task.started_at = timezone.now()
+            
+            if hasattr(task, 'trip_number'):
+                task.trip_number = request.session.get('trip_number', 1)
+                
+            # 🌟 แก้เป็น created_by ตามโครงสร้าง Database ของคุณ
+            if not task.rider:
+                rider_profile, _ = RiderProfile.objects.get_or_create(
+                    created_by=request.user,
+                    defaults={'name': request.user.username}
+                )
+                task.rider = rider_profile 
+                
+            task.save()
+            return JsonResponse({"status": "success"})
+            
+        except Exception as e:
+            return JsonResponse({"status": "error", "message": str(e)}, status=500)
+    return JsonResponse({"status": "invalid method"}, status=405)
+
+@csrf_exempt
+def reset_trip_api(request):
+    """ API สำหรับรีเซ็ตรอบกลับไปเริ่มที่ 1 ใหม่ """
+    if request.method == 'POST':
+        request.session['trip_number'] = 1
+        return JsonResponse({"status": "success"})
     return JsonResponse({"status": "invalid method"}, status=405)

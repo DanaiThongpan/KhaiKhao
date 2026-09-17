@@ -8,16 +8,12 @@
     
     <link rel="stylesheet" href="{% static 'css/style.css' %}">
     
-    <!-- Leaflet & Routing Machine -->
     <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css">
     <link rel="stylesheet" href="https://unpkg.com/leaflet-routing-machine@latest/dist/leaflet-routing-machine.css" />
     <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
     <script src="https://unpkg.com/leaflet-routing-machine@latest/dist/leaflet-routing-machine.js"></script>
 
     <style>
-        /* =========================================
-           ✨ MOBILE-FIRST UI DESIGN
-        ========================================= */
         * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
         body { font-family: 'Sarabun', sans-serif; background: #f4f7f6; margin: 0; padding-bottom: 90px; color: #334155; }
         
@@ -25,13 +21,13 @@
         .app-header h1 { margin: 0; font-size: 24px; font-weight: 800; display: flex; align-items: center; gap: 8px;}
         .app-header p { margin: 5px 0 0; font-size: 14px; color: #cbd5e1; }
         
-        /* 🌟 สไตล์สำหรับตัวกรองเวลา */
         .filter-container { padding: 0 15px; margin-top: 15px; position: relative; z-index: 15; }
         .filter-select { width: 100%; padding: 12px 15px; border-radius: 12px; border: 1px solid #cbd5e1; background: white; font-family: 'Sarabun', sans-serif; font-size: 14px; font-weight: bold; color: #1e293b; outline: none; box-shadow: 0 4px 6px rgba(0,0,0,0.02); appearance: none; background-image: url("data:image/svg+xml;charset=UTF-8,%3csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%2364748b' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3e%3cpolyline points='6 9 12 15 18 9'%3e%3c/polyline%3e%3c/svg%3e"); background-repeat: no-repeat; background-position: right 15px center; background-size: 16px; cursor: pointer; }
         
         .container { padding: 0 15px; margin-top: 15px; position: relative; z-index: 20; }
 
-        .order-card { background: white; border-radius: 20px; padding: 18px; margin-bottom: 15px; box-shadow: 0 8px 15px rgba(0,0,0,0.04); border: 1px solid rgba(226, 232, 240, 0.8); transition: transform 0.2s; }
+        /* 🌟 เพิ่ม position: relative เพื่อให้วาง Checkbox ได้ 🌟 */
+        .order-card { position: relative; background: white; border-radius: 20px; padding: 18px; margin-bottom: 15px; box-shadow: 0 8px 15px rgba(0,0,0,0.04); border: 1px solid rgba(226, 232, 240, 0.8); transition: transform 0.2s; }
         .order-card:active { transform: scale(0.98); }
         .order-header { display: flex; justify-content: space-between; align-items: center; border-bottom: 2px dashed #f1f5f9; padding-bottom: 12px; margin-bottom: 12px; }
         .order-id { font-size: 18px; font-weight: 800; color: #0f172a; }
@@ -44,7 +40,6 @@
         .info-row { display: flex; justify-content: space-between; font-size: 14px; margin-bottom: 8px; color: #64748b; align-items: center;}
         .info-row strong { color: #10b981; font-size: 16px; font-weight: 900;}
 
-        /* กรอบเวลาการจัดส่ง */
         .time-box { background: #f0fdf4; border: 1px dashed #bbf7d0; padding: 10px; border-radius: 12px; margin-bottom: 10px; display: flex; justify-content: space-between; align-items: center;}
         .time-label { color: #166534; font-size: 13px; font-weight: bold; }
         .time-val { color: #15803d; font-size: 16px; font-weight: 900; }
@@ -65,6 +60,7 @@
         .btn { padding: 12px 10px; border-radius: 12px; font-weight: bold; font-size: 14px; text-align: center; border: none; cursor: pointer; transition: 0.2s; display: flex; justify-content: center; align-items: center; gap: 5px; }
         .btn-primary { background: #3b82f6; color: white; box-shadow: 0 4px 10px rgba(59, 130, 246, 0.3); }
         .btn-success { background: #10b981; color: white; box-shadow: 0 4px 10px rgba(16, 185, 129, 0.3); }
+        .btn-warning { background: #f59e0b; color: white; box-shadow: 0 4px 10px rgba(245, 158, 11, 0.3); }
         .btn-outline { background: white; color: #3b82f6; border: 2px solid #e2e8f0; }
         .btn-outline:active { background: #f1f5f9; }
         .btn-disabled { background: #e2e8f0; color: #94a3b8; cursor: not-allowed; box-shadow: none; }
@@ -83,47 +79,34 @@
         .modal-title { font-size: 20px; font-weight: 800; margin-bottom: 20px; color: #0f172a; text-align: center; }
         .form-select { width: 100%; padding: 15px; border-radius: 14px; border: 2px solid #e2e8f0; font-size: 16px; margin-bottom: 20px; background: #f8fafc; outline: none; color: #1e293b; font-weight: bold; }
 
-        /* Map Screen & Timer */
-        .map-screen { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: white; z-index: 3000; display: none; flex-direction: column; animation: slideUp 0.3s ease-out; }
+        /* แถบสรุปก่อนตัดรอบที่ลอยอยู่ด้านล่าง */
+        .batch-bar { position: fixed; bottom: 80px; left: 0; width: 100%; background: #1e293b; padding: 15px 20px; box-shadow: 0 -5px 20px rgba(0,0,0,0.2); z-index: 1500; display: none; justify-content: space-between; align-items: center; border-top-left-radius: 20px; border-top-right-radius: 20px; animation: slideUp 0.3s; }
         @keyframes slideUp { from { transform: translateY(100%); } to { transform: translateY(0); } }
-        .map-header { padding: 15px 20px; background: white; display: flex; justify-content: space-between; align-items: center; box-shadow: 0 4px 15px rgba(0,0,0,0.05); z-index: 10; position: relative; }
-        .map-header h2 { margin: 0; font-size: 18px; color: #0f172a; display: flex; align-items: center; gap: 8px;}
-        #liveMap { flex: 1; width: 100%; background: #e2e8f0; }
-        
-        .map-info-panel { position: absolute; bottom: 30px; left: 20px; right: 20px; background: rgba(255,255,255,0.95); backdrop-filter: blur(10px); padding: 20px; border-radius: 20px; box-shadow: 0 10px 30px rgba(0,0,0,0.15); z-index: 3010; border: 1px solid rgba(255,255,255,0.5); }
-        .map-dest-name { font-weight: 800; color: #0f172a; font-size: 18px; margin-bottom: 8px; display: flex; align-items: center; gap: 5px; }
-        .map-dist-box { display: flex; align-items: center; gap: 10px; background: #f8fafc; padding: 10px; border-radius: 12px; border: 1px solid #e2e8f0; margin-bottom: 15px;}
-        .map-dist-icon { font-size: 24px; }
-        .map-dist-text { font-size: 13px; color: #64748b; font-weight: bold; }
-        .map-dist-val { font-size: 16px; color: #3b82f6; font-weight: 900; }
-        .timer-box { background: #0f172a; color: white; padding: 15px; border-radius: 12px; text-align: center; margin-bottom: 15px; display: none; border: 2px solid #3b82f6;}
-        .timer-text { font-size: 32px; font-weight: 900; font-variant-numeric: tabular-nums; display: block; letter-spacing: 2px; color: #38bdf8;}
-        .timer-label { font-size: 11px; color: #94a3b8; text-transform: uppercase; letter-spacing: 1px;}
-
-        /* หน้าต่างขอสิทธิ์ GPS */
-        .permission-overlay { position: absolute; top: 0; left: 0; width: 100%; height: 100%; background: rgba(255,255,255,0.95); z-index: 4000; display: none; flex-direction: column; align-items: center; justify-content: center; padding: 20px; text-align: center; backdrop-filter: blur(5px); }
-        @keyframes bounce { 0%, 100% { transform: translateY(0); } 50% { transform: translateY(-15px); } }
     </style>
 </head>
 <body>
 
+<!-- 🌟 ส่วน Header ใหม่ (เพิ่มข้อมูลรอบที่วิ่ง และ ปุ่มรีเซ็ต) 🌟 -->
 <header class="app-header">
-    <h1>🛵 งานจัดส่งของฉัน</h1>
-    <p>เลือกลำดับหอพัก ดูรายการอาหาร และเปิดระบบนำทาง</p>
+    <div style="display: flex; justify-content: space-between; align-items: flex-start;">
+        <div>
+            <h1>🛵 งานจัดส่งของฉัน</h1>
+            <div id="currentTripLabel" style="margin-top: 8px; font-size: 14px; color: #fbbf24; font-weight: 800; background: rgba(251, 191, 36, 0.1); padding: 4px 10px; border-radius: 6px; display: inline-block; border: 1px solid rgba(251, 191, 36, 0.4);">
+                📍 รอบที่จะวิ่งถัดไป: <span style="font-size: 18px;">รอบที่ {{ request.session.trip_number|default:1 }}</span>
+            </div>
+        </div>
+        
+        <button onclick="resetTrip()" style="background: transparent; color: #fca5a5; border: 1px solid #f87171; padding: 8px 12px; border-radius: 8px; font-weight: bold; font-size: 12px; cursor: pointer; transition: 0.2s;">
+            🔄 รีเซ็ตรอบใหม่
+        </button>
+    </div>
 </header>
 
-<!-- 🌟 ส่วนตัวกรองช่วงเวลาจัดส่ง 🌟 -->
 <div class="filter-container">
     <form method="GET" id="filterForm">
         <select name="days" class="filter-select" onchange="document.getElementById('filterForm').submit();">
             <option value="0" {% if request.GET.days == '0' or not request.GET.days %}selected{% endif %}>📅 ดูเฉพาะงานของวันนี้</option>
             <option value="1" {% if request.GET.days == '1' %}selected{% endif %}>🕒 1 วันย้อนหลัง</option>
-            <option value="2" {% if request.GET.days == '2' %}selected{% endif %}>🕒 2 วันย้อนหลัง</option>
-            <option value="3" {% if request.GET.days == '3' %}selected{% endif %}>🕒 3 วันย้อนหลัง</option>
-            <option value="4" {% if request.GET.days == '4' %}selected{% endif %}>🕒 4 วันย้อนหลัง</option>
-            <option value="5" {% if request.GET.days == '5' %}selected{% endif %}>🕒 5 วันย้อนหลัง</option>
-            <option value="7" {% if request.GET.days == '7' %}selected{% endif %}>🕒 7 วันย้อนหลัง</option>
-            <option value="14" {% if request.GET.days == '14' %}selected{% endif %}>🕒 14 วันย้อนหลัง</option>
             <option value="all" {% if request.GET.days == 'all' %}selected{% endif %}>📂 ดูงานทั้งหมด</option>
         </select>
     </form>
@@ -133,10 +116,24 @@
     {% for order in orders %}
     {% with task=order.delivery_info %}
     <div class="order-card" id="order-card-{{ order.id }}">
+        
+        <!-- 🌟 Checkbox ไว้ให้ไรเดอร์เลือกตัดรอบ 🌟 -->
+        {% if task.status == 'PENDING' %}
+            <div style="position: absolute; top: 15px; right: 15px; z-index: 10; background: white; border-radius: 6px; padding: 2px;">
+                <input type="checkbox" class="order-checkbox" value="{{ order.id }}" onchange="toggleBatchBar()" style="transform: scale(1.6); accent-color: #3b82f6; cursor: pointer;">
+            </div>
+        {% endif %}
+
         <div class="order-header">
             <span class="order-id">บิล #{{ order.receipt_number|default:order.id }}</span>
-            <span class="badge {% if task.status == 'DELIVERED' %}badge-delivered{% elif task.status == 'GOING' %}badge-going{% else %}badge-pending{% endif %}">
-                {{ task.status|default:"PENDING" }}
+            <span class="badge {% if task.status == 'DELIVERED' or task.status == 'COMPLETED' %}badge-delivered{% elif task.status == 'GOING' or task.status == 'DELIVERING' or task.status == 'STARTED' %}badge-going{% else %}badge-pending{% endif %}">
+                {% if task.status == 'DELIVERED' or task.status == 'COMPLETED' %}
+                    DELIVERED
+                {% elif task.status == 'GOING' or task.status == 'DELIVERING' or task.status == 'STARTED' %}
+                    DELIVERING
+                {% else %}
+                    PENDING
+                {% endif %}
             </span>
         </div>
         
@@ -148,13 +145,6 @@
             <span>ยอดชำระสุทธิ:</span>
             <strong>฿{{ order.total_amount|floatformat:2 }}</strong>
         </div>
-
-        {% if task.status == 'DELIVERED' and task.duration_minutes != None %}
-        <div class="time-box">
-            <span class="time-label">⏱️ ใช้เวลาจัดส่ง:</span>
-            <span class="time-val">{{ task.duration_minutes }} นาที</span>
-        </div>
-        {% endif %}
 
         <div class="menu-box">
             <div class="menu-title">📋 รายการที่สั่ง:</div>
@@ -182,26 +172,41 @@
             </div>
         </div>
 
-        {% if task.status == 'DELIVERED' %}
-        <div style="background: #f8fafc; text-align: center; padding: 15px; border-radius: 12px; border: 1px solid #e2e8f0; color: #16a34a; font-weight: 800; font-size: 15px; margin-top: 15px;">
-            🎉 ส่งอาหารเรียบร้อยแล้ว
-        </div>
+        {% if task.status == 'DELIVERED' or task.status == 'COMPLETED' %}
+            <div style="background: #f8fafc; text-align: center; padding: 15px; border-radius: 12px; border: 1px solid #e2e8f0; color: #16a34a; font-weight: 800; font-size: 15px; margin-top: 15px;">
+                🎉 ส่งสำเร็จแล้ว (รอบที่ {{ task.trip_number|default:"1" }})
+            </div>
         {% else %}
-        <div class="btn-grid">
-            <button class="btn btn-outline" onclick="openSelectModal('{{ order.id }}')">
-                ⚙️ เลือกหอพัก
-            </button>
             
-            {% if task.destination and task.destination.latitude %}
-            <button class="btn btn-primary" onclick="openTrackingMap('{{ order.id }}', '{{ task.destination.name|escapejs }}', {{ task.destination.latitude }}, {{ task.destination.longitude }})">
-                🗺️ ดูเส้นทาง
-            </button>
-            {% else %}
-            <button class="btn btn-disabled" onclick="alert('กรุณาเลือกหอพักปลายทางก่อนดูเส้นทางครับ')">
-                🗺️ ดูเส้นทาง
-            </button>
+            {% if task.status == 'GOING' or task.status == 'DELIVERING' or task.status == 'STARTED' %}
+            <div class="time-box" style="background: #fffbeb; border-color: #fde68a; margin-top: 15px; display: flex; flex-direction: column; align-items: center; padding: 15px;">
+                <span class="time-label" style="color: #d97706; margin-bottom: 5px;">⏱️ วิ่งงานรอบที่ {{ task.trip_number|default:"1" }} (เวลาที่ใช้ไป):</span>
+                <span class="time-val live-timer" data-start="{{ task.started_at|date:'c' }}" style="color: #b45309; font-size: 28px; font-variant-numeric: tabular-nums; letter-spacing: 1px;">กำลังคำนวณ...</span>
+            </div>
             {% endif %}
-        </div>
+
+            <div class="btn-grid">
+                <button class="btn btn-outline" onclick="openSelectModal('{{ order.id }}')">
+                    ⚙️ เลือกหอพัก
+                </button>
+                <button class="btn btn-disabled" onclick="alert('กรุณาเลือกหอพักปลายทางก่อนดูเส้นทางครับ')">
+                    🗺️ ดูเส้นทาง
+                </button>
+            </div>
+
+            <!-- ถ้ากำลังไปส่ง ค่อยโชว์ปุ่มส่งสำเร็จ -->
+            <div style="margin-top: 10px;">
+                {% if task.status == 'PENDING' %}
+                    <div style="text-align: center; color: #94a3b8; font-size: 13px; margin-top: 10px; font-weight: bold;">
+                        👆 กรุณาติ๊กกล่องมุมขวาบน เพื่อนำบิลนี้ไปรวมจัดส่ง
+                    </div>
+                {% elif task.status == 'GOING' or task.status == 'DELIVERING' or task.status == 'STARTED' %}
+                    <button class="btn btn-success" style="width: 100%; padding: 15px; font-size: 16px;" onclick="completeDeliveryCard('{{ order.id }}', event)">
+                        ✅ จัดส่งสำเร็จแล้ว
+                    </button>
+                {% endif %}
+            </div>
+
         {% endif %}
     </div>
     {% endwith %}
@@ -209,9 +214,19 @@
     <div style="text-align: center; padding: 60px 20px; color: #94a3b8;">
         <div style="font-size: 60px; margin-bottom: 15px; opacity: 0.5;">🛵</div>
         <h3 style="margin: 0 0 5px; color: #475569;">ไม่มีงานจัดส่งในช่วงเวลานี้</h3>
-        <p style="margin: 0; font-size: 14px;">ลองเปลี่ยนตัวกรองเวลาด้านบนดูนะ</p>
     </div>
     {% endfor %}
+</div>
+
+<!-- 🌟 แถบเครื่องมือ "ตัดรอบ" ด้านล่างจอ 🌟 -->
+<div id="batchActionBar" class="batch-bar">
+    <div>
+        <span style="color: #94a3b8; font-size: 12px;">เลือกรวมส่งในรอบนี้</span>
+        <div style="color: white; font-size: 18px; font-weight: bold;"><span id="selectedCount" style="color: #38bdf8;">0</span> รายการ</div>
+    </div>
+    <button class="btn btn-primary" onclick="startBatchDelivery()" style="padding: 12px 25px; border-radius: 12px; font-size: 16px;">
+        🚀 เริ่มวิ่งรอบนี้
+    </button>
 </div>
 
 <!-- Modal เลือกหอพัก -->
@@ -232,69 +247,10 @@
     </div>
 </div>
 
-<!-- Fullscreen Map & Delivery Timer -->
-<div class="map-screen" id="trackingScreen">
-    <div class="map-header">
-        <h2>🛰️ ระบบนำทางอัจฉริยะ</h2>
-        <button class="btn btn-outline" style="padding: 8px 16px; border-radius: 20px; font-size: 12px; margin: 0;" onclick="closeTrackingMap()">❌ ปิดแผนที่</button>
-    </div>
-    
-    <!-- หน้าต่างขออนุญาต GPS ก่อนเริ่ม -->
-    <div class="permission-overlay" id="locationPermissionOverlay">
-        <div style="font-size: 60px; margin-bottom: 15px; animation: bounce 2s infinite;">📍</div>
-        <h3 style="color: #0f172a; margin: 0 0 10px;">เปิดใช้งาน GPS นำทาง</h3>
-        <p style="color: #64748b; font-size: 14px; margin-bottom: 25px;">ระบบต้องการเข้าถึงตำแหน่งปัจจุบันของคุณ<br>เพื่อวาดเส้นทางไปหาลูกค้าและอัปเดตแบบเรียลไทม์</p>
-        <button class="btn btn-primary" id="btnGrantLocation" style="width: 100%; max-width: 300px; padding: 15px; font-size: 16px; margin-bottom: 10px;" onclick="requestLocationPermission()">
-            ✅ อนุญาตเข้าถึงตำแหน่ง
-        </button>
-        <button class="btn btn-outline" style="width: 100%; max-width: 300px; padding: 15px; font-size: 16px;" onclick="closeTrackingMap()">
-            ❌ ยกเลิก
-        </button>
-    </div>
-
-    <div id="liveMap"></div>
-    
-    <div class="map-info-panel">
-        <div class="map-dest-name">
-            <span style="font-size: 20px;">🏢</span> <span id="trackDormName">-</span>
-        </div>
-        <div class="map-dist-box">
-            <div class="map-dist-icon">🧭</div>
-            <div>
-                <div class="map-dist-text">ระยะทางและเวลาประเมิน</div>
-                <div class="map-dist-val" id="trackDistance">กำลังค้นหาพิกัดของคุณ...</div>
-            </div>
-        </div>
-
-        <div class="timer-box" id="deliveryTimerBox">
-            <span class="timer-label">ระยะเวลาจัดส่ง</span>
-            <span class="timer-text" id="deliveryTimer">00:00</span>
-        </div>
-
-        <!-- 🌟 ปุ่มสำหรับเด้งไปเปิดในแอป Google Maps หรือ Apple Maps ในมือถือ -->
-        <button class="btn btn-outline" style="width: 100%; margin-bottom: 10px; padding: 12px; font-size: 14px; color: #1e40af; border-color: #bfdbfe; background: white;" onclick="openExternalMaps()">
-            🗺️ เปิดนำทางใน Google Maps
-        </button>
-
-        <button class="btn btn-primary" id="btnStartDelivery" style="width: 100%; padding: 15px; font-size: 16px;" onclick="startDeliveryTimer()">
-            🚀 เริ่มจัดส่ง
-        </button>
-        <button class="btn btn-success" id="btnCompleteDelivery" style="width: 100%; padding: 15px; font-size: 16px; display: none;" onclick="completeDelivery()">
-            ✅ จัดส่งเสร็จสิ้น
-        </button>
-    </div>
-</div>
-
 <div class="bottom-nav">
-    <a href="{% url 'pos:home' %}" class="nav-item">
-        <span class="nav-icon">🏠</span> หน้าแรก
-    </a>
-    <a href="#" class="nav-item active">
-        <span class="nav-icon">🛵</span> งานจัดส่ง
-    </a>
-    <a href="{% url 'riders:dormitory_map' %}" class="nav-item">
-        <span class="nav-icon">📍</span> จัดการพิกัด
-    </a>
+    <a href="{% url 'pos:home' %}" class="nav-item"><span class="nav-icon">🏠</span> หน้าแรก</a>
+    <a href="#" class="nav-item active"><span class="nav-icon">🛵</span> งานจัดส่ง</a>
+    <a href="{% url 'riders:dormitory_map' %}" class="nav-item"><span class="nav-icon">📍</span> จัดการพิกัด</a>
 </div>
 
 <script>
@@ -315,6 +271,114 @@
     const csrftoken = getCookie('csrftoken');
 
     // ----------------------------------------------------
+    // 🌟 ระบบเลือกบิลและตัดรอบส่ง 🌟
+    // ----------------------------------------------------
+    function toggleBatchBar() {
+        const checkboxes = document.querySelectorAll('.order-checkbox:checked');
+        const bar = document.getElementById('batchActionBar');
+        const countSpan = document.getElementById('selectedCount');
+        
+        if (checkboxes.length > 0) {
+            countSpan.innerText = checkboxes.length;
+            bar.style.display = 'flex';
+        } else {
+            bar.style.display = 'none';
+        }
+    }
+
+    async function startBatchDelivery() {
+        const checkboxes = document.querySelectorAll('.order-checkbox:checked');
+        let orderIds = [];
+        checkboxes.forEach(cb => orderIds.push(cb.value));
+
+        if(orderIds.length === 0) return;
+        if(!confirm(`🚀 ยืนยันกดวิ่งรถ! เริ่มจัดส่ง ${orderIds.length} ออเดอร์ (นับเป็นรอบที่ {{ request.session.trip_number|default:1 }}) ใช่ไหม?`)) return;
+
+        try {
+            const res = await fetch("{% url 'riders:start_batch_delivery_api' %}", {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json', 'X-CSRFToken': csrftoken },
+                body: JSON.stringify({ order_ids: orderIds })
+            });
+            const data = await res.json();
+            
+            if (data.status === 'success') {
+                alert("✅ จัดส่งรอบนี้เรียบร้อย (ระบบอัปเดตกระดานและตัดเป็นรอบถัดไปแล้ว)");
+                location.reload();
+            } else {
+                alert("❌ เกิดข้อผิดพลาด: " + data.message);
+            }
+        } catch(e) {
+            alert("❌ เซิร์ฟเวอร์ไม่ตอบสนอง");
+        }
+    }
+
+    async function resetTrip() {
+        if(!confirm("🔄 ยืนยันที่จะรีเซ็ตเลขรอบกลับไปเป็น 'รอบที่ 1' ใช่ไหม?")) return;
+        try {
+            const res = await fetch("{% url 'riders:reset_trip_api' %}", {
+                method: 'POST',
+                headers: { 'X-CSRFToken': csrftoken }
+            });
+            if (res.ok) location.reload();
+        } catch(e) { alert("❌ เซิร์ฟเวอร์ไม่ตอบสนอง"); }
+    }
+
+
+    // ----------------------------------------------------
+    // จับเวลาแบบ Real-time
+    // ----------------------------------------------------
+    function updateLiveTimers() {
+        document.querySelectorAll('.live-timer').forEach(el => {
+            let startTimeStr = el.getAttribute('data-start');
+            if (startTimeStr && startTimeStr !== 'None' && startTimeStr !== '') {
+                let startDate = new Date(startTimeStr);
+                if (!isNaN(startDate)) {
+                    let diffSeconds = Math.floor((new Date() - startDate) / 1000);
+                    if (diffSeconds < 0) diffSeconds = 0;
+                    
+                    let m = Math.floor(diffSeconds / 60).toString().padStart(2, '0');
+                    let s = (diffSeconds % 60).toString().padStart(2, '0');
+                    el.innerText = `${m}:${s} นาที`;
+                    return;
+                }
+            }
+            el.innerText = "กำลังวิ่ง...";
+        });
+    }
+    setInterval(updateLiveTimers, 1000);
+    updateLiveTimers();
+
+
+    // ----------------------------------------------------
+    // ฟังก์ชันเดิมอื่นๆ (ปิดงาน / เลือกหอ)
+    // ----------------------------------------------------
+    async function completeDeliveryCard(orderId, event) {
+        if(!confirm("✅ ยืนยันว่าจัดส่งอาหารถึงมือลูกค้าเรียบร้อยแล้วใช่ไหม?")) return;
+        const btn = event.currentTarget;
+        btn.disabled = true; 
+        btn.innerText = "⏳ กำลังบันทึกข้อมูล...";
+
+        try {
+            const res = await fetch(`/riders/api/complete-delivery/${orderId}/`, { 
+                method: 'POST', 
+                headers: { 'X-CSRFToken': csrftoken } 
+            });
+            const data = await res.json();
+            
+            if (data.status === 'success') {
+                alert(`🎉 จัดส่งสำเร็จเรียบร้อย!\n⏱️ ใช้เวลาเดินทางไปทั้งหมด: ${data.duration || 0} นาที`);
+                location.reload(); 
+            } else {
+                alert("❌ เกิดข้อผิดพลาด: " + data.message);
+                btn.disabled = false; btn.innerText = "✅ จัดส่งสำเร็จแล้ว";
+            }
+        } catch(e) {
+            alert("❌ ไม่สามารถเชื่อมต่อเซิร์ฟเวอร์เพื่อปิดงานได้");
+            btn.disabled = false; btn.innerText = "✅ จัดส่งสำเร็จแล้ว";
+        }
+    }
+
     function openSelectModal(orderId) {
         document.getElementById('modalOrderId').value = orderId;
         const modal = document.getElementById('selectDormModal');
@@ -345,208 +409,6 @@
             if (data.status === 'success') { location.reload(); } 
             else { alert("❌ เกิดข้อผิดพลาด: " + data.message); }
         } catch(e) { alert("❌ เซิร์ฟเวอร์ขัดข้อง"); }
-    }
-
-    // ----------------------------------------------------
-    let trackingMap = null;
-    let riderMarker = null;
-    let destMarker = null;
-    let startMarker = null; 
-    let routingControl = null;
-    let watchId = null;
-    let targetLat = null;
-    let targetLng = null;
-    let currentTrackingOrderId = null;
-    let deliveryStartTime = null;
-    let deliveryTimerInterval = null;
-    let isRouteFixed = false; 
-
-    // หมุดจุดเริ่มต้น (สีเขียว)
-    const startIcon = L.icon({
-        iconUrl: 'https://raw.githubusercontent.com/pointhi/leaflet-color-markers/master/img/marker-icon-2x-green.png',
-        shadowUrl: 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/0.7.7/images/marker-shadow.png',
-        iconSize: [25, 41], iconAnchor: [12, 41], popupAnchor: [1, -34]
-    });
-
-    // หมุดเป้าหมาย (สีแดง)
-    const destIcon = L.icon({ 
-        iconUrl: 'https://raw.githubusercontent.com/pointhi/leaflet-color-markers/master/img/marker-icon-2x-red.png', 
-        shadowUrl: 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/0.7.7/images/marker-shadow.png', 
-        iconSize: [25, 41], iconAnchor: [12, 41], popupAnchor: [1, -34] 
-    });
-
-    // ไอคอนไรเดอร์ที่จะขยับตามจริง 🛵
-    const riderIcon = L.divIcon({
-        className: 'custom-rider-icon',
-        html: '<div style="font-size: 26px; background: white; border-radius: 50%; width: 45px; height: 45px; display: flex; align-items: center; justify-content: center; box-shadow: 0 4px 10px rgba(0,0,0,0.3); border: 3px solid #3b82f6;">🛵</div>',
-        iconSize: [45, 45],
-        iconAnchor: [22, 45],
-        popupAnchor: [0, -40]
-    });
-
-    function initMap() {
-        if (!trackingMap) {
-            trackingMap = L.map('liveMap', { zoomControl: false }).setView([15.1218, 104.9038], 14);
-            L.tileLayer('https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png', { attribution: '&copy; OpenStreetMap' }).addTo(trackingMap);
-        }
-    }
-
-    function openTrackingMap(orderId, destName, dLat, dLng) {
-        currentTrackingOrderId = orderId;
-        document.getElementById('trackDormName').innerText = destName;
-        document.getElementById('trackingScreen').style.display = 'flex';
-        
-        document.getElementById('locationPermissionOverlay').style.display = 'flex';
-        document.getElementById('btnGrantLocation').innerText = '✅ อนุญาตเข้าถึงตำแหน่ง';
-        
-        document.getElementById('btnStartDelivery').style.display = 'flex';
-        document.getElementById('btnStartDelivery').innerText = '🚀 เริ่มจัดส่ง';
-        document.getElementById('btnStartDelivery').disabled = false;
-        
-        document.getElementById('btnCompleteDelivery').style.display = 'none';
-        document.getElementById('deliveryTimerBox').style.display = 'none';
-        document.getElementById('deliveryTimer').innerText = '00:00';
-        clearInterval(deliveryTimerInterval);
-
-        targetLat = parseFloat(dLat);
-        targetLng = parseFloat(dLng);
-        
-        setTimeout(() => { initMap(); trackingMap.invalidateSize(); }, 300);
-    }
-
-    // ฟังก์ชันส่งพิกัดไปเปิดในแอปแผนที่ของเครื่อง
-    function openExternalMaps() {
-        if (!targetLat || !targetLng) return;
-        const url = `https://www.google.com/maps/dir/?api=1&destination=${targetLat},${targetLng}&travelmode=driving`;
-        window.open(url, '_blank');
-    }
-
-    function requestLocationPermission() {
-        if (!navigator.geolocation) {
-            alert("เบราว์เซอร์ของคุณไม่รองรับ GPS");
-            return;
-        }
-
-        const btn = document.getElementById('btnGrantLocation');
-        btn.innerText = "⏳ กำลังดึงข้อมูล GPS...";
-
-        navigator.geolocation.getCurrentPosition(
-            (pos) => {
-                document.getElementById('locationPermissionOverlay').style.display = 'none';
-                startRouting();
-            },
-            (err) => {
-                alert("❌ คุณปฏิเสธการเข้าถึงตำแหน่ง กรุณาอนุญาต GPS ในการตั้งค่ามือถือ");
-                btn.innerText = "✅ อนุญาตเข้าถึงตำแหน่ง";
-            },
-            { enableHighAccuracy: true, timeout: 10000 }
-        );
-    }
-
-    function startRouting() {
-        if (destMarker) trackingMap.removeLayer(destMarker);
-        if (startMarker) trackingMap.removeLayer(startMarker);
-        if (routingControl) { trackingMap.removeControl(routingControl); routingControl = null; }
-        
-        isRouteFixed = false;
-        const destLatLng = L.latLng(targetLat, targetLng);
-        
-        destMarker = L.marker(destLatLng, {icon: destIcon}).addTo(trackingMap).bindPopup("<b>จุดหมายของลูกค้า</b>").openPopup();
-
-        document.getElementById('trackDistance').innerText = "กำลังค้นหาพิกัดและวาดเส้นทาง...";
-        
-        watchId = navigator.geolocation.watchPosition(
-            (pos) => {
-                const riderLatLng = L.latLng(pos.coords.latitude, pos.coords.longitude);
-                
-                if (riderMarker) { 
-                    riderMarker.setLatLng(riderLatLng); 
-                } else { 
-                    riderMarker = L.marker(riderLatLng, {icon: riderIcon, zIndexOffset: 1000}).addTo(trackingMap).bindPopup("<b>คุณอยู่ที่นี่</b>"); 
-                }
-
-                if (!isRouteFixed) {
-                    isRouteFixed = true;
-                    
-                    startMarker = L.marker(riderLatLng, {icon: startIcon}).addTo(trackingMap).bindPopup("<b>จุดเริ่มต้น</b>");
-                    
-                    routingControl = L.Routing.control({
-                        waypoints: [riderLatLng, destLatLng], 
-                        routeWhileDragging: false, 
-                        addWaypoints: false, 
-                        fitSelectedRoutes: true, 
-                        show: false, 
-                        createMarker: function() { return null; }, 
-                        lineOptions: { styles: [{color: '#3b82f6', weight: 6, opacity: 0.8}] }
-                    }).on('routesfound', function(e) {
-                        const summary = e.routes[0].summary;
-                        const distKm = (summary.totalDistance / 1000).toFixed(2);
-                        const timeMin = Math.max(1, Math.round(summary.totalTime % 3600 / 60));
-                        document.getElementById('trackDistance').innerText = `${distKm} กม. • ~ ${timeMin} นาที`;
-                    }).addTo(trackingMap);
-                } 
-            },
-            (err) => { document.getElementById('trackDistance').innerText = "❌ สัญญาณ GPS ขาดหาย"; },
-            { enableHighAccuracy: true, maximumAge: 2000, timeout: 10000 }
-        );
-    }
-
-    async function startDeliveryTimer() {
-        if (!navigator.geolocation) return alert("อุปกรณ์ไม่รองรับระบบ GPS");
-        
-        const btnStart = document.getElementById('btnStartDelivery');
-        btnStart.disabled = true; btnStart.innerText = "⏳ กำลังบันทึกเวลา...";
-
-        try {
-            const res = await fetch(`/riders/api/start-delivery/${currentTrackingOrderId}/`, { method: 'POST', headers: { 'X-CSRFToken': csrftoken } });
-            if (res.ok) {
-                btnStart.style.display = 'none';
-                document.getElementById('deliveryTimerBox').style.display = 'block';
-                document.getElementById('btnCompleteDelivery').style.display = 'flex';
-                
-                deliveryStartTime = Date.now();
-                deliveryTimerInterval = setInterval(() => {
-                    let elapsed = Math.floor((Date.now() - deliveryStartTime) / 1000);
-                    let m = Math.floor(elapsed / 60).toString().padStart(2, '0');
-                    let s = (elapsed % 60).toString().padStart(2, '0');
-                    document.getElementById('deliveryTimer').innerText = `${m}:${s}`;
-                }, 1000);
-            } else {
-                alert("❌ ระบบมีปัญหา ไม่สามารถเริ่มงานได้");
-                btnStart.disabled = false; btnStart.innerText = "🚀 เริ่มจัดส่ง";
-            }
-        } catch(e) { alert("❌ เซิร์ฟเวอร์ไม่ตอบสนอง"); }
-    }
-
-    async function completeDelivery() {
-        if(!confirm("ยืนยันว่าจัดส่งอาหารถึงมือลูกค้าเรียบร้อยแล้วใช่ไหม?")) return;
-        
-        clearInterval(deliveryTimerInterval);
-        const btnComp = document.getElementById('btnCompleteDelivery');
-        btnComp.disabled = true; btnComp.innerText = "⏳ กำลังบันทึกข้อมูล...";
-        
-        try {
-            const res = await fetch(`/riders/api/complete-delivery/${currentTrackingOrderId}/`, { method: 'POST', headers: { 'X-CSRFToken': csrftoken } });
-            const data = await res.json();
-            
-            if (data.status === 'success') {
-                alert(`🎉 จัดส่งสำเร็จเรียบร้อย!\n⏱️ ใช้เวลาเดินทางไปทั้งหมด: ${data.duration || 0} นาที`);
-                location.reload(); 
-            } else {
-                alert("❌ เกิดข้อผิดพลาด: " + data.message);
-                btnComp.disabled = false; btnComp.innerText = "✅ จัดส่งเสร็จสิ้น";
-            }
-        } catch(e) {
-            alert("❌ ไม่สามารถเชื่อมต่อเซิร์ฟเวอร์เพื่อปิดงานได้");
-            btnComp.disabled = false; btnComp.innerText = "✅ จัดส่งเสร็จสิ้น";
-        }
-    }
-
-    function closeTrackingMap() {
-        document.getElementById('trackingScreen').style.display = 'none';
-        document.getElementById('locationPermissionOverlay').style.display = 'none';
-        if (watchId) navigator.geolocation.clearWatch(watchId);
-        clearInterval(deliveryTimerInterval);
     }
 </script>
 </body>
