@@ -24,11 +24,18 @@
         
         .stat-item { display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px; padding: 15px; background: #0f172a; border-radius: 10px; border: 1px solid #334155;}
         .stat-item .label { font-size: 15px; color: #94a3b8; font-weight: bold;}
-        .stat-item .value { font-size: 24px; font-weight: 900; }
+        .stat-item .value-box { text-align: right; }
+        .stat-item .value { font-size: 24px; font-weight: 900; line-height: 1.2; }
+        .stat-item .pct { font-size: 13px; font-weight: bold; padding: 2px 8px; border-radius: 6px; display: inline-block; margin-top: 4px; }
         
         .text-green { color: #10b981; }
+        .bg-green-light { background: rgba(16, 185, 129, 0.15); color: #10b981; border: 1px solid rgba(16, 185, 129, 0.3); }
+        
         .text-red { color: #ef4444; }
+        .bg-red-light { background: rgba(239, 68, 68, 0.15); color: #ef4444; border: 1px solid rgba(239, 68, 68, 0.3); }
+        
         .text-blue { color: #38bdf8; }
+        .bg-blue-light { background: rgba(56, 189, 248, 0.15); color: #38bdf8; border: 1px solid rgba(56, 189, 248, 0.3); }
 
         .chart-container { position: relative; height: 300px; width: 100%; display: flex; justify-content: center; }
     </style>
@@ -36,7 +43,7 @@
 <body>
 
     <div class="header">
-        <h1>📊 สรุปรายรับ-รายจ่าย (ภาพรวม)</h1>
+        <h1>📊 สรุปรายรับ-รายจ่ายรวม (ทุกร้านค้า)</h1>
         <a href="{% url 'backoffice:home' %}" class="btn-back">⬅️ กลับหน้าหลัก</a>
     </div>
 
@@ -44,31 +51,40 @@
         
         <!-- ฝั่งซ้าย: ตัวเลขสรุป -->
         <div class="card">
-            <h3>💰 สรุปตัวเลขทางการเงิน</h3>
+            <h3>💰 สรุปตัวเลขทางการเงินรวม</h3>
             
             <div class="stat-item">
-                <div class="label">📈 รายรับรวม (Income)</div>
-                <div class="value text-green">฿{{ total_income|floatformat:2 }}</div>
+                <div class="label">📈 ยอดขายรวมทุกร้าน</div>
+                <div class="value-box">
+                    <div class="value text-blue">฿{{ total_income|floatformat:2 }}</div>
+                    <div class="pct bg-blue-light">{{ income_pct|floatformat:1 }}% (ฐานรายรับ)</div>
+                </div>
             </div>
             
             <div class="stat-item">
-                <div class="label">📉 รายจ่ายรวม (Expense)</div>
-                <div class="value text-red">฿{{ total_expense|floatformat:2 }}</div>
+                <div class="label">📉 รายจ่าย / ต้นทุนรวม</div>
+                <div class="value-box">
+                    <div class="value text-red">฿{{ total_expense|floatformat:2 }}</div>
+                    <div class="pct bg-red-light">กินสัดส่วน {{ expense_pct|floatformat:1 }}%</div>
+                </div>
             </div>
             
-            <div class="stat-item" style="border-color: #38bdf8;">
-                <div class="label">✨ กำไรสุทธิ (Net Profit)</div>
-                <div class="value text-blue">฿{{ net_profit|floatformat:2 }}</div>
+            <div class="stat-item" style="border-color: #10b981;">
+                <div class="label">✨ กำไรสุทธิทั้งหมด</div>
+                <div class="value-box">
+                    <div class="value text-green">฿{{ net_profit|floatformat:2 }}</div>
+                    <div class="pct bg-green-light">กำไร {{ profit_pct|floatformat:1 }}%</div>
+                </div>
             </div>
 
             <div style="font-size: 12px; color: #64748b; margin-top: 15px; text-align: center;">
-                * หมายเหตุ: รายจ่ายในหน้าจอนี้เป็นการคำนวณจำลองจากต้นทุน 30% ของรายรับ
+                * หมายเหตุ: รายจ่ายเป็นการคำนวณหักลบจำลองจาก 30% ของยอดขายรวมทุกร้าน
             </div>
         </div>
 
         <!-- ฝั่งขวา: แผนภูมิวงกลม -->
         <div class="card">
-            <h3>🍩 สัดส่วนรายรับ vs รายจ่าย</h3>
+            <h3>🍩 สัดส่วนกำไร vs รายจ่าย</h3>
             <div class="chart-container">
                 <canvas id="financePieChart"></canvas>
             </div>
@@ -77,22 +93,19 @@
     </div>
 
     <script>
-        // ข้อมูลตัวเลขที่ได้มาจาก Backend (views.py)
         const income = {{ total_income }};
         const expense = {{ total_expense }};
+        const profit = {{ net_profit }};
+        const total = income > 0 ? income : 1; // กันหารด้วย 0
 
-        // ตั้งค่าการวาดกราฟวงกลม
         const ctx = document.getElementById('financePieChart').getContext('2d');
         const financePieChart = new Chart(ctx, {
-            type: 'doughnut', // สามารถเปลี่ยนเป็น 'pie' ได้ถ้าอยากได้วงกลมทึบ
+            type: 'doughnut', 
             data: {
-                labels: ['กำไรสุทธิ', 'รายจ่าย/ต้นทุน'],
+                labels: ['กำไรสุทธิ', 'รายจ่ายรวม'],
                 datasets: [{
-                    data: [income - expense, expense],
-                    backgroundColor: [
-                        '#10b981', // สีเขียว กำไร
-                        '#ef4444'  // สีแดง รายจ่าย
-                    ],
+                    data: [profit, expense],
+                    backgroundColor: ['#10b981', '#ef4444'],
                     borderColor: '#1e293b',
                     borderWidth: 4,
                     hoverOffset: 10
@@ -101,21 +114,22 @@
             options: {
                 responsive: true,
                 maintainAspectRatio: false,
-                cutout: '65%', // ความกลวงตรงกลาง
+                cutout: '65%', 
                 plugins: {
                     legend: {
                         position: 'bottom',
-                        labels: {
-                            color: '#cbd5e1',
-                            font: { family: 'Sarabun', size: 14 }
-                        }
+                        labels: { color: '#cbd5e1', font: { family: 'Sarabun', size: 14 } }
                     },
                     tooltip: {
                         callbacks: {
                             label: function(context) {
                                 let label = context.label || '';
+                                let value = context.parsed;
+                                let percentage = ((value / total) * 100).toFixed(1);
+                                
                                 if (label) { label += ': '; }
-                                label += '฿' + context.parsed.toLocaleString('th-TH', {minimumFractionDigits: 2});
+                                label += '฿' + value.toLocaleString('th-TH', {minimumFractionDigits: 2});
+                                label += ' (' + percentage + '%)'; // 🌟 โชว์ % ตอนเอาเมาส์ชี้กราฟด้วย
                                 return label;
                             }
                         }

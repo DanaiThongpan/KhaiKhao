@@ -354,27 +354,39 @@ from django.db.models import Sum
 # from django.utils import timezone
 # from Pos.models import Order
 
+def is_admin(user):
+    return user.is_authenticated and (user.is_superuser or getattr(user, 'role', '') == "admin")
+
 @user_passes_test(is_admin, login_url='/login/')
 def financial_dashboard(request):
-    # ดึงออเดอร์ที่จัดส่งสำเร็จแล้วทั้งหมด
+    # 🌟 ดึงออเดอร์ที่จัดส่งสำเร็จแล้วทั้งหมด ของ "ทุกร้านค้าในระบบ"
     completed_orders = Order.objects.filter(
         delivery_info__status__in=['DELIVERED', 'COMPLETED']
     )
     
-    # คำนวณรายรับรวมทั้งหมด
-    total_income = sum(order.total_amount for order in completed_orders)
+    # 🌟 ให้ฐานข้อมูลบวกเลขให้เลย (ทำงานเร็วกว่าวนลูป)
+    total_income_agg = completed_orders.aggregate(total=Sum('total_amount'))
+    total_income = float(total_income_agg['total'] or 0)
     
-    # 🌟 สมมติรายจ่าย (เช่น ค่าไรเดอร์ ต้นทุนของร้าน) = 30% ของรายรับ
-    # (ถ้ามี Model บันทึกรายจ่าย สามารถ Query มาใส่ตรงนี้ได้เลย)
-    total_expense = float(total_income) * 0.30 
+    # สมมติรายจ่าย (เช่น ค่าไรเดอร์ ต้นทุนวัตถุดิบ) = 30% ของรายรับรวมทุกร้าน
+    # (ถ้ามีตารางรายจ่ายแยก นำมา Sum() แล้วใส่แทนตัวเลข 0.30 ได้เลย)
+    total_expense = total_income * 0.30 
     
     # กำไรสุทธิ
-    net_profit = float(total_income) - total_expense
+    net_profit = total_income - total_expense
+
+    # 🌟 คำนวณอัตราส่วนเปอร์เซ็นต์
+    income_pct = 100.0 if total_income > 0 else 0.0
+    expense_pct = (total_expense / total_income * 100) if total_income > 0 else 0.0
+    profit_pct = (net_profit / total_income * 100) if total_income > 0 else 0.0
 
     context = {
-        'total_income': float(total_income),
+        'total_income': total_income,
         'total_expense': total_expense,
         'net_profit': net_profit,
+        'income_pct': income_pct,
+        'expense_pct': expense_pct,
+        'profit_pct': profit_pct,
     }
     
     return render(request, 'BackOffice/financial_dashboard.html', context)
