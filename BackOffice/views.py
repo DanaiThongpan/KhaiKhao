@@ -5,6 +5,7 @@ from django.shortcuts import render, get_object_or_404, redirect
 from django.contrib.auth.decorators import user_passes_test
 from django.contrib.auth import get_user_model
 from django.db.models import Sum
+from Expenses.models import Expense
 from Products.models import Product
 from Stocks.models import StockItem
 from Pos.models import Order, OrderItem # 🌟 อย่าลืม import OrderItem
@@ -359,26 +360,35 @@ def is_admin(user):
 
 @user_passes_test(is_admin, login_url='/login/')
 def financial_dashboard(request):
-    # 🌟 ดึงออเดอร์ที่จัดส่งสำเร็จแล้วทั้งหมด ของ "ทุกร้านค้าในระบบ"
+    # ==========================================
+    # 1. คำนวณรายรับ (Income) จากบิลที่ส่งสำเร็จแล้ว
+    # ==========================================
     completed_orders = Order.objects.filter(
         delivery_info__status__in=['DELIVERED', 'COMPLETED']
     )
-    
-    # 🌟 ให้ฐานข้อมูลบวกเลขให้เลย (ทำงานเร็วกว่าวนลูป)
     total_income_agg = completed_orders.aggregate(total=Sum('total_amount'))
     total_income = float(total_income_agg['total'] or 0)
     
-    # สมมติรายจ่าย (เช่น ค่าไรเดอร์ ต้นทุนวัตถุดิบ) = 30% ของรายรับรวมทุกร้าน
-    # (ถ้ามีตารางรายจ่ายแยก นำมา Sum() แล้วใส่แทนตัวเลข 0.30 ได้เลย)
-    total_expense = total_income * 0.30 
+    # ==========================================
+    # 2. 🌟 คำนวณรายจ่ายของจริง (Expense)
+    # ==========================================
+    # ดึงรายจ่ายทั้งหมดที่ติ๊ก "จ่ายแล้ว" (is_paid=True)
+    expense_agg = Expense.objects.filter(is_paid=True).aggregate(total=Sum('amount'))
+    total_expense = float(expense_agg['total'] or 0)
     
-    # กำไรสุทธิ
+    # ==========================================
+    # 3. สรุปกำไรสุทธิและเปอร์เซ็นต์
+    # ==========================================
     net_profit = total_income - total_expense
 
-    # 🌟 คำนวณอัตราส่วนเปอร์เซ็นต์
     income_pct = 100.0 if total_income > 0 else 0.0
-    expense_pct = (total_expense / total_income * 100) if total_income > 0 else 0.0
-    profit_pct = (net_profit / total_income * 100) if total_income > 0 else 0.0
+    # ถ้ามีรายได้ ค่อยคำนวณ % ถ้าไม่มีรายได้ให้เป็น 0 ป้องกัน Error หารด้วยศูนย์
+    if total_income > 0:
+        expense_pct = (total_expense / total_income) * 100
+        profit_pct = (net_profit / total_income) * 100
+    else:
+        expense_pct = 0.0
+        profit_pct = 0.0
 
     context = {
         'total_income': total_income,

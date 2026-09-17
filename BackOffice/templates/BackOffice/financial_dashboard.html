@@ -5,7 +5,6 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Financial Dashboard - KhaiKhao Center</title>
-    <!-- โหลด Chart.js -->
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     <style>
         body { font-family: 'Sarabun', sans-serif; background: #0f172a; color: #f8fafc; margin: 0; padding: 20px; }
@@ -37,13 +36,16 @@
         .text-blue { color: #38bdf8; }
         .bg-blue-light { background: rgba(56, 189, 248, 0.15); color: #38bdf8; border: 1px solid rgba(56, 189, 248, 0.3); }
 
+        .text-orange { color: #f59e0b; }
+        .bg-orange-light { background: rgba(245, 158, 11, 0.15); color: #f59e0b; border: 1px solid rgba(245, 158, 11, 0.3); }
+
         .chart-container { position: relative; height: 300px; width: 100%; display: flex; justify-content: center; }
     </style>
 </head>
 <body>
 
     <div class="header">
-        <h1>📊 สรุปรายรับ-รายจ่ายรวม (ทุกร้านค้า)</h1>
+        <h1>📊 สรุปรายรับ-รายจ่ายรวม (ข้อมูลจริง)</h1>
         <a href="{% url 'backoffice:home' %}" class="btn-back">⬅️ กลับหน้าหลัก</a>
     </div>
 
@@ -53,38 +55,45 @@
         <div class="card">
             <h3>💰 สรุปตัวเลขทางการเงินรวม</h3>
             
+            <!-- รายรับ -->
             <div class="stat-item">
-                <div class="label">📈 ยอดขายรวมทุกร้าน</div>
+                <div class="label">📈 ยอดขายรวมทั้งระบบ (ทุกสาขา)</div>
                 <div class="value-box">
                     <div class="value text-blue">฿{{ total_income|floatformat:2 }}</div>
                     <div class="pct bg-blue-light">{{ income_pct|floatformat:1 }}% (ฐานรายรับ)</div>
                 </div>
             </div>
             
+            <!-- รายจ่าย -->
             <div class="stat-item">
-                <div class="label">📉 รายจ่าย / ต้นทุนรวม</div>
+                <div class="label">📉 รายจ่ายจริง (จากระบบ Expense)</div>
                 <div class="value-box">
                     <div class="value text-red">฿{{ total_expense|floatformat:2 }}</div>
                     <div class="pct bg-red-light">กินสัดส่วน {{ expense_pct|floatformat:1 }}%</div>
                 </div>
             </div>
             
-            <div class="stat-item" style="border-color: #10b981;">
+            <!-- กำไรสุทธิ (ปรับสีอัตโนมัติตามการขาดทุน/กำไร) -->
+            <div class="stat-item" style="border-color: {% if net_profit >= 0 %}#10b981{% else %}#f59e0b{% endif %};">
                 <div class="label">✨ กำไรสุทธิทั้งหมด</div>
                 <div class="value-box">
-                    <div class="value text-green">฿{{ net_profit|floatformat:2 }}</div>
-                    <div class="pct bg-green-light">กำไร {{ profit_pct|floatformat:1 }}%</div>
+                    <div class="value {% if net_profit >= 0 %}text-green{% else %}text-orange{% endif %}">
+                        ฿{{ net_profit|floatformat:2 }}
+                    </div>
+                    <div class="pct {% if net_profit >= 0 %}bg-green-light{% else %}bg-orange-light{% endif %}">
+                        {% if net_profit >= 0 %}
+                            กำไร {{ profit_pct|floatformat:1 }}%
+                        {% else %}
+                            ขาดทุน {{ profit_pct|floatformat:1 }}%
+                        {% endif %}
+                    </div>
                 </div>
-            </div>
-
-            <div style="font-size: 12px; color: #64748b; margin-top: 15px; text-align: center;">
-                * หมายเหตุ: รายจ่ายเป็นการคำนวณหักลบจำลองจาก 30% ของยอดขายรวมทุกร้าน
             </div>
         </div>
 
         <!-- ฝั่งขวา: แผนภูมิวงกลม -->
         <div class="card">
-            <h3>🍩 สัดส่วนกำไร vs รายจ่าย</h3>
+            <h3>🍩 สัดส่วนรายรับ vs รายจ่าย</h3>
             <div class="chart-container">
                 <canvas id="financePieChart"></canvas>
             </div>
@@ -95,8 +104,11 @@
     <script>
         const income = {{ total_income }};
         const expense = {{ total_expense }};
-        const profit = {{ net_profit }};
-        const total = income > 0 ? income : 1; // กันหารด้วย 0
+        let profit = {{ net_profit }};
+        
+        // กราฟไม่สามารถแสดงค่าติดลบได้ ถ้าขาดทุน ให้กราฟกำไรเป็น 0
+        const displayProfit = profit > 0 ? profit : 0; 
+        const total = income > 0 ? income : 1; 
 
         const ctx = document.getElementById('financePieChart').getContext('2d');
         const financePieChart = new Chart(ctx, {
@@ -104,7 +116,7 @@
             data: {
                 labels: ['กำไรสุทธิ', 'รายจ่ายรวม'],
                 datasets: [{
-                    data: [profit, expense],
+                    data: [displayProfit, expense],
                     backgroundColor: ['#10b981', '#ef4444'],
                     borderColor: '#1e293b',
                     borderWidth: 4,
@@ -125,11 +137,14 @@
                             label: function(context) {
                                 let label = context.label || '';
                                 let value = context.parsed;
+                                
+                                // ถ้าต้นทุนเกิน 100% กราฟจะแสดงเป็นสัดส่วนระหว่าง ทุน กับ กำไร
+                                // แต่เราจะคำนวณ % เทียบกับรายรับให้ดูง่ายๆ
                                 let percentage = ((value / total) * 100).toFixed(1);
                                 
                                 if (label) { label += ': '; }
                                 label += '฿' + value.toLocaleString('th-TH', {minimumFractionDigits: 2});
-                                label += ' (' + percentage + '%)'; // 🌟 โชว์ % ตอนเอาเมาส์ชี้กราฟด้วย
+                                label += ' (' + percentage + '%)'; 
                                 return label;
                             }
                         }
