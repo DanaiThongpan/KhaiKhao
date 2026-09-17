@@ -105,10 +105,19 @@
 <div class="filter-container">
     <form method="GET" id="filterForm">
         <select name="days" class="filter-select" onchange="document.getElementById('filterForm').submit();">
-            <option value="0" {% if request.GET.days == '0' or not request.GET.days %}selected{% endif %}>📅 ดูเฉพาะงานของวันนี้</option>
-            <option value="1" {% if request.GET.days == '1' %}selected{% endif %}>🕒 1 วันย้อนหลัง</option>
-            <option value="all" {% if request.GET.days == 'all' %}selected{% endif %}>📂 ดูงานทั้งหมด</option>
+            <option value="0" {% if days_filter == '0' or not days_filter %}selected{% endif %}>📅 ดูเฉพาะงานของวันนี้</option>
+            <option value="1" {% if days_filter == '1' %}selected{% endif %}>🕒 1 วันย้อนหลัง</option>
+            <option value="all" {% if days_filter == 'all' %}selected{% endif %}>📂 ดูงานทั้งหมด</option>
         </select>
+
+        <!-- 🌟 checkbox กรองเฉพาะงานที่ยังไม่ส่ง -->
+        <label style="display:flex; align-items:center; gap:8px; margin-top:10px; background:white; padding:12px 15px; border-radius:12px; border:1px solid #cbd5e1; font-weight:bold; font-size:14px; color:#1e293b; cursor:pointer;">
+            <input type="checkbox" name="undelivered_only" value="1"
+                   {% if undelivered_only %}checked{% endif %}
+                   onchange="document.getElementById('filterForm').submit();"
+                   style="transform: scale(1.4); accent-color: #f59e0b;">
+            🚫 แสดงเฉพาะงานที่ยังไม่ได้ส่ง
+        </label>
     </form>
 </div>
 

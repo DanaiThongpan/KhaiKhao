@@ -1,3 +1,6 @@
+from datetime import timedelta
+import datetime
+
 from django.shortcuts import render, get_object_or_404, redirect
 from django.contrib.auth.decorators import user_passes_test
 from django.contrib.auth import get_user_model
@@ -178,16 +181,34 @@ def live_monitor(request):
 
 @user_passes_test(is_admin, login_url='/login/')
 def api_live_monitor(request):
-    today = timezone.localtime().date()
+    # รับค่าวันที่จากหน้าเว็บ
+    days_param = request.GET.get('days', '0')
+    date_param = request.GET.get('date', '') 
     
-    orders = Order.objects.filter(created_at__date=today).select_related(
+    now_date = timezone.localtime().date()
+    
+    # 🌟 สังเกตตรงนี้ ต้องไม่มีคำว่า filter(created_at__date=today) แล้วนะครับ
+    orders = Order.objects.select_related(
         'created_by', 'delivery_info', 'delivery_info__destination', 'delivery_info__rider'
     ).prefetch_related('items__product').order_by('created_at')
 
+    # ระบบกรองวันที่
+    if date_param:
+        try:
+            target_date = datetime.strptime(date_param, '%Y-%m-%d').date()
+            orders = orders.filter(created_at__date=target_date)
+        except ValueError:
+            orders = orders.filter(created_at__date=now_date)
+    elif days_param != 'all':
+        try:
+            days = int(days_param)
+            target_date = now_date - timedelta(days=days)
+            orders = orders.filter(created_at__date=target_date)
+        except ValueError:
+            orders = orders.filter(created_at__date=now_date)
+
     pending_count = 0; delivering_count = 0; completed_count = 0
     preparing_orders = []; delivering_orders = []; completed_orders = []
-    
-    # 🌟 ตัวแปรเก็บสถิติรวมของไรเดอร์แต่ละคนแบบจัดกลุ่มตามรอบ 🌟
     rider_stats = {} 
 
     for order in orders:
@@ -206,12 +227,10 @@ def api_live_monitor(request):
             trip_num = getattr(d_info, 'trip_number', 1)
 
             if d_info.rider:
-                # 🌟 ดึงชื่อจากโมเดล RiderProfile
                 rider_name = getattr(d_info.rider, 'name', 'ไรเดอร์')
                 if rider_name not in rider_stats:
                     rider_stats[rider_name] = {'delivering': 0, 'completed': 0, 'trips': {}}
 
-            # 1. PENDING (ออเดอร์ค้าง)
             if status == 'PENDING':
                 pending_count += 1
                 local_time = timezone.localtime(order.created_at)
@@ -224,11 +243,9 @@ def api_live_monitor(request):
                     'items': items_detail
                 })
                 
-            # 2. GOING (กำลังวิ่งส่ง)
             elif status in ['GOING', 'DELIVERING', 'STARTED']:
                 delivering_count += 1
                 start_time = timezone.localtime(d_info.started_at).strftime('%H:%M') if d_info.started_at else '-'
-                
                 if d_info.rider:
                     rider_stats[rider_name]['delivering'] += 1
                     if trip_num not in rider_stats[rider_name]['trips']:
@@ -236,7 +253,6 @@ def api_live_monitor(request):
                     rider_stats[rider_name]['trips'][trip_num]['orders'] += 1
                     rider_stats[rider_name]['trips'][trip_num]['status'] = 'DELIVERING'
                     if d_info.started_at: rider_stats[rider_name]['trips'][trip_num]['start'].append(d_info.started_at)
-                
                 delivering_orders.append({
                     'receipt': order.receipt_number,
                     'shop': order.created_by.username,
@@ -247,11 +263,9 @@ def api_live_monitor(request):
                     'items': items_detail
                 })
                 
-            # 3. COMPLETED (ส่งสำเร็จ)
             elif status in ['DELIVERED', 'COMPLETED']:
                 completed_count += 1
                 completed_time = timezone.localtime(d_info.completed_at).strftime('%H:%M') if d_info.completed_at else '-'
-                
                 if d_info.rider:
                     rider_stats[rider_name]['completed'] += 1
                     if trip_num not in rider_stats[rider_name]['trips']:
@@ -259,7 +273,6 @@ def api_live_monitor(request):
                     rider_stats[rider_name]['trips'][trip_num]['orders'] += 1
                     if d_info.started_at: rider_stats[rider_name]['trips'][trip_num]['start'].append(d_info.started_at)
                     if d_info.completed_at: rider_stats[rider_name]['trips'][trip_num]['end'].append(d_info.completed_at)
-                
                 completed_orders.append({
                     'receipt': order.receipt_number,
                     'shop': order.created_by.username,
@@ -272,10 +285,19 @@ def api_live_monitor(request):
                 })
         else:
             completed_count += 1 
+            completed_orders.append({
+                'receipt': order.receipt_number,
+                'shop': order.created_by.username,
+                'dorm': 'รับหน้าร้าน (ไม่มีจัดส่ง)',
+                'rider': '-',
+                'items': items_detail,
+                'completed_time': timezone.localtime(order.created_at).strftime('%H:%M'),
+                'duration': '-',
+                'total': float(order.total_amount)
+            })
 
     completed_orders.reverse()
 
-    # 🌟 แปลงโครงสร้างสถิติเพื่อส่งให้ JavaScript สร้างกราฟ 🌟
     final_rider_stats = []
     for r_name, stats in rider_stats.items():
         trips_list = []
@@ -288,20 +310,8 @@ def api_live_monitor(request):
                     duration = int((max_e - min_s).total_seconds() / 60)
                 else:
                     duration = int((timezone.now() - min_s).total_seconds() / 60)
-            
-            trips_list.append({
-                'trip': t_num,
-                'status': t_data['status'],
-                'orders': t_data['orders'],
-                'duration': duration
-            })
-        
-        final_rider_stats.append({
-            'name': r_name,
-            'completed': stats['completed'],
-            'delivering': stats['delivering'],
-            'trips': trips_list
-        })
+            trips_list.append({'trip': t_num, 'status': t_data['status'], 'orders': t_data['orders'], 'duration': duration})
+        final_rider_stats.append({'name': r_name, 'completed': stats['completed'], 'delivering': stats['delivering'], 'trips': trips_list})
 
     return JsonResponse({
         'pending_count': pending_count,
