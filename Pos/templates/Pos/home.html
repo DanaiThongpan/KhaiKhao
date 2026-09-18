@@ -85,13 +85,14 @@
         .no-bill-box:hover { background: #fef3c7; }
         .no-bill-text { font-size: 14px; font-weight: bold; color: #d97706; display: flex; align-items: center; gap: 8px; }
 
+        /* 🌟 แก้ไข CSS ของ Switch ให้ใช้งานได้ 🌟 */
         .switch { position: relative; display: inline-block; width: 46px; height: 24px; }
         .switch input { opacity: 0; width: 0; height: 0; }
         .slider { position: absolute; cursor: pointer; top: 0; left: 0; right: 0; bottom: 0; background-color: #d1d5db; transition: .4s; border-radius: 24px; }
         .slider:before { position: absolute; content: ""; height: 18px; width: 18px; left: 3px; bottom: 3px; background-color: white; transition: .4s; border-radius: 50%; box-shadow: 0 1px 3px rgba(0,0,0,0.2); }
-        .input:checked + .slider { background-color: #16a34a; }
-        .input:focus + .slider { box-shadow: 0 0 1px #16a34a; }
-        .input:checked + .slider:before { transform: translateX(22px); }
+        .switch input:checked + .slider { background-color: #16a34a; }
+        .switch input:focus + .slider { box-shadow: 0 0 1px #16a34a; }
+        .switch input:checked + .slider:before { transform: translateX(22px); }
 
         /* 🌟 CSS สำหรับปุ่มเลือกโซนหอพัก */
         .zone-badge { padding: 6px 12px; border-radius: 15px; background: white; color: #3b82f6; font-size: 13px; font-weight: bold; cursor: pointer; border: 1px solid #93c5fd; transition: 0.2s; white-space: nowrap; }
@@ -219,7 +220,6 @@
             </div>
         </header>
 
-        <!-- 🌟 ป้ายแจ้งเตือนกล่องหมดโชว์เด่นๆ หน้าแรก 🌟 -->
         {% if has_box_item and box_quantity <= 0 %}
         <div style="background: #fef2f2; border: 1px solid #f87171; color: #b91c1c; padding: 12px 20px; border-radius: 8px; margin-bottom: 20px; font-weight: bold; display: flex; align-items: center; gap: 10px; box-shadow: 0 2px 4px rgba(239, 68, 68, 0.1);">
             <span style="font-size: 24px;">📦⚠️</span> 
@@ -310,6 +310,7 @@
                 <span id="grandTotal" style="color: #16a34a; font-size: 22px;">฿0.00</span>
             </div>
 
+            <!-- 🌟 สวิตช์ลูกค้าไม่รับบิล 🌟 -->
             <div class="no-bill-box">
                 <span class="no-bill-text">🌱 ลูกค้าไม่รับบิล</span>
                 <label class="switch">
@@ -403,10 +404,8 @@
                     📍 เลือกหอพักปลายทาง (สำหรับจัดส่ง):
                 </label>
                 
-                <!-- 🌟 1. ช่องพิมพ์ค้นหา 🌟 -->
                 <input type="text" id="dormSearch" placeholder="🔍 พิมพ์ชื่อหอพัก..." onkeyup="filterDorms()" style="width: 100%; padding: 10px; border-radius: 8px; border: 1px solid #93c5fd; font-size: 14px; outline: none; margin-bottom: 10px;">
                 
-                <!-- 🌟 2. ปุ่มกดกรองตามโซน 🌟 -->
                 <div id="zoneFilters" style="display: flex; gap: 6px; flex-wrap: wrap; margin-bottom: 10px;">
                     <span class="zone-badge active" onclick="setZoneFilter('')">ทั้งหมด</span>
                     <span class="zone-badge" onclick="setZoneFilter('หน้ามอ')">หน้ามอ</span>
@@ -415,7 +414,6 @@
                     <span class="zone-badge" onclick="setZoneFilter('หวานเย็น')">หวานเย็น</span>
                 </div>
 
-                <!-- 🌟 3. Dropdown หอพัก (เพิ่ม data-zone เข้าไป) 🌟 -->
                 <select id="checkoutDormSelect" style="width: 100%; padding: 10px; border-radius: 8px; border: 1px solid #93c5fd; font-size: 14px; outline: none; background: white;">
                     <option value="" data-zone="">-- ลูกค้าซื้อหน้าร้าน (ไม่จัดส่ง) --</option>
                     {% for d in dorms %}
@@ -438,6 +436,11 @@
                     </label>
                     <label style="cursor: pointer; font-size: 14px; display: flex; align-items: center; gap: 8px;">
                         <input type="radio" name="billType" value="screen" style="accent-color: #16a34a; transform: scale(1.2);"> แสดงผลบิลบนหน้าจอ (ไม่บันทึก)
+                    </label>
+                    
+                    <!-- 🌟 เพิ่มตัวเลือก "ไม่รับบิล" เพื่อให้ข้ามหน้าใบเสร็จทันที 🌟 -->
+                    <label style="cursor: pointer; font-size: 14px; display: flex; align-items: center; gap: 8px; color: #ef4444; font-weight: bold;">
+                        <input type="radio" name="billType" value="none" style="accent-color: #ef4444; transform: scale(1.2);"> ไม่รับบิล (จบการขายทันที)
                     </label>
                 </div>
                 <div id="printSlotStatus" style="font-size: 12px; color: #16a34a; margin-top: 10px; font-weight: bold;">
@@ -479,9 +482,6 @@
 <script>
     const PROMPTPAY_ID = "{{ shop_promptpay }}"; 
 
-    // -----------------------------------------------------
-    // 1. ระบบ MODAL เทียบกำไร
-    // -----------------------------------------------------
     function openCompareModal() {
         document.getElementById('compareModal').style.display = 'flex';
         fetchCompareData(); 
@@ -596,9 +596,6 @@
         }
     }
 
-    // -----------------------------------------------------
-    // 2. NOTIFICATION POPUP
-    // -----------------------------------------------------
     function toggleNotiPopup() { document.getElementById('notiPopup').classList.toggle('show'); }
 
     document.addEventListener('click', function(event) {
@@ -633,9 +630,6 @@
         }).catch(err => alert("เชื่อมต่อไม่สำเร็จ"));
     }
 
-    // -----------------------------------------------------
-    // 3. PROMPTPAY PAYLOAD
-    // -----------------------------------------------------
     function generatePromptPayPayload(target, amount) {
         function tlv(tag, value) {
             let length = String(value.length).padStart(2, '0');
@@ -649,14 +643,12 @@
             let formattedPhone = '0066' + cleanTarget.substring(1);
             let targetTag = tlv('01', formattedPhone);
             merchantAccount = tlv('29', tlv('00', 'A000000677010111') + targetTag);
-
         } else if (cleanTarget.length === 15) {
             const aid = tlv('00', 'A000000677010112');
             const billerId = tlv('01', '010753600010286');
             const ref1 = tlv('02', cleanTarget);
             const ref2 = tlv('03', 'SCB');
             merchantAccount = tlv('30', aid + billerId + ref1 + ref2);
-
         } else {
             let targetTag = tlv('02', cleanTarget);
             merchantAccount = tlv('29', tlv('00', 'A000000677010111') + targetTag);
@@ -714,9 +706,10 @@
 
         updatePrintSlotStatus(); 
 
+        // 🌟 เปลี่ยนให้ปุ่ม "ลูกค้าไม่รับบิล" เลือกรัศมี "none" อัตโนมัติ 🌟
         const noBillToggleCart = document.getElementById('no_bill_toggle_cart');
         if (noBillToggleCart && noBillToggleCart.checked) {
-            document.querySelector('input[name="billType"][value="screen"]').checked = true;
+            document.querySelector('input[name="billType"][value="none"]').checked = true;
         } else {
             document.querySelector('input[name="billType"][value="image"]').checked = true;
         }
@@ -783,14 +776,18 @@
                 const noBillToggleCart = document.getElementById('no_bill_toggle_cart');
                 if(noBillToggleCart) noBillToggleCart.checked = false;
 
+                // 🌟 หากเลือกไม่รับบิล (none) จะข้ามทุกอย่างและรีเฟรชหน้าเลย 🌟
                 if (selectedBillType === 'print') {
                     triggerPrintReceipt(receiptNo, currentCart, totalPrice, qrDataUrl, shopName, selectedDormName);
                     setTimeout(() => { window.location.href = "{% url 'pos:home' %}"; }, 1500);
                 } else if (selectedBillType === 'image') {
                     downloadSlipImage(receiptNo, currentCart, totalPrice, qrDataUrl, shopName, selectedDormName);
-                } else {
+                } else if (selectedBillType === 'screen') {
                     showScreenBill(receiptNo, currentCart, totalPrice, shopName, selectedDormName);
+                } else {
+                    window.location.href = "{% url 'pos:home' %}";
                 }
+
             } else { 
                 alert("เกิดข้อผิดพลาด: " + data.message); 
                 btnCheckout.disabled = false; 
@@ -805,9 +802,6 @@
         });
     }
 
-    // -----------------------------------------------------
-    // 4. ระบบการพิมพ์แบบสลิป บนกระดาษ A4 (6 ช่อง)
-    // -----------------------------------------------------
     function triggerPrintReceipt(receiptNo, items, total, qrDataUrl, shopName, selectedDormName) {
         let printWindow = window.open('', '_blank');
         let currentSlot = parseInt(localStorage.getItem('printSlotIndex')) || 0;
@@ -922,9 +916,6 @@
         printWindow.document.close();
     }
 
-    // -----------------------------------------------------
-    // 4.2 ระบบดาวน์โหลด e-Slip (สัดส่วนพอดีมือถือ)
-    // -----------------------------------------------------
     function downloadSlipImage(receiptNo, items, total, qrDataUrl, shopName, selectedDormName) {
         const slipContainer = document.createElement('div');
         slipContainer.style.position = 'absolute';
@@ -1102,9 +1093,6 @@
         window.location.href = "{% url 'pos:home' %}";
     }
 
-    // -----------------------------------------------------
-    // 5. FILTER PRODUCTS & CART
-    // -----------------------------------------------------
     const searchInput = document.getElementById("searchInput");
     const catTabs = document.querySelectorAll(".cat-tab");
     const categorySections = document.querySelectorAll(".category-section");
@@ -1142,12 +1130,8 @@
     }
     searchInput.addEventListener("input", filterProducts);
 
-    // -----------------------------------------------------
-    // 6. CART SYSTEM 🌟 อัปเดตให้เช็คสต๊อกเฉพาะกล่อง (อาหารสั่งได้ปกติ)
-    // -----------------------------------------------------
     let cart = [];
 
-    // ดึงค่าคงเหลือของกล่องมาจาก Backend
     const HAS_BOX_ITEM = {{ has_box_item|yesno:"true,false" }};
     const BOX_QUANTITY = {{ box_quantity|default:0 }};
 
@@ -1186,7 +1170,7 @@
             container.innerHTML = `<div style="text-align: center; color: #9ca3af; margin-top: 50px;"><div style="font-size: 40px; margin-bottom: 10px;">🛒</div>ยังไม่มีสินค้าในตะกร้า</div>`;
             grandTotalEl.innerText = '฿0.00'; 
             btnCheckout.disabled = true; 
-            btnCheckout.style.background = "#16a34a"; // รีเซ็ตสีปุ่ม
+            btnCheckout.style.background = "#16a34a";
             btnCheckout.innerText = "รับชำระเงิน (QR พร้อมเพย์/แม่มณี)";
             return;
         }
@@ -1200,7 +1184,6 @@
             const itemTotal = item.price * item.qty; 
             totalPrice += itemTotal;
             
-            // คำนวณยอดการใช้กล่อง
             const catName = (item.category || "").toLowerCase();
             const prodName = item.name.toLowerCase();
             const isExcluded = excludeKeywordsBox.some(kw => prodName.includes(kw) || catName.includes(kw));
@@ -1213,14 +1196,13 @@
 
         grandTotalEl.innerText = `฿${totalPrice.toLocaleString(undefined, {minimumFractionDigits: 2})}`;
         
-        // 🌟 ตรวจสอบว่ากล่องพอหรือไม่ 🌟
         if (HAS_BOX_ITEM && requiredBoxes > BOX_QUANTITY) {
             btnCheckout.disabled = true;
-            btnCheckout.style.background = "#dc2626"; // ปุ่มสีแดง
+            btnCheckout.style.background = "#dc2626";
             btnCheckout.innerText = `⚠️ กล่องไม่พอ (ต้องการ ${requiredBoxes} ใบ, มี ${Math.floor(BOX_QUANTITY)} ใบ)`;
         } else {
             btnCheckout.disabled = false;
-            btnCheckout.style.background = "#16a34a"; // ปุ่มสีเขียวปกติ
+            btnCheckout.style.background = "#16a34a";
             btnCheckout.innerText = "รับชำระเงิน (QR พร้อมเพย์/แม่มณี)";
         }
     }
@@ -1231,7 +1213,6 @@
     let allDormsList = [];
     let currentZoneFilter = '';
 
-    // เก็บรายชื่อหอพักต้นฉบับไว้ในหน่วยความจำตอนโหลดหน้าเว็บ
     document.addEventListener('DOMContentLoaded', () => {
         let select = document.getElementById('checkoutDormSelect');
         if(select) {
@@ -1248,7 +1229,6 @@
     function setZoneFilter(zoneKeyword) {
         currentZoneFilter = zoneKeyword;
         
-        // สลับสีปุ่มที่ถูกกด
         document.querySelectorAll('.zone-badge').forEach(badge => {
             badge.classList.remove('active');
             if(badge.innerText.includes(zoneKeyword) || (zoneKeyword === '' && badge.innerText === 'ทั้งหมด')) {
@@ -1256,20 +1236,19 @@
             }
         });
         
-        filterDorms(); // เรียกใช้ฟังก์ชันกรอง
+        filterDorms(); 
     }
 
     function filterDorms() {
         let searchKeyword = document.getElementById('dormSearch').value.toLowerCase();
         let select = document.getElementById('checkoutDormSelect');
-        select.innerHTML = ''; // ล้างตัวเลือกเดิมออก
+        select.innerHTML = ''; 
 
         let count = 0;
         allDormsList.forEach(d => {
             let matchSearch = d.text.toLowerCase().includes(searchKeyword);
             let matchZone = currentZoneFilter === '' || d.zone.includes(currentZoneFilter);
             
-            // ถ้าตรงเงื่อนไขการค้นหา หรือ เป็นตัวเลือก "ซื้อหน้าร้าน" ให้แสดง
             if (d.value === "" || (matchSearch && matchZone)) {
                 let opt = document.createElement('option');
                 opt.value = d.value;
@@ -1280,7 +1259,6 @@
             }
         });
 
-        // ถ้าค้นหาแล้วเจอผลลัพธ์ ให้เลือกผลลัพธ์แรกอัตโนมัติ (ข้าม 'ซื้อหน้าร้าน')
         if(count > 1 && (searchKeyword.length > 0 || currentZoneFilter !== '')) {
             select.selectedIndex = 1; 
         } else {
@@ -1291,7 +1269,3 @@
 
 </body>
 </html>
-
-เอาหน้านี้ไปแก้ไขแบบเดียวกัน เพราะหน้านี้เป็ฯหน้าหลักของไรเดอร์ 
-
-ทำให้หน่อยนะ
