@@ -93,6 +93,11 @@
         .input:focus + .slider { box-shadow: 0 0 1px #16a34a; }
         .input:checked + .slider:before { transform: translateX(22px); }
 
+        /* 🌟 CSS สำหรับปุ่มเลือกโซนหอพัก */
+        .zone-badge { padding: 6px 12px; border-radius: 15px; background: white; color: #3b82f6; font-size: 13px; font-weight: bold; cursor: pointer; border: 1px solid #93c5fd; transition: 0.2s; white-space: nowrap; }
+        .zone-badge:hover { background: #eff6ff; }
+        .zone-badge.active { background: #3b82f6; color: white; border-color: #3b82f6; }
+
         @media (max-width: 1200px) {
             .sidebar { width: 70px; }
             .sidebar .logo h2, .sidebar .logo span, .sidebar .menu span:nth-child(2), .sidebar .user-profile, .sidebar .sidebar-bottom span:nth-child(2) { display: none; }
@@ -397,10 +402,24 @@
                 <label style="font-size: 14px; font-weight: bold; color: #1e40af; display: block; margin-bottom: 8px;">
                     📍 เลือกหอพักปลายทาง (สำหรับจัดส่ง):
                 </label>
+                
+                <!-- 🌟 1. ช่องพิมพ์ค้นหา 🌟 -->
+                <input type="text" id="dormSearch" placeholder="🔍 พิมพ์ชื่อหอพัก..." onkeyup="filterDorms()" style="width: 100%; padding: 10px; border-radius: 8px; border: 1px solid #93c5fd; font-size: 14px; outline: none; margin-bottom: 10px;">
+                
+                <!-- 🌟 2. ปุ่มกดกรองตามโซน 🌟 -->
+                <div id="zoneFilters" style="display: flex; gap: 6px; flex-wrap: wrap; margin-bottom: 10px;">
+                    <span class="zone-badge active" onclick="setZoneFilter('')">ทั้งหมด</span>
+                    <span class="zone-badge" onclick="setZoneFilter('หน้ามอ')">หน้ามอ</span>
+                    <span class="zone-badge" onclick="setZoneFilter('อนามัย 10')">อ.10</span>
+                    <span class="zone-badge" onclick="setZoneFilter('ประตู 3')">ประตู 3</span>
+                    <span class="zone-badge" onclick="setZoneFilter('หวานเย็น')">หวานเย็น</span>
+                </div>
+
+                <!-- 🌟 3. Dropdown หอพัก (เพิ่ม data-zone เข้าไป) 🌟 -->
                 <select id="checkoutDormSelect" style="width: 100%; padding: 10px; border-radius: 8px; border: 1px solid #93c5fd; font-size: 14px; outline: none; background: white;">
-                    <option value="">-- ลูกค้าซื้อหน้าร้าน (ไม่จัดส่ง) --</option>
+                    <option value="" data-zone="">-- ลูกค้าซื้อหน้าร้าน (ไม่จัดส่ง) --</option>
                     {% for d in dorms %}
-                        <option value="{{ d.id }}">[{{ d.zone }}] {{ d.name }}</option>
+                        <option value="{{ d.id }}" data-zone="{{ d.zone }}">[{{ d.zone }}] {{ d.name }}</option>
                     {% endfor %}
                 </select>
             </div>
@@ -1205,7 +1224,74 @@
             btnCheckout.innerText = "รับชำระเงิน (QR พร้อมเพย์/แม่มณี)";
         }
     }
+
+    // -----------------------------------------------------
+    // 🌟 ระบบค้นหาและกรองหอพัก (Search & Filter)
+    // -----------------------------------------------------
+    let allDormsList = [];
+    let currentZoneFilter = '';
+
+    // เก็บรายชื่อหอพักต้นฉบับไว้ในหน่วยความจำตอนโหลดหน้าเว็บ
+    document.addEventListener('DOMContentLoaded', () => {
+        let select = document.getElementById('checkoutDormSelect');
+        if(select) {
+            Array.from(select.options).forEach(opt => {
+                allDormsList.push({
+                    value: opt.value, 
+                    text: opt.text, 
+                    zone: opt.getAttribute('data-zone') || ''
+                });
+            });
+        }
+    });
+
+    function setZoneFilter(zoneKeyword) {
+        currentZoneFilter = zoneKeyword;
+        
+        // สลับสีปุ่มที่ถูกกด
+        document.querySelectorAll('.zone-badge').forEach(badge => {
+            badge.classList.remove('active');
+            if(badge.innerText.includes(zoneKeyword) || (zoneKeyword === '' && badge.innerText === 'ทั้งหมด')) {
+                badge.classList.add('active');
+            }
+        });
+        
+        filterDorms(); // เรียกใช้ฟังก์ชันกรอง
+    }
+
+    function filterDorms() {
+        let searchKeyword = document.getElementById('dormSearch').value.toLowerCase();
+        let select = document.getElementById('checkoutDormSelect');
+        select.innerHTML = ''; // ล้างตัวเลือกเดิมออก
+
+        let count = 0;
+        allDormsList.forEach(d => {
+            let matchSearch = d.text.toLowerCase().includes(searchKeyword);
+            let matchZone = currentZoneFilter === '' || d.zone.includes(currentZoneFilter);
+            
+            // ถ้าตรงเงื่อนไขการค้นหา หรือ เป็นตัวเลือก "ซื้อหน้าร้าน" ให้แสดง
+            if (d.value === "" || (matchSearch && matchZone)) {
+                let opt = document.createElement('option');
+                opt.value = d.value;
+                opt.text = d.text;
+                opt.setAttribute('data-zone', d.zone);
+                select.appendChild(opt);
+                count++;
+            }
+        });
+
+        // ถ้าค้นหาแล้วเจอผลลัพธ์ ให้เลือกผลลัพธ์แรกอัตโนมัติ (ข้าม 'ซื้อหน้าร้าน')
+        if(count > 1 && (searchKeyword.length > 0 || currentZoneFilter !== '')) {
+            select.selectedIndex = 1; 
+        } else {
+            select.selectedIndex = 0;
+        }
+    }
 </script>
 
 </body>
 </html>
+
+เอาหน้านี้ไปแก้ไขแบบเดียวกัน เพราะหน้านี้เป็ฯหน้าหลักของไรเดอร์ 
+
+ทำให้หน่อยนะ
