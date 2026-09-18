@@ -15,51 +15,74 @@ from django.db.models import Q
 # 1. หน้า Dashboard สำหรับจัดการออเดอร์
 # =========================================================
 from django.utils.dateparse import parse_date
+from django.contrib.auth import get_user_model
 
 @login_required
 def rider_dashboard(request):
     """ แสดงหน้าแดชบอร์ดหลักสำหรับเลือกออเดอร์และดูพิกัด """
-    # 🌟 1. รับค่าตัวกรองจากหน้า HTML ที่เราเพิ่งเพิ่มเข้าไป
     days_filter = request.GET.get('days', '0')
     undelivered_only = request.GET.get('undelivered_only', None)
     
-    # ดึงออเดอร์ทั้งหมดของร้านนี้
-    orders = Order.objects.filter(created_by=request.user)
+    # 🌟 1. ดึงบัญชี Admin และสร้าง/ดึง RiderProfile ออกมา 🌟
+    User = get_user_model()
+    admin_user = User.objects.filter(is_superuser=True).first()
+    default_rider_profile = None
+    
+    if admin_user:
+        # หา RiderProfile ที่ชื่อ Rider Danai ถ้าไม่มีให้สร้างใหม่ผูกกับบัญชี Admin อัตโนมัติ
+        default_rider_profile, created = RiderProfile.objects.get_or_create(
+            name="Rider Danai",
+            created_by=admin_user,
+            defaults={'rider_type': 'INTERNAL'}
+        )
+    
+    # 🌟 2. ดึงออเดอร์ทั้งหมดของ "ทุกร้าน" 🌟
+    orders = Order.objects.all()
     now_date = timezone.localtime().date()
     
-    # 🌟 2. กรองตามวัน
+    # กรองตามวัน
     if days_filter == '0':
         orders = orders.filter(created_at__date=now_date)
     elif days_filter == '1':
         target_date = now_date - timedelta(days=1)
         orders = orders.filter(created_at__date=target_date)
     elif days_filter == 'all':
-        pass # ดึงทั้งหมด ไม่ต้องกรองวันที่
+        pass 
         
-    # 🌟 3. กรองเฉพาะงานที่ยังไม่ส่ง (ซ่อนงานที่ส่งสำเร็จแล้ว)
+    # กรองเฉพาะงานที่ยังไม่ส่ง (แก้ให้ใช้ related_name คือ delivery_info)
     if undelivered_only == '1':
         orders = orders.exclude(delivery_info__status__in=['DELIVERED', 'COMPLETED'])
         
     # เรียงลำดับจากใหม่ไปเก่า
     orders = orders.order_by('-created_at')
     
-    # 🌟 4. ขยายลิมิตการดึงข้อมูล 
+    # ขยายลิมิตการดึงข้อมูล 
     if days_filter == 'all' or undelivered_only == '1':
-        orders = orders[:500] # ขยายเป็น 500 บิล เพื่อให้เคลียร์ขยะเก่าๆ ได้ครบ
+        orders = orders[:500] 
     else:
-        orders = orders[:50] # ถ้าดูของวันนี้ปกติ ล็อกไว้ 50 บิลให้เว็บโหลดเร็ว
+        orders = orders[:50] 
         
-    # วนลูปเช็กและสร้าง DeliveryTask ให้บิลเก่าๆ
+    # 🌟 3. ยัดโปรไฟล์ไรเดอร์ (RiderProfile) ใส่ในทุกออเดอร์อัตโนมัติ 🌟
+    # for order in orders:
+    #     task, created = DeliveryTask.objects.get_or_create(order=order)
+    #     if not task.rider and default_rider_profile:
+    #         task.rider = default_rider_profile
+    #         task.save()
+            # 🌟 3. บังคับยัดโปรไฟล์ไรเดอร์ (Rider Danai) ทับใส่ในทุกออเดอร์อัตโนมัติ 🌟
     for order in orders:
-        DeliveryTask.objects.get_or_create(order=order)
+        task, created = DeliveryTask.objects.get_or_create(order=order)
         
+        # 🚨 เอาเงื่อนไข 'not task.rider' ออก เพื่อบังคับทับชื่อเก่าที่ค้างอยู่ในระบบ
+        if default_rider_profile and task.rider != default_rider_profile:
+            task.rider = default_rider_profile
+            task.save()
     dorms = Dormitory.objects.all().order_by('zone', 'name')
         
     return render(request, 'Riders/dashboard.html', {
         'orders': orders,
         'dorms': dorms,
-        'days_filter': days_filter, # ส่งค่ากลับไปให้ Dropdown จำค่าเดิม
-        'undelivered_only': undelivered_only, # ส่งค่ากลับไปให้ Checkbox จำค่าเดิม
+        'days_filter': days_filter,
+        'undelivered_only': undelivered_only,
     })
 
 # =========================================================

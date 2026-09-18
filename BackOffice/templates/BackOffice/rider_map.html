@@ -1,0 +1,218 @@
+{% load static %}
+<!DOCTYPE html>
+<html lang="th">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Live Rider Map - KhaiKhao Center</title>
+    
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.css" />
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.js"></script>
+
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet-routing-machine/3.2.12/leaflet-routing-machine.css" />
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet-routing-machine/3.2.12/leaflet-routing-machine.min.js"></script>
+
+    <style>
+        body { font-family: 'Sarabun', sans-serif; background: #0f172a; color: #f8fafc; margin: 0; padding: 20px; display: flex; flex-direction: column; height: 100vh; }
+        * { box-sizing: border-box; }
+        
+        .header { display: flex; justify-content: space-between; align-items: center; border-bottom: 2px dashed #334155; padding-bottom: 15px; margin-bottom: 20px; flex-shrink: 0;}
+        .header h1 { margin: 0; color: #8b5cf6; font-size: 22px; display: flex; align-items: center; gap: 10px;}
+        .btn-back { background: #334155; color: white; padding: 8px 15px; border-radius: 6px; text-decoration: none; font-weight: bold; font-size: 14px; transition: 0.2s; }
+        .btn-back:hover { background: #475569; }
+
+        .map-container { flex-grow: 1; border-radius: 15px; overflow: hidden; border: 2px solid #334155; box-shadow: 0 10px 20px rgba(0,0,0,0.3); position: relative; min-height: 500px; }
+        #map { width: 100%; height: 100%; background: #1e293b; z-index: 1;}
+
+        .leaflet-popup-content-wrapper { background: #1e293b; color: #f8fafc; border: 1px solid #3b82f6; border-radius: 12px; }
+        .leaflet-popup-tip { background: #1e293b; border: 1px solid #3b82f6; }
+        .popup-header { font-size: 16px; font-weight: bold; color: #38bdf8; border-bottom: 1px dashed #475569; padding-bottom: 8px; margin-bottom: 10px; display: flex; align-items: center; gap: 6px;}
+        .popup-order-list { max-height: 200px; overflow-y: auto; padding-right: 5px;}
+        .popup-order-item { background: #0f172a; border-left: 3px solid #10b981; padding: 8px 10px; margin-bottom: 8px; border-radius: 6px; font-size: 13px;}
+        .popup-time { color: #f59e0b; font-weight: bold; margin-top: 4px; display: block; font-size: 12px;}
+
+        .rider-icon { background: #8b5cf6; color: white; border-radius: 50%; width: 45px; height: 45px; display: flex; align-items: center; justify-content: center; font-size: 22px; border: 3px solid white; box-shadow: 0 4px 10px rgba(0,0,0,0.4); z-index: 1000;}
+        .dest-icon { background: #f59e0b; color: white; border-radius: 50%; width: 28px; height: 28px; display: flex; align-items: center; justify-content: center; font-weight: 900; font-size: 14px; border: 2px solid white; box-shadow: 0 2px 5px rgba(0,0,0,0.5); }
+
+        .status-box { position: absolute; top: 15px; right: 15px; background: rgba(15, 23, 42, 0.9); padding: 10px 15px; border-radius: 8px; border: 1px solid #475569; z-index: 1000; font-size: 13px;}
+
+        /* ซ่อนกรอบข้อความนำทาง */
+        .leaflet-routing-container { display: none !important; }
+    </style>
+</head>
+<body>
+
+    <div class="header">
+        <h1>🗺️ Live Map: จัดลำดับคิวและติดตามเส้นทางจริง</h1>
+        <a href="{% url 'backoffice:home' %}" class="btn-back">⬅️ กลับหน้าหลัก</a>
+    </div>
+
+    <div class="map-container">
+        <div id="map"></div>
+        <div class="status-box">
+            <span style="color: #10b981;">🟢 กำลังวิ่งงาน:</span> <strong id="activeRiderCount">0</strong> คัน
+        </div>
+    </div>
+
+    <script>
+        const map = L.map('map').setView([15.1186, 104.9046], 14);
+
+        L.tileLayer('https://mt1.google.com/vt/lyrs=m&x={x}&y={y}&z={z}', {
+            maxZoom: 20,
+            attribution: '© Google Maps'
+        }).addTo(map);
+
+        let riderMarkers = {};
+        let routeLayerGroup = L.layerGroup().addTo(map);
+        let routingControls = {};
+
+        const pathColors = ['#38bdf8', '#fbbf24', '#a3e635', '#f43f5e', '#a855f7'];
+
+        const createRiderIcon = (name) => {
+            return L.divIcon({
+                className: 'custom-div-icon',
+                html: `<div class="rider-icon" title="${name}">🛵</div>`,
+                iconSize: [45, 45],
+                iconAnchor: [22, 22],
+                popupAnchor: [0, -20]
+            });
+        };
+
+        async function fetchRiderLocations() {
+            try {
+                const response = await fetch("{% url 'backoffice:api_rider_locations' %}");
+                const data = await response.json();
+
+                if (data.status === 'success') {
+                    document.getElementById('activeRiderCount').innerText = data.riders.length;
+
+                    let currentRiderIds = [];
+                    routeLayerGroup.clearLayers();
+
+                    data.riders.forEach((rider, index) => {
+                        currentRiderIds.push(rider.id);
+                        const pathColor = pathColors[index % pathColors.length];
+                        
+                        let ordersHtml = '';
+                        // 🌟 ดึงพิกัดให้เป็น Float แน่ๆ ป้องกัน Error 🌟
+                        let startLat = parseFloat(rider.lat);
+                        let startLng = parseFloat(rider.lng);
+                        let waypoints = [L.latLng(startLat, startLng)];
+
+                        rider.orders.forEach((order, orderIdx) => {
+                            let orderNum = orderIdx + 1;
+                            let oLat = parseFloat(order.lat);
+                            let oLng = parseFloat(order.lng);
+                            
+                            // 🌟 ตั้งค่าสีตามร้านค้า
+                            let pinColor = '#3b82f6'; // สีฟ้า (ค่าเริ่มต้น)
+                            if (order.shop.includes('P184')) {
+                                pinColor = '#f59e0b'; // สีส้ม 🟠
+                            } else if (order.shop.includes('M053') || order.shop.includes('เรื่องของหมู')) {
+                                pinColor = '#ec4899'; // สีชมพู 🌸
+                            }
+
+                            // 🌟 ใช้สีกับหมุดบนแผนที่
+                            let destIcon = L.divIcon({
+                                className: 'custom-div-icon',
+                                html: `<div class="dest-icon" style="background-color: ${pinColor};">${orderNum}</div>`,
+                                iconSize: [28, 28],
+                                iconAnchor: [14, 14]
+                            });
+                            
+                            L.marker([oLat, oLng], { icon: destIcon })
+                             .bindPopup(`<b>คิวส่งที่ ${orderNum}</b><br>🏪 ร้าน: ${order.shop}<br>📍 ${order.dorm}<br>🧾 บิล: #${order.receipt}`)
+                             .addTo(routeLayerGroup);
+
+                            waypoints.push(L.latLng(oLat, oLng));
+
+                            // 🌟 ใช้สีกับข้อความ [คิวที่ X] ใน Popup มอเตอร์ไซค์
+                            ordersHtml += `
+                                <div class="popup-order-item">
+                                    <div><span style="color:${pinColor}; font-weight:bold;">[คิวที่ ${orderNum}]</span> บิล: #${order.receipt} <span style="color:#94a3b8; font-size:11px;">(${order.shop})</span></div>
+                                    <div style="color:#e2e8f0; font-size:12px;">ส่งที่: ${order.dorm}</div>
+                                    <div class="popup-time">⏱️ หิ้วออกมาแล้ว: ${order.duration}</div>
+                                </div>
+                            `;
+                        });
+
+                        // 🌟 ระบบวาดเส้นถนน 🌟
+                        if (routingControls[rider.id]) {
+                            routingControls[rider.id].setWaypoints(waypoints);
+                        } else {
+                            const control = L.Routing.control({
+                                waypoints: waypoints,
+                                router: L.Routing.osrmv1({
+                                    serviceUrl: 'https://router.project-osrm.org/route/v1', // ใช้เซิร์ฟเวอร์นี้
+                                    language: 'th',
+                                    profile: 'driving'
+                                }),
+                                lineOptions: {
+                                    styles: [{color: pathColor, opacity: 0.8, weight: 6}]
+                                },
+                                createMarker: function() { return null; },
+                                fitSelectedRoutes: false,
+                                show: false,
+                                addWaypoints: false
+                            }).addTo(map);
+
+                            // 🚨 แผนสำรอง: ถ้า OSRM โดนบล็อค หรือพัง ให้วาดเส้นประตรงๆ แทน 🚨
+                            control.on('routingerror', function(e) {
+                                console.warn("เซิร์ฟเวอร์ถนนจริงไม่ตอบสนอง กำลังตีเส้นประสำรอง...");
+                                L.polyline(waypoints, {
+                                    color: pathColor,
+                                    weight: 4,
+                                    dashArray: '8, 8',
+                                    opacity: 0.8
+                                }).addTo(routeLayerGroup);
+                            });
+
+                            routingControls[rider.id] = control;
+                        }
+
+                        const popupContent = `
+                            <div style="min-width: 200px;">
+                                <div class="popup-header">🛵 ไรเดอร์: ${rider.name}</div>
+                                <div style="font-size: 12px; color: #94a3b8; margin-bottom: 8px;">ลำดับจัดส่ง ${rider.orders.length} ออเดอร์</div>
+                                <div class="popup-order-list">
+                                    ${ordersHtml}
+                                </div>
+                            </div>
+                        `;
+
+                        if (riderMarkers[rider.id]) {
+                            riderMarkers[rider.id].setLatLng([startLat, startLng]);
+                            riderMarkers[rider.id].getPopup().setContent(popupContent);
+                        } else {
+                            const marker = L.marker([startLat, startLng], { icon: createRiderIcon(rider.name), zIndexOffset: 1000 })
+                                .addTo(map)
+                                .bindPopup(popupContent);
+                            riderMarkers[rider.id] = marker;
+                        }
+                    });
+
+                    // ลบไรเดอร์ที่เลิกวิ่งแล้วออกจากจอ
+                    for (const id in riderMarkers) {
+                        if (!currentRiderIds.includes(parseInt(id))) {
+                            map.removeLayer(riderMarkers[id]);
+                            delete riderMarkers[id];
+                            
+                            if (routingControls[id]) {
+                                map.removeControl(routingControls[id]);
+                                delete routingControls[id];
+                            }
+                        }
+                    }
+                }
+            } catch (error) {
+                console.error("Error fetching rider locations:", error);
+            }
+        }
+
+        fetchRiderLocations();
+        setInterval(fetchRiderLocations, 10000); // อัปเดตทุก 10 วิ เพื่อไม่ให้เซิร์ฟเวอร์ถนนบล็อค
+        setTimeout(() => { map.invalidateSize(); }, 500);
+
+    </script>
+</body>
+</html>

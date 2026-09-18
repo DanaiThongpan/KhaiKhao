@@ -12,20 +12,23 @@
 
     <style>
         * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
-        body { font-family: 'Sarabun', sans-serif; background: #f4f7f6; margin: 0; padding-bottom: 90px; color: #334155; }
+        body { font-family: 'Sarabun', sans-serif; background: #f4f7f6; margin: 0; padding-bottom: 100px; color: #334155; }
         
         .app-header { background: linear-gradient(135deg, #1e293b 0%, #0f172a 100%); color: white; padding: 25px 20px 30px; border-bottom-left-radius: 25px; border-bottom-right-radius: 25px; box-shadow: 0 10px 20px rgba(0,0,0,0.05); position: relative; z-index: 10; }
-        .app-header h1 { margin: 0; font-size: 24px; font-weight: 800; display: flex; align-items: center; gap: 8px;}
+        .app-header h1 { margin: 0; font-size: 22px; font-weight: 800; display: flex; align-items: center; gap: 8px;}
         .app-header p { margin: 5px 0 0; font-size: 14px; color: #cbd5e1; }
         
+        .btn-reset-trip { background: rgba(239, 68, 68, 0.15); color: #fca5a5; border: 1px solid #f87171; padding: 8px 14px; border-radius: 10px; font-weight: bold; font-size: 13px; cursor: pointer; transition: 0.2s; display: flex; align-items: center; gap: 5px; }
+        .btn-reset-trip:active { background: rgba(239, 68, 68, 0.3); }
+
         .filter-container { padding: 0 15px; margin-top: 15px; position: relative; z-index: 15; }
         .filter-select { width: 100%; padding: 12px 15px; border-radius: 12px; border: 1px solid #cbd5e1; background: white; font-family: 'Sarabun', sans-serif; font-size: 14px; font-weight: bold; color: #1e293b; outline: none; box-shadow: 0 4px 6px rgba(0,0,0,0.02); appearance: none; background-image: url("data:image/svg+xml;charset=UTF-8,%3csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%2364748b' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3e%3cpolyline points='6 9 12 15 18 9'%3e%3c/polyline%3e%3c/svg%3e"); background-repeat: no-repeat; background-position: right 15px center; background-size: 16px; cursor: pointer; }
         
         .container { padding: 0 15px; margin-top: 15px; position: relative; z-index: 20; }
 
-        .order-card { position: relative; background: white; border-radius: 20px; padding: 18px; margin-bottom: 15px; box-shadow: 0 8px 15px rgba(0,0,0,0.04); border: 1px solid rgba(226, 232, 240, 0.8); transition: transform 0.2s; }
-        .order-card:active { transform: scale(0.98); }
-        .order-header { display: flex; justify-content: space-between; align-items: center; border-bottom: 2px dashed #f1f5f9; padding-bottom: 12px; margin-bottom: 12px; }
+        .order-card { position: relative; background: white; border-radius: 20px; padding: 18px; margin-bottom: 15px; box-shadow: 0 8px 15px rgba(0,0,0,0.04); border: 1px solid rgba(226, 232, 240, 0.8); transition: transform 0.3s ease-in-out; }
+        .order-card.selected { border: 2px solid #3b82f6; background: #f0f9ff; }
+        .order-header { display: flex; justify-content: space-between; align-items: center; border-bottom: 2px dashed #f1f5f9; padding-bottom: 12px; margin-bottom: 12px; cursor: pointer; }
         .order-id { font-size: 18px; font-weight: 800; color: #0f172a; }
         
         .badge { padding: 6px 12px; border-radius: 20px; font-size: 11px; font-weight: 800; letter-spacing: 0.5px; }
@@ -49,11 +52,11 @@
         .dest-icon { font-size: 22px; background: white; width: 40px; height: 40px; display: flex; justify-content: center; align-items: center; border-radius: 50%; box-shadow: 0 2px 4px rgba(0,0,0,0.05); }
         .dest-text { flex: 1; }
         .dest-label { font-size: 11px; color: #d97706; font-weight: bold; margin-bottom: 2px; }
-        .dest-name { font-weight: 800; font-size: 15px; color: #1e293b; display: flex; align-items: center; justify-content: space-between;}
+        .dest-name { font-weight: 800; font-size: 15px; color: #1e293b; }
         .dest-zone { font-size: 11px; color: #2563eb; background: #dbeafe; padding: 2px 6px; border-radius: 4px; display: inline-block;}
 
         .btn-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-top: 15px; }
-        .btn { padding: 12px 10px; border-radius: 12px; font-weight: bold; font-size: 14px; text-align: center; border: none; cursor: pointer; transition: 0.2s; display: flex; justify-content: center; align-items: center; gap: 5px; }
+        .btn { padding: 12px 10px; border-radius: 12px; font-weight: bold; font-size: 14px; text-align: center; border: none; cursor: pointer; transition: 0.2s; display: flex; justify-content: center; align-items: center; gap: 5px; text-decoration: none; }
         .btn-primary { background: #3b82f6; color: white; box-shadow: 0 4px 10px rgba(59, 130, 246, 0.3); }
         .btn-success { background: #10b981; color: white; box-shadow: 0 4px 10px rgba(16, 185, 129, 0.3); }
         .btn-warning { background: #f59e0b; color: white; box-shadow: 0 4px 10px rgba(245, 158, 11, 0.3); }
@@ -74,8 +77,7 @@
         .modal-title { font-size: 20px; font-weight: 800; margin-bottom: 20px; color: #0f172a; text-align: center; }
         .form-select { width: 100%; padding: 15px; border-radius: 14px; border: 2px solid #e2e8f0; font-size: 16px; margin-bottom: 20px; background: #f8fafc; outline: none; color: #1e293b; font-weight: bold; }
 
-        /* แถบสรุปก่อนตัดรอบที่ลอยอยู่ด้านล่าง */
-        .batch-bar { position: fixed; bottom: 80px; left: 0; width: 100%; background: #1e293b; padding: 15px 20px; box-shadow: 0 -5px 20px rgba(0,0,0,0.2); z-index: 1500; display: none; justify-content: space-between; align-items: center; border-top-left-radius: 20px; border-top-right-radius: 20px; animation: slideUp 0.3s; }
+        .batch-bar { position: fixed; bottom: 70px; left: 0; width: 100%; background: #1e293b; padding: 12px 20px; box-shadow: 0 -5px 20px rgba(0,0,0,0.2); z-index: 1500; display: none; justify-content: space-between; align-items: center; border-top-left-radius: 20px; border-top-right-radius: 20px; animation: slideUp 0.3s; }
         @keyframes slideUp { from { transform: translateY(100%); } to { transform: translateY(0); } }
     </style>
 </head>
@@ -90,8 +92,8 @@
             </div>
         </div>
         
-        <button onclick="resetTrip()" style="background: transparent; color: #fca5a5; border: 1px solid #f87171; padding: 8px 12px; border-radius: 8px; font-weight: bold; font-size: 12px; cursor: pointer; transition: 0.2s;">
-            🔄 รีเซ็ตรอบใหม่
+        <button onclick="resetTrip()" class="btn-reset-trip">
+            🔄 รีเซ็ตรอบ
         </button>
     </div>
 </header>
@@ -113,8 +115,7 @@
         </label>
     </form>
 
-    <!-- 🌟 ปุ่มเลือกทั้งหมด (สำหรับเคลียร์งานขยะ) 🌟 -->
-    <div style="margin-top: 15px; padding: 12px 15px; background: #e0f2fe; border: 1px solid #bae6fd; border-radius: 12px;">
+    <div style="margin-top: 10px; padding: 12px 15px; background: #e0f2fe; border: 1px solid #bae6fd; border-radius: 12px;">
         <label style="display:flex; align-items:center; gap:8px; font-weight:bold; font-size:14px; color:#0369a1; cursor:pointer; width: 100%;">
             <input type="checkbox" id="selectAllCheckbox" onchange="toggleSelectAll()" style="transform: scale(1.5); accent-color: #0284c7;">
             ☑️ เลือกออเดอร์ที่แสดงอยู่ทั้งหมด
@@ -123,118 +124,186 @@
 </div>
 
 <div class="container">
-    {% for order in orders %}
-    {% with task=order.delivery_info %}
-    <div class="order-card" id="order-card-{{ order.id }}">
+    {% if orders %}
         
-        <!-- Checkbox สำหรับติ๊กเลือก -->
-        {% if task.status == 'PENDING' %}
-            <div style="position: absolute; top: 15px; right: 15px; z-index: 10; background: white; border-radius: 6px; padding: 2px;">
-                <input type="checkbox" class="order-checkbox" value="{{ order.id }}" onchange="toggleBatchBar()" style="transform: scale(1.6); accent-color: #3b82f6; cursor: pointer;">
-            </div>
-        {% endif %}
+        <!-- 🌟 กลุ่มที่ 1: งานที่ยังไม่เสร็จ (ถูกครอบด้วย div เพื่อใช้จัดเรียง GPS) 🌟 -->
+        <div id="activeOrdersContainer" style="display: flex; flex-direction: column;">
+            {% for order in orders %}
+            {% with task=order.delivery_info %}
+            {% if task.status != 'DELIVERED' and task.status != 'COMPLETED' %}
+            
+            <!-- 🌟 แอบฝังพิกัดลงไปในการ์ดแต่ละใบ 🌟 -->
+            <div class="order-card" id="order-card-{{ order.id }}"
+                 data-lat="{% if task.destination %}{{ task.destination.latitude }}{% endif %}" 
+                 data-lng="{% if task.destination %}{{ task.destination.longitude }}{% endif %}">
+                
+                <div class="order-header" onclick="toggleCardCheck('{{ order.id }}', event)">
+                    <div style="display: flex; align-items: center; gap: 10px;">
+                        {% if task.status == 'PENDING' %}
+                            <input type="checkbox" class="order-checkbox" value="{{ order.id }}" data-amount="{{ order.total_amount }}" onchange="toggleBatchBar()" style="transform: scale(1.6); accent-color: #3b82f6; cursor: pointer;">
+                        {% endif %}
+                        <span class="order-id">บิล #{{ order.receipt_number|default:order.id }}</span>
+                    </div>
+                    
+                    <span class="badge {% if task.status == 'GOING' or task.status == 'DELIVERING' or task.status == 'STARTED' %}badge-going{% else %}badge-pending{% endif %}">
+                        {% if task.status == 'GOING' or task.status == 'DELIVERING' or task.status == 'STARTED' %}
+                            DELIVERING
+                        {% else %}
+                            PENDING
+                        {% endif %}
+                    </span>
+                </div>
+                
+                <div class="info-row">
+                    <span>เวลาสั่งซื้อ:</span>
+                    <span>{{ order.created_at|date:"H:i (d/m)" }}</span>
+                </div>
+                <div class="info-row">
+                    <span>ยอดชำระสุทธิ:</span>
+                    <strong>฿{{ order.total_amount|floatformat:2 }}</strong>
+                </div>
 
-        <div class="order-header">
-            <span class="order-id">บิล #{{ order.receipt_number|default:order.id }}</span>
-            <span class="badge {% if task.status == 'DELIVERED' or task.status == 'COMPLETED' %}badge-delivered{% elif task.status == 'GOING' or task.status == 'DELIVERING' or task.status == 'STARTED' %}badge-going{% else %}badge-pending{% endif %}">
-                {% if task.status == 'DELIVERED' or task.status == 'COMPLETED' %}
-                    DELIVERED
-                {% elif task.status == 'GOING' or task.status == 'DELIVERING' or task.status == 'STARTED' %}
-                    DELIVERING
-                {% else %}
-                    PENDING
+                <div class="menu-box">
+                    <div class="menu-title">📋 รายการที่สั่ง:</div>
+                    <ul class="menu-list">
+                        {% for item in order.items.all %}
+                            <li>{{ item.product.name }} <span class="menu-qty">(x{{ item.quantity }})</span></li>
+                        {% empty %}
+                            <li style="list-style: none; margin-left: -20px; color: #94a3b8;">- ไม่มีรายการ -</li>
+                        {% endfor %}
+                    </ul>
+                </div>
+                
+                <div class="dest-box">
+                    <div class="dest-icon">📍</div> 
+                    <div class="dest-text">
+                        <div class="dest-label">สถานที่จัดส่งปลายทาง</div>
+                        <div class="dest-name" style="flex-direction: column; align-items: flex-start;">
+                            {% if task.destination %}
+                                <div style="display: flex; justify-content: space-between; width: 100%;">
+                                    <span>{{ task.destination.name }}</span>
+                                    <span class="dest-zone">{{ task.destination.zone }}</span>
+                                </div>
+                                <!-- 🌟 ป้ายบอกระยะทางสดๆ 🌟 -->
+                                <div class="distance-label" style="font-size: 12px; color: #8b5cf6; margin-top: 6px; font-weight: bold;">
+                                    📡 กำลังดึงพิกัด GPS...
+                                </div>
+                            {% else %}
+                                <span style="color: #ef4444; font-size: 14px;">รอไรเดอร์ระบุหอพัก...</span>
+                            {% endif %}
+                        </div>
+                    </div>
+                </div>
+
+                {% if task.status == 'GOING' or task.status == 'DELIVERING' or task.status == 'STARTED' %}
+                <div class="time-box" style="background: #fffbeb; border-color: #fde68a; margin-top: 15px; display: flex; flex-direction: column; align-items: center; padding: 15px;">
+                    <span class="time-label" style="color: #d97706; margin-bottom: 5px;">⏱️ วิ่งงานรอบที่ {{ task.trip_number|default:"1" }} (เวลาที่ใช้ไป):</span>
+                    <span class="time-val live-timer" data-start="{{ task.started_at|date:'c' }}" style="color: #b45309; font-size: 28px; font-variant-numeric: tabular-nums; letter-spacing: 1px;">กำลังคำนวณ...</span>
+                </div>
                 {% endif %}
-            </span>
-        </div>
-        
-        <div class="info-row">
-            <span>เวลาสั่งซื้อ:</span>
-            <span>{{ order.created_at|date:"H:i (d/m)" }}</span>
-        </div>
-        <div class="info-row">
-            <span>ยอดชำระสุทธิ:</span>
-            <strong>฿{{ order.total_amount|floatformat:2 }}</strong>
-        </div>
 
-        <div class="menu-box">
-            <div class="menu-title">📋 รายการที่สั่ง:</div>
-            <ul class="menu-list">
-                {% for item in order.items.all %}
-                    <li>{{ item.product.name }} <span class="menu-qty">(x{{ item.quantity }})</span></li>
-                {% empty %}
-                    <li style="list-style: none; margin-left: -20px; color: #94a3b8;">- ไม่มีรายการ -</li>
-                {% endfor %}
-            </ul>
-        </div>
-        
-        <div class="dest-box">
-            <div class="dest-icon">📍</div> 
-            <div class="dest-text">
-                <div class="dest-label">สถานที่จัดส่งปลายทาง</div>
-                <div class="dest-name">
+                <div class="btn-grid">
+                    <button class="btn btn-outline" onclick="openSelectModal('{{ order.id }}')">
+                        ⚙️ เลือกหอพัก
+                    </button>
+                    
                     {% if task.destination %}
-                        {{ task.destination.name }}
-                        <span class="dest-zone">{{ task.destination.zone }}</span>
+                        {% if task.destination.latitude and task.destination.longitude %}
+                            <a href="https://www.google.com/maps/search/?api=1&query={{ task.destination.latitude }},{{ task.destination.longitude }}" target="_blank" class="btn btn-primary">
+                                🗺️ ดูเส้นทาง
+                            </a>
+                        {% else %}
+                            <a href="https://www.google.com/maps/search/?api=1&query={{ task.destination.name|urlencode }}" target="_blank" class="btn btn-primary">
+                                🗺️ ดูเส้นทาง
+                            </a>
+                        {% endif %}
                     {% else %}
-                        <span style="color: #ef4444; font-size: 14px;">รอไรเดอร์ระบุหอพัก...</span>
+                        <button class="btn btn-disabled" onclick="alert('กรุณาเลือกหอพักปลายทางก่อนดูเส้นทางครับ')">
+                            🗺️ ดูเส้นทาง
+                        </button>
                     {% endif %}
                 </div>
-            </div>
-        </div>
 
-        {% if task.status == 'DELIVERED' or task.status == 'COMPLETED' %}
-            <div style="background: #f8fafc; text-align: center; padding: 15px; border-radius: 12px; border: 1px solid #e2e8f0; color: #16a34a; font-weight: 800; font-size: 15px; margin-top: 15px;">
-                🎉 ส่งสำเร็จแล้ว (รอบที่ {{ task.trip_number|default:"1" }})
-            </div>
-        {% else %}
-            
-            {% if task.status == 'GOING' or task.status == 'DELIVERING' or task.status == 'STARTED' %}
-            <div class="time-box" style="background: #fffbeb; border-color: #fde68a; margin-top: 15px; display: flex; flex-direction: column; align-items: center; padding: 15px;">
-                <span class="time-label" style="color: #d97706; margin-bottom: 5px;">⏱️ วิ่งงานรอบที่ {{ task.trip_number|default:"1" }} (เวลาที่ใช้ไป):</span>
-                <span class="time-val live-timer" data-start="{{ task.started_at|date:'c' }}" style="color: #b45309; font-size: 28px; font-variant-numeric: tabular-nums; letter-spacing: 1px;">กำลังคำนวณ...</span>
+                <div style="margin-top: 10px;">
+                    {% if task.status == 'PENDING' %}
+                        <div style="text-align: center; color: #94a3b8; font-size: 13px; margin-top: 10px; font-weight: bold;">
+                            👆 แตะส่วนหัวการ์ดหรือติ๊กกล่องเพื่อนำบิลนี้ไปส่ง
+                        </div>
+                    {% elif task.status == 'GOING' or task.status == 'DELIVERING' or task.status == 'STARTED' %}
+                        <button class="btn btn-success" style="width: 100%; padding: 15px; font-size: 16px;" onclick="completeDeliveryCard('{{ order.id }}', event)">
+                            ✅ จัดส่งสำเร็จแล้ว
+                        </button>
+                    {% endif %}
+                </div>
+
             </div>
             {% endif %}
+            {% endwith %}
+            {% endfor %}
+        </div>
 
-            <div class="btn-grid">
-                <button class="btn btn-outline" onclick="openSelectModal('{{ order.id }}')">
-                    ⚙️ เลือกหอพัก
-                </button>
-                <button class="btn btn-disabled" onclick="alert('กรุณาเลือกหอพักปลายทางก่อนดูเส้นทางครับ')">
-                    🗺️ ดูเส้นทาง
-                </button>
-            </div>
-
-            <div style="margin-top: 10px;">
-                {% if task.status == 'PENDING' %}
-                    <div style="text-align: center; color: #94a3b8; font-size: 13px; margin-top: 10px; font-weight: bold;">
-                        👆 กรุณาติ๊กกล่องเพื่อนำบิลนี้ไปส่ง
-                    </div>
-                {% elif task.status == 'GOING' or task.status == 'DELIVERING' or task.status == 'STARTED' %}
-                    <button class="btn btn-success" style="width: 100%; padding: 15px; font-size: 16px;" onclick="completeDeliveryCard('{{ order.id }}', event)">
-                        ✅ จัดส่งสำเร็จแล้ว
-                    </button>
-                {% endif %}
-            </div>
-
+        <!-- 🌟 กลุ่มที่ 2: งานที่จัดส่งสำเร็จแล้ว (ดันลงมาอยู่ด้านล่างสุด พร้อมลดความเข้มลง) 🌟 -->
+        {% for order in orders %}
+        {% with task=order.delivery_info %}
+        {% if task.status == 'DELIVERED' or task.status == 'COMPLETED' %}
+        
+        {% if forloop.first %}
+        <div style="margin: 30px 0 15px; text-align: center; color: #16a34a; font-weight: bold; font-size: 15px; display: flex; align-items: center; gap: 10px;">
+            <span style="flex: 1; height: 1px; background: #bbf7d0;"></span>
+            ✅ ออเดอร์ที่จัดส่งสำเร็จแล้ว
+            <span style="flex: 1; height: 1px; background: #bbf7d0;"></span>
+        </div>
         {% endif %}
-    </div>
-    {% endwith %}
-    {% empty %}
-    <div style="text-align: center; padding: 60px 20px; color: #94a3b8;">
-        <div style="font-size: 60px; margin-bottom: 15px; opacity: 0.5;">🛵</div>
-        <h3 style="margin: 0 0 5px; color: #475569;">ไม่มีงานจัดส่งในช่วงเวลานี้</h3>
-    </div>
-    {% endfor %}
+
+        <div class="order-card" id="order-card-{{ order.id }}" style="opacity: 0.75; transform: scale(0.98); margin-bottom: 10px;">
+            <div class="order-header">
+                <div style="display: flex; align-items: center; gap: 10px;">
+                    <span class="order-id">บิล #{{ order.receipt_number|default:order.id }}</span>
+                </div>
+                <span class="badge badge-delivered">DELIVERED</span>
+            </div>
+            
+            <div class="info-row">
+                <span>เวลาสั่งซื้อ:</span>
+                <span>{{ order.created_at|date:"H:i (d/m)" }}</span>
+            </div>
+            <div class="info-row">
+                <span>ยอดชำระสุทธิ:</span>
+                <strong style="color: #94a3b8;">฿{{ order.total_amount|floatformat:2 }}</strong>
+            </div>
+            
+            <div class="dest-box" style="padding: 8px 12px; margin-top: 8px;">
+                <div class="dest-icon" style="width: 30px; height: 30px; font-size: 16px;">📍</div> 
+                <div class="dest-text">
+                    <div class="dest-name" style="font-size: 14px;">
+                        {% if task.destination %}{{ task.destination.name }}{% else %}ไม่ระบุ{% endif %}
+                    </div>
+                </div>
+            </div>
+
+            <div style="background: #f8fafc; text-align: center; padding: 12px; border-radius: 12px; border: 1px solid #e2e8f0; color: #16a34a; font-weight: 800; font-size: 14px; margin-top: 12px;">
+                🎉 ส่งสำเร็จแล้ว (รอบที่ {{ task.trip_number|default:"1" }})
+            </div>
+        </div>
+        {% endif %}
+        {% endwith %}
+        {% endfor %}
+
+    {% else %}
+        <div style="text-align: center; padding: 60px 20px; color: #94a3b8;">
+            <div style="font-size: 60px; margin-bottom: 15px; opacity: 0.5;">🛵</div>
+            <h3 style="margin: 0 0 5px; color: #475569;">ไม่มีงานจัดส่งในช่วงเวลานี้</h3>
+        </div>
+    {% endif %}
 </div>
 
-<!-- 🌟 แถบเครื่องมือรวม "ปิดงานเก่า" และ "เริ่มวิ่ง" 🌟 -->
 <div id="batchActionBar" class="batch-bar" style="flex-wrap: wrap; gap: 10px;">
     <div style="flex: 1;">
-        <span style="color: #94a3b8; font-size: 12px;">เลือกแล้ว</span>
-        <div style="color: white; font-size: 18px; font-weight: bold;"><span id="selectedCount" style="color: #38bdf8;">0</span> รายการ</div>
+        <span style="color: #94a3b8; font-size: 12px;">เลือกแล้ว <b id="selectedCount" style="color: #38bdf8;">0</b> รายการ</span>
+        <div style="color: #10b981; font-size: 16px; font-weight: bold;">รวม ฿<span id="selectedTotal">0.00</span></div>
     </div>
     <div style="display: flex; gap: 8px;">
-        <button class="btn btn-success" onclick="completeBatchDelivery()" style="padding: 10px 12px; border-radius: 12px; font-size: 14px; background: #10b981;">
+        <button class="btn btn-warning" onclick="completeBatchDelivery()" style="padding: 10px 12px; border-radius: 12px; font-size: 13px;">
             🧹 ปิดงานทิ้ง
         </button>
         <button class="btn btn-primary" onclick="startBatchDelivery()" style="padding: 10px 15px; border-radius: 12px; font-size: 14px;">
@@ -243,7 +312,6 @@
     </div>
 </div>
 
-<!-- Modal เลือกหอพัก -->
 <div class="modal-overlay" id="selectDormModal" onclick="closeSelectModal(event)">
     <div class="modal-content" onclick="event.stopPropagation()">
         <div class="modal-handle"></div>
@@ -284,7 +352,70 @@
     }
     const csrftoken = getCookie('csrftoken');
 
-    // 🌟 ระบบติ๊กเลือกทั้งหมด 🌟
+    // 🌟 ระบบเรียงลำดับคิวตามระยะทาง GPS สดๆ 🌟
+    function calculateDistance(lat1, lon1, lat2, lon2) {
+        const R = 6371; // รัศมีโลก (กม.)
+        const dLat = (lat2 - lat1) * (Math.PI / 180);
+        const dLon = (lon2 - lon1) * (Math.PI / 180);
+        const a = Math.sin(dLat/2) * Math.sin(dLat/2) +
+                  Math.cos(lat1 * (Math.PI / 180)) * Math.cos(lat2 * (Math.PI / 180)) * 
+                  Math.sin(dLon/2) * Math.sin(dLon/2);
+        const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a)); 
+        return R * c; 
+    }
+
+    if ("geolocation" in navigator) {
+        navigator.geolocation.watchPosition((position) => {
+            const riderLat = position.coords.latitude;
+            const riderLng = position.coords.longitude;
+            
+            const container = document.getElementById('activeOrdersContainer');
+            if(!container) return;
+
+            const cards = Array.from(container.querySelectorAll('.order-card'));
+            
+            cards.forEach(card => {
+                const lat = parseFloat(card.getAttribute('data-lat'));
+                const lng = parseFloat(card.getAttribute('data-lng'));
+                const distLabel = card.querySelector('.distance-label');
+                
+                if (!isNaN(lat) && !isNaN(lng)) {
+                    const distKm = calculateDistance(riderLat, riderLng, lat, lng);
+                    card.setAttribute('data-distance', distKm);
+                    if(distLabel) distLabel.innerHTML = `📍 ห่างจากจุดที่คุณอยู่: <span style="font-size:14px;">${distKm.toFixed(2)}</span> กม.`;
+                } else {
+                    card.setAttribute('data-distance', 9999); // หอพักที่ไม่ได้ระบุพิกัดให้ตกไปอยู่ล่างสุด
+                }
+            });
+
+            // จัดเรียงการ์ดใหม่ตามระยะทางจากน้อยไปมาก
+            cards.sort((a, b) => {
+                return parseFloat(a.getAttribute('data-distance')) - parseFloat(b.getAttribute('data-distance'));
+            });
+
+            // สลับการแสดงผลทันที (ไม่โหลดหน้าใหม่)
+            cards.forEach(card => container.appendChild(card));
+
+        }, (error) => {
+            console.warn("ไม่สามารถดึงตำแหน่ง GPS ได้: ", error.message);
+            document.querySelectorAll('.distance-label').forEach(el => el.innerHTML = `⚠️ ไม่ได้รับอนุญาตให้ใช้ GPS`);
+        }, {
+            enableHighAccuracy: true,
+            maximumAge: 10000,
+            timeout: 5000
+        });
+    }
+
+    function toggleCardCheck(orderId, event) {
+        if (event.target.tagName === 'INPUT') return; 
+        const card = document.getElementById(`order-card-${orderId}`);
+        const cb = card.querySelector('.order-checkbox');
+        if (cb) {
+            cb.checked = !cb.checked;
+            toggleBatchBar();
+        }
+    }
+
     function toggleSelectAll() {
         const selectAllCb = document.getElementById('selectAllCheckbox');
         const checkboxes = document.querySelectorAll('.order-checkbox');
@@ -298,23 +429,33 @@
         const checkboxes = document.querySelectorAll('.order-checkbox:checked');
         const bar = document.getElementById('batchActionBar');
         const countSpan = document.getElementById('selectedCount');
+        const totalSpan = document.getElementById('selectedTotal');
         
+        let sum = 0;
+        document.querySelectorAll('.order-card').forEach(card => card.classList.remove('selected'));
+
+        checkboxes.forEach(cb => {
+            sum += parseFloat(cb.getAttribute('data-amount') || 0);
+            const card = document.getElementById(`order-card-${cb.value}`);
+            if (card) card.classList.add('selected');
+        });
+
         if (checkboxes.length > 0) {
             countSpan.innerText = checkboxes.length;
+            totalSpan.innerText = sum.toFixed(2);
             bar.style.display = 'flex';
         } else {
             bar.style.display = 'none';
         }
     }
 
-    // 🌟 ฟังก์ชันปิดออเดอร์เก่า (ล้างขยะ) ทิ้งทีเดียว 🌟
     async function completeBatchDelivery() {
         const checkboxes = document.querySelectorAll('.order-checkbox:checked');
         let orderIds = [];
         checkboxes.forEach(cb => orderIds.push(cb.value));
 
         if(orderIds.length === 0) return;
-        if(!confirm(`⚠️ ต้องการล้างออเดอร์ขยะ ${orderIds.length} รายการนี้\nปรับเป็น "จัดส่งสำเร็จ" เพื่อลบออกจากกระดานค้าง ใช่ไหม?`)) return;
+        if(!confirm(`⚠️ ต้องการล้างออเดอร์ขยะ ${orderIds.length} รายการนี้\nปรับเป็น "จัดส่งสำเร็จ" ใช่ไหม?`)) return;
 
         try {
             const res = await fetch("{% url 'riders:complete_batch_delivery_api' %}", {
@@ -325,7 +466,6 @@
             const data = await res.json();
             
             if (data.status === 'success') {
-                alert("✅ ล้างออเดอร์ตกค้างเรียบร้อยแล้ว");
                 location.reload();
             } else {
                 alert("❌ เกิดข้อผิดพลาด: " + data.message);
@@ -335,14 +475,13 @@
         }
     }
 
-    // ฟังก์ชันเริ่มวิ่งงาน
     async function startBatchDelivery() {
         const checkboxes = document.querySelectorAll('.order-checkbox:checked');
         let orderIds = [];
         checkboxes.forEach(cb => orderIds.push(cb.value));
 
         if(orderIds.length === 0) return;
-        if(!confirm(`🚀 ยืนยันกดวิ่งรถ! เริ่มจัดส่ง ${orderIds.length} ออเดอร์ (นับเป็นรอบที่ {{ request.session.trip_number|default:1 }}) ใช่ไหม?`)) return;
+        if(!confirm(`🚀 ยืนยันกดวิ่งรถ! เริ่มจัดส่ง ${orderIds.length} ออเดอร์ (รอบที่ {{ request.session.trip_number|default:1 }}) ใช่ไหม?`)) return;
 
         try {
             const res = await fetch("{% url 'riders:start_batch_delivery_api' %}", {
@@ -353,7 +492,6 @@
             const data = await res.json();
             
             if (data.status === 'success') {
-                alert("✅ จัดส่งรอบนี้เรียบร้อย");
                 location.reload();
             } else {
                 alert("❌ เกิดข้อผิดพลาด: " + data.message);
@@ -374,7 +512,6 @@
         } catch(e) { alert("❌ เซิร์ฟเวอร์ไม่ตอบสนอง"); }
     }
 
-    // จับเวลาแบบ Real-time
     function updateLiveTimers() {
         document.querySelectorAll('.live-timer').forEach(el => {
             let startTimeStr = el.getAttribute('data-start');
@@ -410,7 +547,6 @@
             const data = await res.json();
             
             if (data.status === 'success') {
-                alert(`🎉 จัดส่งสำเร็จเรียบร้อย!\n⏱️ ใช้เวลาเดินทางไปทั้งหมด: ${data.duration || 0} นาที`);
                 location.reload(); 
             } else {
                 alert("❌ เกิดข้อผิดพลาด: " + data.message);

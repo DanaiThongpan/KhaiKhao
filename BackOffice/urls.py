@@ -12,4 +12,6 @@ urlpatterns = [
     path('api/force-clear-pending/', views.force_clear_pending_api, name='force_clear_pending_api'), # 🌟 เพิ่มบรรทัดนี้
 # ... path อื่นๆ ...
     path('financial-dashboard/', views.financial_dashboard, name='financial_dashboard'), # 🌟 เพิ่มบรรทัดนี้
+    path('rider-map/', views.rider_map, name='rider_map'),
+    path('api/rider-locations/', views.api_rider_locations, name='api_rider_locations'),
 ]

@@ -403,3 +403,193 @@ def financial_dashboard(request):
     }
     
     return render(request, 'BackOffice/financial_dashboard.html', context)
+
+@user_passes_test(is_admin, login_url='/login/')
+def rider_map(request):
+    """ แสดงผลหน้าจอแผนที่ติดตามไรเดอร์ """
+    return render(request, 'BackOffice/rider_map.html')
+
+@user_passes_test(is_admin, login_url='/login/')
+def api_rider_locations(request):
+    """ API ส่งข้อมูลพิกัดและออเดอร์ที่ไรเดอร์แต่ละคนกำลังถืออยู่ """
+    # ดึงเฉพาะงานที่กำลังวิ่งอยู่ (DELIVERING/GOING)
+    tasks = DeliveryTask.objects.filter(status__in=['GOING', 'DELIVERING', 'STARTED']).select_related('rider', 'order', 'destination')
+    
+    riders_data = {}
+    for t in tasks:
+        if not t.rider: continue
+        
+        r_id = t.rider.id
+        r_name = getattr(t.rider, 'name', getattr(t.rider, 'username', f"ไรเดอร์ #{r_id}"))
+        
+        if r_id not in riders_data:
+            # 📍 ค้นหาพิกัด (ถ้าไม่มีใน DB ให้จำลองพิกัด ม.อุบล ก่อน)
+            lat = getattr(t.rider, 'latitude', getattr(t.rider, 'lat', 15.1186 + (r_id * 0.0005)))
+            lng = getattr(t.rider, 'longitude', getattr(t.rider, 'lng', 104.9046 + (r_id * 0.0005)))
+            
+            riders_data[r_id] = {
+                'id': r_id,
+                'name': r_name,
+                'lat': lat,
+                'lng': lng,
+                'orders': [],
+            }
+        
+        # ⏱️ คำนวณเวลาว่าหิ้วออกไปกี่นาทีแล้ว
+        duration_str = "เพิ่งเริ่ม"
+        if t.started_at:
+            diff = (timezone.now() - t.started_at).total_seconds()
+            mins = int(diff // 60)
+            if mins >= 60:
+                h = mins // 60
+                m = mins % 60
+                duration_str = f"{h} ชม. {m} นาที"
+            else:
+                duration_str = f"{mins} นาที"
+
+        dorm_name = t.destination.name if t.destination else "ไม่ได้ระบุหอพัก"
+        
+        riders_data[r_id]['orders'].append({
+            'receipt': t.order.receipt_number,
+            'dorm': dorm_name,
+            'duration': duration_str
+        })
+        
+    return JsonResponse({"status": "success", "riders": list(riders_data.values())})
+
+import math # 🌟 เพิ่มบรรทัดนี้เพื่อใช้คำนวณระยะทาง
+
+@user_passes_test(is_admin, login_url='/login/')
+def api_rider_locations(request):
+    """ API ส่งข้อมูลพิกัด จัดลำดับคิว และรวมออเดอร์ทุกร้านให้อยู่ในรถคันเดียว """
+    tasks = DeliveryTask.objects.filter(status__in=['GOING', 'DELIVERING', 'STARTED']).select_related('rider', 'order', 'destination', 'order__created_by')
+    
+    riders_data = {}
+    for t in tasks:
+        if not t.rider: continue
+        
+        r_id = t.rider.id
+        r_name = getattr(t.rider, 'name', getattr(t.rider, 'username', f"ไรเดอร์ #{r_id}"))
+        
+        if r_id not in riders_data:
+            lat = getattr(t.rider, 'latitude', getattr(t.rider, 'lat', 15.1186 + (r_id * 0.0005)))
+            lng = getattr(t.rider, 'longitude', getattr(t.rider, 'lng', 104.9046 + (r_id * 0.0005)))
+            try: lat, lng = float(lat), float(lng)
+            except: lat, lng = 15.1186, 104.9046
+            
+            riders_data[r_id] = {
+                'id': r_id, 'name': r_name, 'lat': lat, 'lng': lng, 'orders': []
+            }
+        
+        duration_str = "เพิ่งเริ่ม"
+        if t.started_at:
+            diff = (timezone.now() - t.started_at).total_seconds()
+            mins = int(diff // 60)
+            if mins >= 60: duration_str = f"{mins // 60} ชม. {mins % 60} นาที"
+            else: duration_str = f"{mins} นาที"
+
+        dorm_name = t.destination.name if t.destination else "ไม่ได้ระบุหอพัก"
+        dorm_zone = getattr(t.destination, 'zone', 'อื่นๆ') if t.destination else 'อื่นๆ'
+        
+        # 🌟 ดึงชื่อร้านค้าเจ้าของออเดอร์ 🌟
+        shop_name = t.order.created_by.username if t.order.created_by else "ไม่ระบุร้าน"
+        
+        d_lat, d_lng = riders_data[r_id]['lat'], riders_data[r_id]['lng']
+        if t.destination:
+            dl = getattr(t.destination, 'latitude', getattr(t.destination, 'lat', d_lat))
+            dg = getattr(t.destination, 'longitude', getattr(t.destination, 'lng', d_lng))
+            try: d_lat, d_lng = float(dl), float(dg)
+            except: pass
+
+        riders_data[r_id]['orders'].append({
+            'receipt': t.order.receipt_number,
+            'shop': shop_name, # 🌟 แนบชื่อร้านไปด้วย
+            'dorm': dorm_name,
+            'zone': dorm_zone,
+            'duration': duration_str,
+            'lat': d_lat,
+            'lng': d_lng
+        })
+
+    current_hour = timezone.localtime().hour
+    SEQ_CHAIN = ['ประตู 3', 'หวานเย็น', 'หน้า มอ', 'อ.10']
+
+    # =========================================================
+    # 🧠 สมองกลจัดเรียงคิว (Dynamic Proximity + Rule Based)
+    # =========================================================
+    for r_id, data in riders_data.items():
+        curr_lat, curr_lng = data['lat'], data['lng']
+        all_orders = data['orders']
+        if not all_orders: continue
+
+        zones = {}
+        for o in all_orders:
+            z = o['zone']
+            if z not in zones: zones[z] = []
+            zones[z].append(o)
+            
+        unvisited_zones = list(zones.keys())
+        ordered_zones = []
+        current_zone_context = None
+
+        while unvisited_zones:
+            next_zone = None
+            if current_zone_context:
+                curr_idx = -1
+                for i, kw in enumerate(SEQ_CHAIN):
+                    if kw in current_zone_context:
+                        curr_idx = i
+                        break
+                if curr_idx != -1:
+                    for kw in SEQ_CHAIN[curr_idx+1:]:
+                        for uz in unvisited_zones:
+                            if kw in uz:
+                                next_zone = uz
+                                break
+                        if next_zone: break
+
+            if not next_zone:
+                valid_candidates = []
+                for z in unvisited_zones:
+                    is_hor_nai = 'หอใน' in z or any('หอใน' in o['dorm'] for o in zones[z])
+                    if is_hor_nai and (current_hour >= 22 or current_hour < 4):
+                        continue
+                    valid_candidates.append(z)
+                
+                if not valid_candidates:
+                    valid_candidates = unvisited_zones 
+                    
+                min_dist = float('inf')
+                for z in valid_candidates:
+                    dist = min(math.sqrt((curr_lat - o['lat'])**2 + (curr_lng - o['lng'])**2) for o in zones[z])
+                    if dist < min_dist:
+                        min_dist = dist
+                        next_zone = z
+            
+            ordered_zones.append(next_zone)
+            unvisited_zones.remove(next_zone)
+            
+            temp_lat, temp_lng = curr_lat, curr_lng
+            temp_orders = zones[next_zone].copy()
+            while temp_orders:
+                closest_o = min(temp_orders, key=lambda o: math.sqrt((temp_lat - o['lat'])**2 + (temp_lng - o['lng'])**2))
+                temp_lat, temp_lng = closest_o['lat'], closest_o['lng']
+                temp_orders.remove(closest_o)
+            
+            curr_lat, curr_lng = temp_lat, temp_lng
+            current_zone_context = next_zone
+
+        optimized_path = []
+        final_curr_lat, final_curr_lng = data['lat'], data['lng'] 
+        
+        for z in ordered_zones:
+            zone_orders = zones[z]
+            while zone_orders:
+                closest_order = min(zone_orders, key=lambda o: math.sqrt((final_curr_lat - o['lat'])**2 + (final_curr_lng - o['lng'])**2))
+                optimized_path.append(closest_order)
+                zone_orders.remove(closest_order)
+                final_curr_lat, final_curr_lng = closest_order['lat'], closest_order['lng']
+                
+        data['orders'] = optimized_path
+
+    return JsonResponse({"status": "success", "riders": list(riders_data.values())})
