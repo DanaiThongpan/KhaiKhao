@@ -1,4 +1,5 @@
 import json
+import concurrent
 from django.shortcuts import render
 from django.http import JsonResponse
 from django.utils import timezone
@@ -372,26 +373,26 @@ def check_slips(request):
     if request.method == 'POST' and request.FILES.getlist('slips'):
         files = request.FILES.getlist('slips')
         
-        recent_orders = Order.objects.filter(
+        recent_orders = list(Order.objects.filter(
             created_by=request.user,
             created_at__date=selected_date
-        ).select_related('delivery_info__destination').prefetch_related('items__product').order_by('-created_at')
+        ).select_related('delivery_info__destination').prefetch_related('items__product').order_by('-created_at'))
 
         used_transactions = list(Order.objects.filter(
             created_by=request.user, 
             transaction_ref__isnull=False
         ).exclude(transaction_ref="").values_list('transaction_ref', flat=True))
 
-        for f in files:
+        api_url = "https://d9a6-2405-9800-bcb0-61ac-d638-f429-3759-da42.ngrok-free.app/api/v1/scan-slip"
+
+        # 🌟 ฟังก์ชันสำหรับวิเคราะห์รูป 1 รูป 🌟
+        def process_single_slip(f):
             try:
-                # 🌟 ส่งไฟล์รูปภาพข้ามไปวิเคราะห์ที่ API Go โดยตรง 🌟
-                api_url = "https://48c8-2405-9800-bcb0-61ac-d638-f429-3759-da42.ngrok-free.app/api/v1/scan-slip"
-                
-                # แนบไฟล์และ Header เจาะทะลุ Ngrok
-                files_payload = {'slip_image': (f.name, f.file, f.content_type)}
+                f.seek(0)
+                files_payload = {'slip_image': (f.name, f.read(), f.content_type)}
                 headers = {'ngrok-skip-browser-warning': 'true'}
                 
-                response = requests.post(api_url, files=files_payload, headers=headers, timeout=15)
+                response = requests.post(api_url, files=files_payload, headers=headers, timeout=20)
                 
                 if response.status_code == 200:
                     res_json = response.json()
@@ -477,7 +478,7 @@ def check_slips(request):
                             if hasattr(matched_order, 'delivery_info') and matched_order.delivery_info.destination:
                                 dorm_name = matched_order.delivery_info.destination.name
 
-                        results.append({
+                        return {
                             'filename': f.name,
                             'amount': slip_amount,
                             'time': slip_time_str,
@@ -489,14 +490,19 @@ def check_slips(request):
                             'status': match_status,
                             'time_diff': time_diff_minutes,
                             'possible_matches': possible_matches
-                        })
+                        }
                     else:
-                        results.append({'filename': f.name, 'status': "ERROR", 'error_msg': res_json.get('message', 'API Return Invalid Data')})
+                        return {'filename': f.name, 'status': "ERROR", 'error_msg': res_json.get('message', 'API Return Invalid Data')}
                 else:
-                    results.append({'filename': f.name, 'status': "ERROR", 'error_msg': f"API Error: {response.status_code}"})
+                    return {'filename': f.name, 'status': "ERROR", 'error_msg': f"API Error: {response.status_code}"}
 
             except Exception as e:
-                results.append({'filename': f.name, 'status': "ERROR", 'error_msg': str(e)})
+                return {'filename': f.name, 'status': "ERROR", 'error_msg': str(e)}
+
+        # 🌟 ระบบ Multi-threading รันสแกนพร้อมกัน 5 ไฟล์ (เร็วขึ้นหลายเท่าตัว) 🌟
+        with concurrent.futures.ThreadPoolExecutor(max_workers=5) as executor:
+            # ใช้ executor.map เพื่อรันและจัดเรียงผลลัพธ์ให้ตรงตามลำดับเดิม
+            results = list(executor.map(process_single_slip, files))
 
     return render(request, 'Pos/check_slips.html', {
         'results': results, 

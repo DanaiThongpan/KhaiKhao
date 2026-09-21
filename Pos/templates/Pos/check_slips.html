@@ -3,23 +3,23 @@
 <html lang="th">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <title>ตรวจสลิปโอนเงิน (OCR) - KhaiKhao POS</title>
     <style>
         body { font-family: 'Sarabun', sans-serif; background: #f8fafc; margin: 0; display: flex; }
-        .sidebar { width: 250px; background: #1e293b; color: white; height: 100vh; position: fixed; top: 0; left: 0; overflow-y: auto; display: flex; flex-direction: column; }
+        .sidebar { width: 250px; background: #1e293b; color: white; height: 100vh; position: fixed; top: 0; left: 0; overflow-y: auto; display: flex; flex-direction: column; transition: 0.3s; z-index: 100; }
         .sidebar-header { padding: 20px; font-size: 20px; font-weight: bold; border-bottom: 1px solid #334155; text-align: center; }
         .menu-item { display: flex; align-items: center; gap: 12px; padding: 15px 20px; color: #cbd5e1; text-decoration: none; transition: 0.2s; border-left: 4px solid transparent; }
         .menu-item:hover { background: #334155; color: white; }
         .menu-item.active { background: #3b82f6; color: white; border-left-color: #93c5fd; font-weight: bold; }
         
-        .main { margin-left: 250px; padding: 30px; width: calc(100% - 250px); box-sizing: border-box; min-height: 100vh; }
+        .main { margin-left: 250px; padding: 20px; width: calc(100% - 250px); box-sizing: border-box; min-height: 100vh; transition: 0.3s; }
         
-        .upload-card { background: white; padding: 30px; border-radius: 16px; box-shadow: 0 4px 6px rgba(0,0,0,0.05); margin-bottom: 20px; text-align: center; border: 2px dashed #cbd5e1; transition: 0.3s; }
+        .upload-card { background: white; padding: 30px 20px; border-radius: 16px; box-shadow: 0 4px 6px rgba(0,0,0,0.05); margin-bottom: 20px; text-align: center; border: 2px dashed #cbd5e1; transition: 0.3s; }
         .upload-card:hover { border-color: #3b82f6; background: #eff6ff; }
         
         input[type="file"] { display: none; }
-        .custom-file-upload { display: inline-block; padding: 12px 24px; cursor: pointer; background: #3b82f6; color: white; font-weight: bold; border-radius: 8px; font-size: 16px; transition: 0.2s; box-shadow: 0 4px 6px rgba(59, 130, 246, 0.2); margin-top: 15px; }
+        .custom-file-upload { display: inline-block; padding: 12px 24px; cursor: pointer; background: #3b82f6; color: white; font-weight: bold; border-radius: 8px; font-size: 16px; transition: 0.2s; box-shadow: 0 4px 6px rgba(59, 130, 246, 0.2); margin-top: 15px; width: 100%; max-width: 300px; }
         .custom-file-upload:hover { background: #2563eb; transform: translateY(-2px); }
 
         .grid-container { display: grid; grid-template-columns: 1fr 1.2fr; gap: 20px; align-items: start; }
@@ -27,7 +27,7 @@
         
         .data-table { width: 100%; border-collapse: collapse; font-size: 13px; }
         .data-table th, .data-table td { padding: 12px 10px; border-bottom: 1px solid #e2e8f0; vertical-align: top; }
-        .data-table th { background: #f8fafc; font-weight: bold; color: #475569; text-align: left; }
+        .data-table th { background: #f8fafc; font-weight: bold; color: #475569; text-align: left; white-space: nowrap; }
         
         .row-matched { background-color: #f0fdf4 !important; }
         .row-not-found { background-color: #fef2f2 !important; }
@@ -41,7 +41,7 @@
         
         .item-list { margin: 5px 0 0 0; padding-left: 15px; color: #64748b; font-size: 12px; }
         
-        .btn-confirm { background: #16a34a; color: white; padding: 10px 16px; border: none; border-radius: 8px; font-weight: bold; font-size: 14px; cursor: pointer; box-shadow: 0 4px 6px rgba(22, 163, 74, 0.2); transition: 0.2s; display: inline-flex; align-items: center; gap: 8px; }
+        .btn-confirm { background: #16a34a; color: white; padding: 10px 16px; border: none; border-radius: 8px; font-weight: bold; font-size: 14px; cursor: pointer; box-shadow: 0 4px 6px rgba(22, 163, 74, 0.2); transition: 0.2s; display: inline-flex; align-items: center; gap: 8px; white-space: nowrap; }
         .btn-confirm:hover { background: #15803d; transform: translateY(-2px); }
         .btn-confirm:disabled { background: #94a3b8; cursor: not-allowed; transform: none; box-shadow: none; }
 
@@ -53,12 +53,23 @@
         #loadingSpinner { display: none; margin-top: 25px; text-align: center; }
         .progress-bar-container { width: 100%; max-width: 400px; background: #e2e8f0; border-radius: 20px; height: 16px; margin: 12px auto 0 auto; overflow: hidden; border: 1px solid #cbd5e1; }
         .progress-bar-fill { height: 100%; background: linear-gradient(90deg, #3b82f6, #10b981); width: 0%; transition: width 0.3s ease-out; border-radius: 20px; }
+
+        /* 🌟 ปรับ UI สำหรับมือถือ (Responsive) แบบในรูป 🌟 */
+        @media (max-width: 1024px) {
+            .grid-container { grid-template-columns: 1fr; } /* เรียงตารางบน-ล่าง */
+            .sidebar { width: 70px; }
+            .sidebar-header { font-size: 12px; padding: 15px 5px; }
+            .menu-item span:nth-child(2) { display: none; } /* ซ่อนตัวหนังสือเมนู */
+            .main { margin-left: 70px; width: calc(100% - 70px); padding: 15px; }
+            .table-card { padding: 15px; }
+            .data-table th, .data-table td { padding: 10px 5px; }
+        }
     </style>
 </head>
 <body>
 
     <aside class="sidebar">
-        <div class="sidebar-header">🥚 KhaiKhao POS</div>
+        <div class="sidebar-header">🥚 POS</div>
         <nav style="margin-top: 10px;">
             <a href="{% url 'pos:home' %}" class="menu-item"><span>🏠</span><span>หน้าหลัก</span></a>
             <a href="{% url 'history:home' %}" class="menu-item"><span>📜</span><span>ประวัติการขาย</span></a>
@@ -74,17 +85,22 @@
     </aside>
 
     <main class="main">
-        <h1 style="color: #1e293b; margin-top: 0; font-size: 24px;">🧾 ตรวจสอบสลิปโอนเงินอัตโนมัติ (OCR)</h1>
+        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px; flex-wrap: wrap; gap: 10px;">
+            <h1 style="color: #1e293b; margin: 0; font-size: 22px;">🧾 ตรวจสอบสลิป (OCR)</h1>
+        </div>
         
         <div class="upload-card">
             <div style="font-size: 40px; margin-bottom: 10px;">⚡</div>
             <h3 style="margin: 0 0 5px 0; color: #334155;">ลากไฟล์สลิปมาวางที่นี่ หรือคลิกเพื่อเลือกไฟล์</h3>
             <p style="margin: 0; color: #16a34a; font-weight: bold; font-size: 14px;">(เชื่อมต่อระบบ OCR ผ่าน Go API แล้ว เร็วและเสถียรขึ้น!)</p>
             
-            <label class="custom-file-upload">
-                <input type="file" id="slipsInput" multiple accept="image/*" onchange="submitForm()">
-                📂 เลือกไฟล์สลิป
-            </label>
+            <form method="POST" enctype="multipart/form-data" id="ocrForm" action="{% url 'pos:check_slips' %}?filter_date={{ selected_date }}">
+                {% csrf_token %}
+                <label class="custom-file-upload">
+                    <input type="file" name="slips" id="slipsInput" multiple accept="image/*" onchange="submitForm()">
+                    📂 เลือกไฟล์สลิป
+                </label>
+            </form>
             
             <!-- UI หลอดโหลดเปอร์เซ็นต์ -->
             <div id="loadingSpinner">
@@ -101,7 +117,7 @@
         <div class="grid-container">
             <!-- 1. ตารางประวัติการขาย -->
             <div class="table-card">
-                <div style="display: flex; justify-content: space-between; align-items: center; border-bottom: 2px solid #f1f5f9; padding-bottom: 10px; margin-bottom: 10px;">
+                <div style="display: flex; justify-content: space-between; align-items: center; border-bottom: 2px solid #f1f5f9; padding-bottom: 10px; margin-bottom: 10px; flex-wrap: wrap; gap: 10px;">
                     <h3 style="margin: 0; border: none; padding: 0;">🛒 ประวัติบิล</h3>
                     
                     <form method="GET" style="display: flex; gap: 8px;">
@@ -160,8 +176,12 @@
 
             <!-- 2. ตารางผลการสแกนสลิป -->
             <div class="table-card">
-                <div style="display: flex; justify-content: space-between; align-items: center; border-bottom: 2px solid #f1f5f9; padding-bottom: 10px; margin-bottom: 10px;">
-                    <h3 style="margin: 0; border: none; padding: 0;">📊 ผลการจับคู่สลิปล่าสุด</h3>
+                <div style="display: flex; justify-content: space-between; align-items: center; border-bottom: 2px solid #f1f5f9; padding-bottom: 10px; margin-bottom: 10px; flex-wrap: wrap; gap: 10px;">
+                    <div style="display: flex; align-items: center; gap: 10px;">
+                        <h3 style="margin: 0; border: none; padding: 0;">📊 ผลการจับคู่สลิปล่าสุด</h3>
+                        <!-- 🌟 ป้ายบอกจำนวนยอดที่ตรงกัน 🌟 -->
+                        <span id="matchedCountBadge" class="status-badge badge-success" style="font-size: 13px;">✅ ตรงกัน 0 ยอด</span>
+                    </div>
                     
                     {% if results %}
                     <button class="btn-confirm" id="saveBtn" onclick="confirmSlips()">
@@ -174,10 +194,10 @@
                 <table class="data-table">
                     <thead>
                         <tr>
-                            <th>ยอด/เวลา (สลิป)</th>
-                            <th>บิลที่จับคู่ (หอพัก)</th>
+                            <th>ยอด/เวลา</th>
+                            <th>บิลที่จับคู่</th>
                             <th>เวลาห่าง</th>
-                            <th>สถานะ / จัดการ</th>
+                            <th>จัดการ</th>
                         </tr>
                     </thead>
                     <tbody>
@@ -195,7 +215,7 @@
                                         <br><span style="font-size: 10px; color: #94a3b8;">Ref: {{ res.transaction_ref|truncatechars:12 }}</span>
                                     {% endif %}
                                 {% else %}
-                                    <span style="color:#ef4444;">อ่านไม่ได้</span>
+                                    <span style="color:#ef4444; font-weight: bold;">อ่านไม่ได้</span>
                                 {% endif %}
                             </td>
                             
@@ -253,11 +273,11 @@
                                 {% if res.status == 'MATCHED' %}
                                     <span class="status-badge badge-success">✅ ตรงกัน</span>
                                     {% if res.order_id %}
-                                        <br><button type="button" class="btn-unpaid" onclick="markAsUnpaid(this.closest('tr'))">❌ ยังไม่จ่าย</button>
+                                        <br><button type="button" class="btn-unpaid" onclick="markAsUnpaid(this.closest('tr'))">❌ ยกเลิก</button>
                                     {% endif %}
                                 {% elif res.status == 'DUPLICATE' %}
-                                    <span class="status-badge badge-duplicate">🔁 เคยสแกนแล้ว</span>
-                                    <br><button type="button" class="btn-unpaid" style="background:#fffbeb; color:#d97706; border-color:#fde68a;" onclick="resetDuplicateSlip('{{ res.transaction_ref }}')">🔄 ล้างสลิปซ้ำ</button>
+                                    <span class="status-badge badge-duplicate">🔁 สแกนซ้ำ</span>
+                                    <br><button type="button" class="btn-unpaid" style="background:#fffbeb; color:#d97706; border-color:#fde68a;" onclick="resetDuplicateSlip('{{ res.transaction_ref }}')">🔄 ล้างค่าซ้ำ</button>
                                 {% elif res.status == 'NOT_FOUND' %}
                                     <span class="status-badge badge-error">❌ ไม่พบยอด</span>
                                 {% else %}
@@ -278,6 +298,20 @@
     </main>
 
 <script>
+    // 🌟 ระบบนับยอดที่ตรงกัน (Matched Count) 🌟
+    document.addEventListener('DOMContentLoaded', () => {
+        const matchedCount = document.querySelectorAll('tr.row-matched').length;
+        const badge = document.getElementById('matchedCountBadge');
+        if (badge) {
+            badge.innerText = `✅ ตรงกัน ${matchedCount} ยอด`;
+            if(matchedCount === 0) {
+                badge.style.background = "#f1f5f9";
+                badge.style.color = "#64748b";
+                badge.style.borderColor = "#cbd5e1";
+            }
+        }
+    });
+
     function updateMatchSelection(selectElem, row) {
         let opt = selectElem.options[selectElem.selectedIndex];
         let newOrderId = opt.value;
@@ -324,7 +358,7 @@
         });
     }
 
-    // 🌟 ระบบสแกนแบบกลุ่มย่อย บีบอัดภาพก่อนส่งให้ Django เพื่อส่งต่อไปยัง Go API
+    // 🌟 เพิ่มความละเอียด (Resolution) เป็น 1500px ช่วยให้ Go API อ่านได้ชัวร์และแม่นยำขึ้น 🌟
     function compressImagePromise(file) {
         return new Promise((resolve, reject) => {
             const reader = new FileReader();
@@ -334,7 +368,7 @@
                 img.src = event.target.result;
                 img.onload = function () {
                     const canvas = document.createElement('canvas');
-                    const MAX_WIDTH = 1000; const MAX_HEIGHT = 1000;
+                    const MAX_WIDTH = 1500; const MAX_HEIGHT = 1500;
                     let width = img.width; let height = img.height;
                     
                     if (width > height) {
@@ -350,7 +384,7 @@
                     canvas.toBlob((blob) => {
                         if (!blob) { reject(new Error('Canvas failed')); return; }
                         resolve(new File([blob], file.name, { type: 'image/jpeg', lastModified: Date.now() }));
-                    }, 'image/jpeg', 0.8);
+                    }, 'image/jpeg', 0.85); // ปรับคุณภาพเป็น 85%
                 };
             };
         });
@@ -360,6 +394,7 @@
         const fileInput = document.getElementById('slipsInput');
         if (fileInput.files.length === 0) return;
 
+        document.getElementById('ocrForm').style.display = 'none';
         document.getElementById('loadingSpinner').style.display = 'block';
 
         let files = Array.from(fileInput.files);
@@ -371,7 +406,7 @@
         formData.append('csrfmiddlewaretoken', '{{ csrf_token }}');
 
         for (let i = 0; i < totalFiles; i++) {
-            let percent = Math.floor(((i) / totalFiles) * 80);
+            let percent = Math.floor(((i) / totalFiles) * 30);
             progressText.innerText = `กำลังบีบอัดรูปที่ ${i + 1}/${totalFiles}...`;
             progressBarFill.style.width = percent + '%';
             
@@ -384,21 +419,29 @@
             }
         }
 
-        progressBarFill.style.width = '85%';
-        progressText.innerText = `กำลังส่งข้อมูล ${totalFiles} รูป ให้ระบบวิเคราะห์ โปรดรอสักครู่...`;
+        progressText.innerText = `กำลังสแกนพร้อมกันผ่าน AI...`;
+        
+        let percent = 30;
+        let interval = setInterval(() => {
+            percent += Math.floor(Math.random() * 5) + 2; 
+            if (percent > 95) percent = 95;
+            progressBarFill.style.width = percent + '%';
+        }, 300);
 
+        // ยิงข้อมูลไปให้ Django (ที่ตอนนี้ใช้ Multi-threading แล้ว)
         try {
             let response = await fetch("{% url 'pos:check_slips' %}?filter_date={{ selected_date }}", {
                 method: 'POST',
                 body: formData
             });
 
+            clearInterval(interval);
+
             if (response.ok) {
                 progressBarFill.style.width = '100%';
                 progressText.innerText = `🎉 วิเคราะห์เสร็จสิ้น กำลังรีเฟรชตาราง...`;
                 
                 let htmlStr = await response.text();
-                // นำผลลัพธ์มาแทนที่เนื้อหาเดิม เพื่อไม่ต้องโหลดหน้าใหม่ทั้งหมด
                 document.open();
                 document.write(htmlStr);
                 document.close();
@@ -407,6 +450,7 @@
                 window.location.reload();
             }
         } catch (e) {
+            clearInterval(interval);
             alert("เชื่อมต่อเซิร์ฟเวอร์ไม่สำเร็จ");
             window.location.reload();
         }
