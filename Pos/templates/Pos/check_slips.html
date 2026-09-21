@@ -47,13 +47,11 @@
         .btn-confirm:hover { background: #15803d; transform: translateY(-2px); }
         .btn-confirm:disabled { background: #94a3b8; cursor: not-allowed; transform: none; box-shadow: none; }
 
-        /* ปุ่มจัดการสถานะ */
         .btn-unpaid { background: #fff1f2; color: #e11d48; border: 1px solid #fecdd3; padding: 6px 12px; border-radius: 6px; font-size: 12px; font-weight: bold; cursor: pointer; margin-top: 6px; display: inline-flex; align-items: center; gap: 4px; transition: 0.2s; }
         .btn-unpaid:hover { background: #ffe4e6; transform: translateY(-1px); }
 
         .match-selector { width: 100%; padding: 6px; border-radius: 6px; border: 1px solid #3b82f6; background: #eff6ff; font-family: 'Sarabun'; font-weight: bold; color: #1e40af; outline: none; margin-bottom: 5px; cursor: pointer; }
 
-        /* UI หลอดโหลดเปอร์เซ็นต์ (Progress Bar) */
         #loadingSpinner { display: none; margin-top: 25px; text-align: center; }
         .progress-bar-container { width: 100%; max-width: 400px; background: #e2e8f0; border-radius: 20px; height: 16px; margin: 12px auto 0 auto; overflow: hidden; border: 1px solid #cbd5e1; }
         .progress-bar-fill { height: 100%; background: linear-gradient(90deg, #3b82f6, #10b981); width: 0%; transition: width 0.3s ease-out; border-radius: 20px; }
@@ -83,11 +81,12 @@
         <div class="upload-card">
             <div style="font-size: 40px; margin-bottom: 10px;">📸</div>
             <h3 style="margin: 0 0 5px 0; color: #334155;">ลากไฟล์สลิปมาวางที่นี่ หรือคลิกเพื่อเลือกไฟล์</h3>
-            <p style="margin: 0; color: #94a3b8; font-size: 14px;">รองรับนามสกุล .jpg, .png (เลือกทีละหลายๆ รูปได้)</p>
+            <p style="margin: 0; color: #94a3b8; font-size: 14px;">รองรับนามสกุล .jpg, .png (เลือกทีละหลายๆ รูปได้ - มีระบบบีบอัดอัจฉริยะ)</p>
             
             <form method="POST" enctype="multipart/form-data" id="ocrForm" action="{% url 'pos:check_slips' %}?filter_date={{ selected_date }}">
                 {% csrf_token %}
                 <label class="custom-file-upload">
+                    <!-- เรียกฟังก์ชัน submitForm แบบใหม่ที่มีการบีบอัดรูป -->
                     <input type="file" name="slips" id="slipsInput" multiple accept="image/*" onchange="submitForm()">
                     📂 เลือกไฟล์สลิป
                 </label>
@@ -257,7 +256,6 @@
                             </td>
                             
                             <td>
-                                <!-- แสดงป้ายสถานะ -->
                                 {% if res.status == 'MATCHED' %}
                                     <span class="status-badge badge-success">✅ ตรงกัน</span>
                                     {% if res.order_id %}
@@ -277,7 +275,7 @@
                     </tbody>
                 </table>
                 {% else %}
-                    <div style="text-align: center; color: #94a3b8; padding: 20px;">
+                    <div style="text-align: center; color: #9ca3af; padding: 20px;">
                         ยังไม่มีผลการสแกน กรุณาอัปโหลดสลิปด้านบน
                     </div>
                 {% endif %}
@@ -304,7 +302,6 @@
         });
     }
 
-    // ฟังก์ชันอัปเดตสถานะเป็น "ยังไม่จ่าย" เชื่อมต่อกับ Backend จริง
     function markAsUnpaid(row) {
         const orderId = row.getAttribute('data-order-id');
         
@@ -340,7 +337,6 @@
         });
     }
 
-    // ฟังก์ชันรีเซ็ตสลิปที่เคยสแกนแล้ว (DUPLICATE)
     function resetDuplicateSlip(ref) {
         if (!ref) {
             alert('ไม่พบเลขอ้างอิง (Ref) ของสลิปนี้');
@@ -374,8 +370,49 @@
         });
     }
 
-    // สคริปต์ Progress Bar คำนวณ % การสแกนรูปภาพแบบเรียลไทม์
-    function submitForm() {
+    // 🌟 ฟังก์ชันบีบอัดรูปภาพฝั่งเบราว์เซอร์ก่อนส่งเข้า PythonAnywhere 🌟
+    function compressImagePromise(file) {
+        return new Promise((resolve, reject) => {
+            const reader = new FileReader();
+            reader.readAsDataURL(file);
+            reader.onload = function (event) {
+                const img = new Image();
+                img.src = event.target.result;
+                img.onload = function () {
+                    const canvas = document.createElement('canvas');
+                    const MAX_WIDTH = 1200;
+                    const MAX_HEIGHT = 1200;
+                    let width = img.width;
+                    let height = img.height;
+
+                    if (width > height) {
+                        if (width > MAX_WIDTH) { height *= MAX_WIDTH / width; width = MAX_WIDTH; }
+                    } else {
+                        if (height > MAX_HEIGHT) { width *= MAX_HEIGHT / height; height = MAX_HEIGHT; }
+                    }
+
+                    canvas.width = width;
+                    canvas.height = height;
+                    const ctx = canvas.getContext('2d');
+                    ctx.drawImage(img, 0, 0, width, height);
+
+                    canvas.toBlob((blob) => {
+                        if (!blob) { reject(new Error('Canvas conversion failed')); return; }
+                        const compressedFile = new File([blob], file.name, {
+                            type: 'image/jpeg',
+                            lastModified: Date.now()
+                        });
+                        resolve(compressedFile);
+                    }, 'image/jpeg', 0.75); // บีบอัดความคมชัดเหลือ 75% ไฟล์จะเบาลงมหาศาลแต่ยังอ่านตัวหนังสือบนสลิปชัดแจ๋ว
+                };
+                img.onerror = error => reject(error);
+            };
+            reader.onerror = error => reject(error);
+        });
+    }
+
+    // 🌟 อัปเกรดฟังก์ชัน submitForm ให้ทำการบีบอัดรูปทั้งหมดก่อนส่งฟอร์ม 🌟
+    async function submitForm() {
         const fileInput = document.getElementById('slipsInput');
         if (fileInput.files.length === 0) return;
 
@@ -385,21 +422,49 @@
         let totalFiles = fileInput.files.length;
         let progressText = document.getElementById('progressText');
         let progressBarFill = document.getElementById('progressBarFill');
-        let percent = 0;
         
-        let speed = Math.max(200, 1200 / totalFiles);
-        let interval = setInterval(() => {
-            percent += Math.floor(Math.random() * 8) + 3; 
-            if (percent > 96) {
-                percent = 96; 
-            }
-            
-            let currentFile = Math.min(totalFiles, Math.ceil((percent / 100) * totalFiles));
-            progressText.innerText = `กำลังวิเคราะห์รูปที่ ${currentFile}/${totalFiles} (${percent}%)`;
-            progressBarFill.style.width = percent + '%';
-        }, speed);
+        progressText.innerText = `กำลังบีบอัดไฟล์สลิป ${totalFiles} รูปเพื่อความเสถียรของเซิร์ฟเวอร์...`;
+        progressBarFill.style.width = '10%';
 
-        document.getElementById('ocrForm').submit();
+        try {
+            const compressedFiles = [];
+            for (let i = 0; i < totalFiles; i++) {
+                progressText.innerText = `กำลังบีบอัดรูปที่ ${i + 1}/${totalFiles}`;
+                progressBarFill.style.width = Math.floor(10 + ((i + 1) / totalFiles) * 40) + '%';
+                
+                try {
+                    let compressedFile = await compressImagePromise(fileInput.files[i]);
+                    compressedFiles.push(compressedFile);
+                } catch (e) {
+                    console.warn("บีบอัดรูปไม่สำเร็จ ใช้ไฟล์เดิมแทน", e);
+                    compressedFiles.push(fileInput.files[i]);
+                }
+            }
+
+            // แทนที่ไฟล์เดิมด้วยไฟล์ที่ถูกบีบอัดแล้วผ่าน DataTransfer
+            const dataTransfer = new DataTransfer();
+            compressedFiles.forEach(file => dataTransfer.items.add(file));
+            fileInput.files = dataTransfer.files;
+
+            progressText.innerText = `กำลังส่งข้อมูลและสแกน OCR...`;
+            progressBarFill.style.width = '55%';
+
+            let percent = 55;
+            let interval = setInterval(() => {
+                percent += Math.floor(Math.random() * 5) + 2; 
+                if (percent > 95) percent = 95;
+                progressBarFill.style.width = percent + '%';
+                progressText.innerText = `AI กำลังอ่านยอดเงินและเทียบเวลา (${percent}%)`;
+            }, 300);
+
+            // ส่งฟอร์มจริงเข้าสู่เซิร์ฟเวอร์
+            document.getElementById('ocrForm').submit();
+
+        } catch (error) {
+            console.error("เกิดข้อผิดพลาดในการบีบอัดภาพ:", error);
+            // ถ้าเกิดข้อผิดพลาด ให้ส่งฟอร์มแบบปกติทันทีเพื่อไม่ให้ติดขัด
+            document.getElementById('ocrForm').submit();
+        }
     }
 
     function confirmSlips() {
