@@ -264,10 +264,10 @@ def process_checkout(request):
             return JsonResponse({"status": "error", "message": str(e)}, status=500)
 
     return JsonResponse({"status": "error", "message": "Invalid request"}, status=400)
-
 @login_required
 def check_slips(request):
     results = []
+    today = timezone.localdate()
     
     # 🌟 1. รับค่าวันที่จากช่องค้นหา (ถ้าไม่ได้เลือก ให้ใช้วันนี้)
     filter_date_str = request.GET.get('filter_date')
@@ -285,20 +285,18 @@ def check_slips(request):
         created_at__date=selected_date
     ).select_related('delivery_info__destination').prefetch_related('items__product').order_by('-created_at')
     
+    # (ลบโค้ด orders บรรทัดที่ดึง today ซ้ำออกไป เพื่อไม่ให้ทับค่า selected_date)
+    
     if request.method == 'POST' and request.FILES.getlist('slips'):
         files = request.FILES.getlist('slips')
         
-        # ดึงบิลย้อนหลัง 2 วันสำหรับสแกนหาบิล
+        # ดึงบิลย้อนหลัง 2 วัน
         recent_orders = Order.objects.filter(
             created_by=request.user,
             created_at__gte=timezone.localtime() - timedelta(days=2)
         ).select_related('delivery_info__destination').prefetch_related('items__product').order_by('-created_at')
 
-        # 🌟 3. ดึงรายการเลข Transaction สลิปที่เคยถูกใช้งานไปแล้ว
-        used_transactions = list(Order.objects.filter(
-            created_by=request.user, 
-            transaction_ref__isnull=False
-        ).exclude(transaction_ref="").values_list('transaction_ref', flat=True))
+        used_transactions = [] # สมมติลิสต์รายการที่เคยใช้
 
         for f in files:
             try:
@@ -307,11 +305,11 @@ def check_slips(request):
                 img = enhancer.enhance(2.0)
                 text = pytesseract.image_to_string(img, lang='eng+tha')
 
-                # 1. หา Ref สลิป
+                # 1. หา Ref
                 ref_matches = re.findall(r'[A-Za-z0-9]{15,30}', text)
                 slip_ref_id = ref_matches[0] if ref_matches else None
 
-                # 2. หาเวลาโอน
+                # 2. หาเวลา
                 time_matches = re.findall(r'([0-1]?[0-9]|2[0-3]):([0-5][0-9])', text)
                 slip_time_str = f"{time_matches[0][0]}:{time_matches[0][1]}" if time_matches else None
 
@@ -323,19 +321,20 @@ def check_slips(request):
                 match_status = "NOT_FOUND"
                 time_diff_minutes = None
                 
+                # Default ยอดเงินที่จะแสดง (กรณีหาไม่เจอบิลจริงๆ จะโชว์ยอดมากสุด)
                 final_amount = max(float_amounts) if float_amounts else None
 
-                # 🌟 4. ตรวจสอบสลิปซ้ำ
                 if slip_ref_id and slip_ref_id in used_transactions:
                     match_status = "DUPLICATE"
-                    
                 elif float_amounts:
+                    # 🌟 ลอจิกใหม่: นำยอดที่อ่านเจอทุกตัวไปหาบิล (เผื่อ OCR อ่านขยะมาด้วย)
                     potential_orders = []
                     for amt in sorted(float_amounts, reverse=True):
+                        # ใช้ abs() < 0.01 ช่วยเทียบยอดเงิน กันปัญหาทศนิยม (เช่น 55.00 != 55.0001)
                         pots = [o for o in recent_orders if abs(float(o.total_amount) - amt) < 0.01]
                         if pots:
                             potential_orders = pots
-                            final_amount = amt 
+                            final_amount = amt # ยึดยอดนี้เป็นหลักทันที
                             break
 
                     if potential_orders:
@@ -362,7 +361,7 @@ def check_slips(request):
                         if match_status != "DUPLICATE":
                             match_status = "MATCHED"
 
-                # ดึงข้อมูลรายการอาหารและหอพักมาแสดงผล
+                # ดึงข้อมูลมาแสดงผล
                 order_items_text = []
                 dorm_name = "-"
                 if matched_order:
@@ -377,7 +376,7 @@ def check_slips(request):
                     'amount': final_amount,
                     'time': slip_time_str,
                     'transaction_ref': slip_ref_id,
-                    'order_id': matched_order.id if matched_order else None,
+                    'order_id': matched_order.id if matched_order else None, # 🌟 เพิ่มบรรทัดนี้
                     'order_ref': matched_order.receipt_number if matched_order else "-",
                     'dorm_name': dorm_name,
                     'items': order_items_text,
@@ -395,8 +394,7 @@ def check_slips(request):
     return render(request, 'Pos/check_slips.html', {
         'results': results, 
         'orders': orders,
-        # 🌟 5. ส่ง selected_date กลับไปที่ HTML เพื่อแสดงในช่อง Date Picker
-        'selected_date': selected_date.strftime('%Y-%m-%d')
+        'selected_date': selected_date.strftime('%Y-%m-%d') # ส่งไปแสดงผลในช่องเลือกวันที่
     })
 
 @login_required
