@@ -1,5 +1,4 @@
 import json
-import concurrent
 from django.shortcuts import render
 from django.http import JsonResponse
 from django.utils import timezone
@@ -370,53 +369,44 @@ def check_slips(request):
         created_at__date=selected_date
     ).select_related('delivery_info__destination').prefetch_related('items__product').order_by('-created_at')
     
-    if request.method == 'POST' and request.FILES.getlist('slips'):
-        files = request.FILES.getlist('slips')
+    # 🌟 เริ่มรับข้อมูล JSON ที่ผ่านการสแกนจาก Go API บนหน้าเว็บ
+    if request.method == 'POST':
+        slip_json_data = request.POST.get('slip_json_data')
         
-        recent_orders = list(Order.objects.filter(
-            created_by=request.user,
-            created_at__date=selected_date
-        ).select_related('delivery_info__destination').prefetch_related('items__product').order_by('-created_at'))
-
-        used_transactions = list(Order.objects.filter(
-            created_by=request.user, 
-            transaction_ref__isnull=False
-        ).exclude(transaction_ref="").values_list('transaction_ref', flat=True))
-
-        api_url = "https://d9a6-2405-9800-bcb0-61ac-d638-f429-3759-da42.ngrok-free.app/api/v1/scan-slip"
-
-        # 🌟 ฟังก์ชันสำหรับวิเคราะห์รูป 1 รูป 🌟
-        def process_single_slip(f):
+        if slip_json_data:
             try:
-                f.seek(0)
-                files_payload = {'slip_image': (f.name, f.read(), f.content_type)}
-                headers = {'ngrok-skip-browser-warning': 'true'}
+                extracted_slips = json.loads(slip_json_data)
                 
-                response = requests.post(api_url, files=files_payload, headers=headers, timeout=20)
-                
-                if response.status_code == 200:
-                    res_json = response.json()
-                    
-                    if res_json.get('success') and 'data' in res_json:
-                        slip_data = res_json['data']
-                        
-                        slip_amount = slip_data.get('amount')
+                recent_orders = Order.objects.filter(
+                    created_by=request.user,
+                    created_at__date=selected_date
+                ).select_related('delivery_info__destination').prefetch_related('items__product').order_by('-created_at')
+
+                used_transactions = list(Order.objects.filter(
+                    created_by=request.user, 
+                    transaction_ref__isnull=False
+                ).exclude(transaction_ref="").values_list('transaction_ref', flat=True))
+
+                for slip in extracted_slips:
+                    # 🌟 ป้องกันการล่ม! ถ้าสลิปนี้พัง สลิปอื่นจะได้ไปต่อ 🌟
+                    try:
+                        slip_amount = slip.get('amount')
                         if slip_amount is not None:
                             try: slip_amount = float(slip_amount)
-                            except: slip_amount = None
-                            
-                        slip_ref_id = slip_data.get('transaction_ref')
-                        raw_date = slip_data.get('date', '')
-                        raw_text = slip_data.get('raw_text', '')
+                            except ValueError: slip_amount = None
+                                
+                        slip_ref_id = slip.get('transaction_ref')
+                        raw_date = slip.get('date', '')
+                        raw_text = slip.get('raw_text', '')
 
-                        # แกะเอาแค่เวลา (HH:MM) ออกมาจากข้อมูล date
+                        # แกะเวลา (HH:MM)
                         slip_time_str = None
-                        time_matches = re.findall(r'([0-1]?[0-9]|2[0-3]):([0-5][0-9])', raw_date)
-                        if not time_matches:
-                            time_matches = re.findall(r'([0-1]?[0-9]|2[0-3]):([0-5][0-9])', raw_text)
-                        
-                        if time_matches:
-                            slip_time_str = f"{time_matches[-1][0].zfill(2)}:{time_matches[-1][1]}"
+                        if raw_date or raw_text:
+                            time_matches = re.findall(r'([0-1]?[0-9]|2[0-3]):([0-5][0-9])', str(raw_date))
+                            if not time_matches: 
+                                time_matches = re.findall(r'([0-1]?[0-9]|2[0-3]):([0-5][0-9])', str(raw_text))
+                            if time_matches:
+                                slip_time_str = f"{time_matches[-1][0].zfill(2)}:{time_matches[-1][1]}"
 
                         # ระบบ Matching (จับคู่บิล)
                         matched_order = None
@@ -428,15 +418,17 @@ def check_slips(request):
                         if slip_ref_id and slip_ref_id in used_transactions:
                             match_status = "DUPLICATE"
                         
-                        # 2. หาระบบที่ยอดเงินตรงกัน (ถ้าไม่ซ้ำ)
+                        # 2. หาระบบที่ยอดเงินตรงกัน
                         elif slip_amount:
                             potential_orders = [o for o in recent_orders if abs(float(o.total_amount) - slip_amount) < 0.01 and o.payment_status != 'PAID']
 
                             if potential_orders:
                                 for po in potential_orders:
                                     d_name = "หน้าร้าน/ไม่ระบุ"
-                                    if hasattr(po, 'delivery_info') and po.delivery_info.destination:
+                                    # 🌟 แก้บัค: ดักจับบิลที่ไม่มีหอพัก ป้องกันระบบล่ม 🌟
+                                    if hasattr(po, 'delivery_info') and po.delivery_info and hasattr(po.delivery_info, 'destination') and po.delivery_info.destination:
                                         d_name = po.delivery_info.destination.name
+                                        
                                     i_text = [f"{i.product.name} (x{i.quantity})" for i in po.items.all()]
                                     
                                     possible_matches.append({
@@ -447,6 +439,7 @@ def check_slips(request):
                                         'time': timezone.localtime(po.created_at).strftime('%H:%M')
                                     })
 
+                                # เทียบเวลาที่ใกล้เคียงที่สุด
                                 if slip_time_str:
                                     best_order = None
                                     min_diff = float('inf')
@@ -475,11 +468,11 @@ def check_slips(request):
                         if matched_order:
                             for item in matched_order.items.all():
                                 order_items_text.append(f"{item.product.name} (x{item.quantity})")
-                            if hasattr(matched_order, 'delivery_info') and matched_order.delivery_info.destination:
+                            # 🌟 แก้บัค: ดักจับการอ้างอิงหอพักของบิลที่ถูกเลือก 🌟
+                            if hasattr(matched_order, 'delivery_info') and matched_order.delivery_info and hasattr(matched_order.delivery_info, 'destination') and matched_order.delivery_info.destination:
                                 dorm_name = matched_order.delivery_info.destination.name
 
-                        return {
-                            'filename': f.name,
+                        results.append({
                             'amount': slip_amount,
                             'time': slip_time_str,
                             'transaction_ref': slip_ref_id,
@@ -490,19 +483,19 @@ def check_slips(request):
                             'status': match_status,
                             'time_diff': time_diff_minutes,
                             'possible_matches': possible_matches
-                        }
-                    else:
-                        return {'filename': f.name, 'status': "ERROR", 'error_msg': res_json.get('message', 'API Return Invalid Data')}
-                else:
-                    return {'filename': f.name, 'status': "ERROR", 'error_msg': f"API Error: {response.status_code}"}
-
+                        })
+                    except Exception as e_slip:
+                        # ฟ้อง Error ของสลิปนั้นๆ แทนที่จะล่มทั้งหน้า
+                        results.append({
+                            'amount': None,
+                            'time': None,
+                            'status': 'ERROR',
+                            'error_msg': f"Slip Error: {str(e_slip)}"
+                        })
+                        
             except Exception as e:
-                return {'filename': f.name, 'status': "ERROR", 'error_msg': str(e)}
-
-        # 🌟 ระบบ Multi-threading รันสแกนพร้อมกัน 5 ไฟล์ (เร็วขึ้นหลายเท่าตัว) 🌟
-        with concurrent.futures.ThreadPoolExecutor(max_workers=5) as executor:
-            # ใช้ executor.map เพื่อรันและจัดเรียงผลลัพธ์ให้ตรงตามลำดับเดิม
-            results = list(executor.map(process_single_slip, files))
+                # ฟ้อง Error ระบบหลัก
+                results.append({'amount': None, 'time': None, 'status': 'ERROR', 'error_msg': f"System Error: {str(e)}"})
 
     return render(request, 'Pos/check_slips.html', {
         'results': results, 
