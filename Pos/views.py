@@ -1,5 +1,4 @@
 import json
-from datetime import datetime
 from django.shortcuts import render
 from django.http import JsonResponse
 from django.utils import timezone
@@ -12,6 +11,10 @@ from .models import Order, OrderItem
 from Stocks.models import StockItem, StockLog
 
 from Riders.models import Dormitory, DeliveryTask
+import re
+import pytesseract
+from PIL import Image, ImageEnhance
+from datetime import datetime, timedelta
 
 @login_required
 def home(request):
@@ -262,3 +265,217 @@ def process_checkout(request):
 
     return JsonResponse({"status": "error", "message": "Invalid request"}, status=400)
 
+@login_required
+def check_slips(request):
+    results = []
+    today = timezone.localdate()
+    
+    # ดึงบิลวันนี้ (สำหรับแสดงฝั่งซ้าย)
+    orders = Order.objects.filter(
+        created_by=request.user, 
+        created_at__date=today
+    ).select_related('delivery_info__destination').prefetch_related('items__product').order_by('-created_at')
+    
+    if request.method == 'POST' and request.FILES.getlist('slips'):
+        files = request.FILES.getlist('slips')
+        
+        # ดึงบิลย้อนหลัง 2 วัน
+        recent_orders = Order.objects.filter(
+            created_by=request.user,
+            created_at__gte=timezone.localtime() - timedelta(days=2)
+        ).select_related('delivery_info__destination').prefetch_related('items__product').order_by('-created_at')
+
+        used_transactions = [] # สมมติลิสต์รายการที่เคยใช้
+
+        for f in files:
+            try:
+                img = Image.open(f.file).convert('L')
+                enhancer = ImageEnhance.Contrast(img)
+                img = enhancer.enhance(2.0)
+                text = pytesseract.image_to_string(img, lang='eng+tha')
+
+                # 1. หา Ref
+                ref_matches = re.findall(r'[A-Za-z0-9]{15,30}', text)
+                slip_ref_id = ref_matches[0] if ref_matches else None
+
+                # 2. หาเวลา
+                time_matches = re.findall(r'([0-1]?[0-9]|2[0-3]):([0-5][0-9])', text)
+                slip_time_str = f"{time_matches[0][0]}:{time_matches[0][1]}" if time_matches else None
+
+                # 3. หายอดเงิน "ทุกตัว" ที่เป็นไปได้ในสลิป
+                amount_matches = re.findall(r'\d{1,3}(?:,\d{3})*\.\d{2}', text)
+                float_amounts = [float(a.replace(',', '')) for a in amount_matches]
+                
+                matched_order = None
+                match_status = "NOT_FOUND"
+                time_diff_minutes = None
+                
+                # Default ยอดเงินที่จะแสดง (กรณีหาไม่เจอบิลจริงๆ จะโชว์ยอดมากสุด)
+                final_amount = max(float_amounts) if float_amounts else None
+
+                if slip_ref_id and slip_ref_id in used_transactions:
+                    match_status = "DUPLICATE"
+                elif float_amounts:
+                    # 🌟 ลอจิกใหม่: นำยอดที่อ่านเจอทุกตัวไปหาบิล (เผื่อ OCR อ่านขยะมาด้วย)
+                    potential_orders = []
+                    for amt in sorted(float_amounts, reverse=True):
+                        # ใช้ abs() < 0.01 ช่วยเทียบยอดเงิน กันปัญหาทศนิยม (เช่น 55.00 != 55.0001)
+                        pots = [o for o in recent_orders if abs(float(o.total_amount) - amt) < 0.01]
+                        if pots:
+                            potential_orders = pots
+                            final_amount = amt # ยึดยอดนี้เป็นหลักทันที
+                            break
+
+                    if potential_orders:
+                        if slip_time_str:
+                            best_order = None
+                            min_diff = float('inf')
+                            slip_time_obj = datetime.strptime(slip_time_str, '%H:%M').time()
+                            
+                            for order in potential_orders:
+                                order_time = timezone.localtime(order.created_at).time()
+                                o_mins = order_time.hour * 60 + order_time.minute
+                                s_mins = slip_time_obj.hour * 60 + slip_time_obj.minute
+                                diff = min((s_mins - o_mins) % 1440, (o_mins - s_mins) % 1440)
+                                
+                                if diff < min_diff:
+                                    min_diff = diff
+                                    best_order = order
+                                    
+                            matched_order = best_order
+                            time_diff_minutes = min_diff
+                        else:
+                            matched_order = potential_orders[0]
+
+                        if match_status != "DUPLICATE":
+                            match_status = "MATCHED"
+
+                # ดึงข้อมูลมาแสดงผล
+                order_items_text = []
+                dorm_name = "-"
+                if matched_order:
+                    for item in matched_order.items.all():
+                        order_items_text.append(f"{item.product.name} (x{item.quantity})")
+                    
+                    if hasattr(matched_order, 'delivery_info') and matched_order.delivery_info.destination:
+                        dorm_name = matched_order.delivery_info.destination.name
+
+                results.append({
+                    'filename': f.name,
+                    'amount': final_amount,
+                    'time': slip_time_str,
+                    'transaction_ref': slip_ref_id,
+                    'order_id': matched_order.id if matched_order else None, # 🌟 เพิ่มบรรทัดนี้
+                    'order_ref': matched_order.receipt_number if matched_order else "-",
+                    'dorm_name': dorm_name,
+                    'items': order_items_text,
+                    'status': match_status,
+                    'time_diff': time_diff_minutes
+                })
+
+            except Exception as e:
+                results.append({
+                    'filename': f.name,
+                    'status': "ERROR",
+                    'error_msg': str(e)
+                })
+
+    return render(request, 'Pos/check_slips.html', {'results': results, 'orders': orders})
+
+
+@login_required
+def api_check_slips(request):
+    if request.method == 'POST' and request.FILES.getlist('slips'):
+        files = request.FILES.getlist('slips')
+        recent_orders = Order.objects.filter(
+            created_by=request.user,
+            created_at__gte=timezone.localtime() - timedelta(days=2)
+        ).order_by('-created_at')
+
+        results = []
+        for f in files:
+            try:
+                img = Image.open(f.file).convert('L')
+                enhancer = ImageEnhance.Contrast(img)
+                img = enhancer.enhance(2.0)
+                text = pytesseract.image_to_string(img, lang='eng+tha')
+
+                amount_matches = re.findall(r'\d{1,3}(?:,\d{3})*\.\d{2}', text)
+                float_amounts = [float(a.replace(',', '')) for a in amount_matches]
+                
+                time_matches = re.findall(r'([0-1]?[0-9]|2[0-3]):([0-5][0-9])', text)
+                slip_time_str = f"{time_matches[0][0]}:{time_matches[0][1]}" if time_matches else None
+
+                matched_order_id = None
+                status = "NOT_FOUND"
+                final_amount = max(float_amounts) if float_amounts else None
+
+                if float_amounts:
+                    potential_orders = []
+                    # 🌟 เทียบค่าที่ได้ทั้งหมดกับบิลเหมือนกัน
+                    for amt in sorted(float_amounts, reverse=True):
+                        pots = [o for o in recent_orders if abs(float(o.total_amount) - amt) < 0.01]
+                        if pots:
+                            potential_orders = pots
+                            final_amount = amt
+                            break
+
+                    if potential_orders:
+                        if slip_time_str:
+                            slip_time_obj = datetime.strptime(slip_time_str, '%H:%M').time()
+                            best_order = None
+                            min_diff = float('inf')
+                            
+                            for order in potential_orders:
+                                order_time = timezone.localtime(order.created_at).time()
+                                o_mins = order_time.hour * 60 + order_time.minute
+                                s_mins = slip_time_obj.hour * 60 + slip_time_obj.minute
+                                diff = min((s_mins - o_mins) % 1440, (o_mins - s_mins) % 1440)
+                                
+                                if diff < min_diff:
+                                    min_diff = diff
+                                    best_order = order
+                                    
+                            matched_order_id = best_order.id
+                        else:
+                            matched_order_id = potential_orders[0].id
+                        
+                        status = "MATCHED"
+
+                results.append({
+                    'filename': f.name,
+                    'amount': final_amount,
+                    'order_id': matched_order_id,
+                    'status': status
+                })
+            except Exception as e:
+                results.append({'filename': f.name, 'status': 'ERROR'})
+
+        return JsonResponse({'status': 'success', 'results': results})
+    return JsonResponse({'status': 'error'}, status=400)
+
+from django.views.decorators.http import require_POST
+
+@login_required
+@require_POST
+def confirm_matched_slips(request):
+    try:
+        data = json.loads(request.body)
+        matched_items = data.get('matches', [])
+        
+        updated_count = 0
+        for item in matched_items:
+            order_id = item.get('order_id')
+            ref = item.get('transaction_ref')
+            
+            if order_id:
+                # อัปเดตสถานะเป็น PAID และบันทึกเลข Ref สลิป
+                Order.objects.filter(id=order_id, created_by=request.user).update(
+                    payment_status='PAID',
+                    transaction_ref=ref
+                )
+                updated_count += 1
+                
+        return JsonResponse({"status": "success", "message": f"บันทึกยอดเงินสำเร็จ {updated_count} รายการ"})
+    except Exception as e:
+        return JsonResponse({"status": "error", "message": str(e)}, status=500)

@@ -1,0 +1,343 @@
+{% load static %}
+<!DOCTYPE html>
+<html lang="th">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>ตรวจสลิปโอนเงิน (OCR) - KhaiKhao POS</title>
+    <!-- หากคุณมีไฟล์ style.css อยู่แล้ว สามารถเปิดใช้งานบรรทัดด้านล่างได้เลย -->
+    <!-- <link rel="stylesheet" href="{% static 'css/style.css' %}"> -->
+    <style>
+        body { font-family: 'Sarabun', sans-serif; background: #f8fafc; margin: 0; display: flex; }
+        
+        /* ---------------- Sidebar ---------------- */
+        .sidebar {
+            width: 250px;
+            background: #1e293b;
+            color: white;
+            height: 100vh;
+            position: fixed;
+            top: 0;
+            left: 0;
+            overflow-y: auto;
+            display: flex;
+            flex-direction: column;
+        }
+        .sidebar-header { padding: 20px; font-size: 20px; font-weight: bold; border-bottom: 1px solid #334155; text-align: center; }
+        .menu-item { display: flex; align-items: center; gap: 12px; padding: 15px 20px; color: #cbd5e1; text-decoration: none; transition: 0.2s; border-left: 4px solid transparent; }
+        .menu-item:hover { background: #334155; color: white; }
+        .menu-item.active { background: #3b82f6; color: white; border-left-color: #93c5fd; font-weight: bold; }
+        
+        /* ---------------- Main Content ---------------- */
+        .main { margin-left: 250px; padding: 30px; width: calc(100% - 250px); box-sizing: border-box; min-height: 100vh; }
+        
+        /* ส่วนอัปโหลด */
+        .upload-card { background: white; padding: 30px; border-radius: 16px; box-shadow: 0 4px 6px rgba(0,0,0,0.05); margin-bottom: 20px; text-align: center; border: 2px dashed #cbd5e1; transition: 0.3s; }
+        .upload-card:hover { border-color: #3b82f6; background: #eff6ff; }
+        
+        input[type="file"] { display: none; }
+        .custom-file-upload { display: inline-block; padding: 12px 24px; cursor: pointer; background: #3b82f6; color: white; font-weight: bold; border-radius: 8px; font-size: 16px; transition: 0.2s; box-shadow: 0 4px 6px rgba(59, 130, 246, 0.2); margin-top: 15px; }
+        .custom-file-upload:hover { background: #2563eb; transform: translateY(-2px); }
+
+        /* จัด Layout แบ่ง 2 ฝั่ง */
+        .grid-container { display: grid; grid-template-columns: 1fr 1.2fr; gap: 20px; align-items: start; }
+
+        /* ส่วนของการ์ดตาราง */
+        .table-card { background: white; padding: 20px; border-radius: 16px; box-shadow: 0 4px 6px rgba(0,0,0,0.05); overflow-x: auto; }
+        .table-card h3 { margin-top: 0; color: #1e293b; border-bottom: 2px solid #f1f5f9; padding-bottom: 10px; }
+
+        /* ตาราง */
+        .data-table { width: 100%; border-collapse: collapse; font-size: 13px; }
+        .data-table th, .data-table td { padding: 12px 10px; border-bottom: 1px solid #e2e8f0; vertical-align: top; }
+        .data-table th { background: #f8fafc; font-weight: bold; color: #475569; text-align: left; }
+        
+        /* ไฮไลท์แถว */
+        .row-matched { background-color: #f0fdf4 !important; }
+        .row-not-found { background-color: #fef2f2 !important; }
+        .row-duplicate { background-color: #fffbeb !important; border-left: 4px solid #f59e0b; }
+        
+        /* ป้ายสถานะ */
+        .status-badge { padding: 6px 12px; border-radius: 20px; font-size: 12px; font-weight: bold; display: inline-block; white-space: nowrap; }
+        .badge-success { background: #dcfce7; color: #16a34a; border: 1px solid #bbf7d0; }
+        .badge-error { background: #fee2e2; color: #ef4444; border: 1px solid #fecaca; }
+        .badge-warning { background: #fef3c7; color: #d97706; border: 1px solid #fde68a; }
+        .badge-duplicate { background: #fef3c7; color: #d97706; border: 1px solid #fde68a; }
+        
+        .item-list { margin: 5px 0 0 0; padding-left: 15px; color: #64748b; font-size: 12px; }
+        
+        /* ปุ่มบันทึก */
+        .btn-confirm {
+            background: #16a34a; color: white; padding: 10px 16px; border: none; 
+            border-radius: 8px; font-weight: bold; font-size: 14px; cursor: pointer;
+            box-shadow: 0 4px 6px rgba(22, 163, 74, 0.2); transition: 0.2s;
+            display: inline-flex; align-items: center; gap: 8px;
+        }
+        .btn-confirm:hover { background: #15803d; transform: translateY(-2px); }
+        .btn-confirm:disabled { background: #94a3b8; cursor: not-allowed; transform: none; box-shadow: none; }
+
+        #loadingSpinner { display: none; margin-top: 20px; font-weight: bold; color: #2563eb; }
+        @keyframes spin { 100% { transform: rotate(360deg); } }
+    </style>
+</head>
+<body>
+
+    <!-- ================= Sidebar ================= -->
+    <aside class="sidebar">
+        <div class="sidebar-header">🥚 KhaiKhao POS</div>
+        <nav style="margin-top: 10px;">
+            <a href="{% url 'pos:home' %}" class="menu-item"><span>🏠</span><span>หน้าหลัก</span></a>
+            <a href="{% url 'history:home' %}" class="menu-item"><span>📜</span><span>ประวัติการขาย</span></a>
+            <!-- กำหนดคลาส active ให้เมนูตรวจสอบสลิป -->
+            <a href="{% url 'pos:check_slips' %}" class="menu-item active"><span>📸</span><span>ตรวจสอบสลิป</span></a>
+            <a href="{% url 'expenses:home' %}" class="menu-item"><span>💵</span><span>บันทึกรายจ่าย</span></a>
+            <a href="{% url 'products:list' %}" class="menu-item"><span>📦</span><span>สินค้า</span></a>
+            <a href="{% url 'stocks:list' %}" class="menu-item"><span>🛒</span><span>สต๊อกของใช้</span></a>
+            <a href="{% url 'reports:home' %}" class="menu-item"><span>📊</span><span>รายงาน</span></a>
+            <a href="{% url 'tax:home' %}" class="menu-item"><span>📑</span><span>คำนวณภาษี</span></a>
+            <a href="{% url 'riders:home' %}" class="menu-item"><span>🛵</span><span>ติดตามไรเดอร์</span></a>
+            <a href="{% url 'shop_history:home' %}" class="menu-item"><span>🏪</span><span>ประวัติเปิด-ปิดร้าน</span></a>
+        </nav>
+    </aside>
+
+    <!-- ================= Main Content ================= -->
+    <main class="main">
+        <h1 style="color: #1e293b; margin-top: 0; font-size: 24px;">🧾 ตรวจสอบสลิปโอนเงินอัตโนมัติ (OCR)</h1>
+        
+        <!-- พื้นที่อัปโหลดสลิป -->
+        <div class="upload-card">
+            <div style="font-size: 40px; margin-bottom: 10px;">📸</div>
+            <h3 style="margin: 0 0 5px 0; color: #334155;">ลากไฟล์สลิปมาวางที่นี่ หรือคลิกเพื่อเลือกไฟล์</h3>
+            <p style="margin: 0; color: #94a3b8; font-size: 14px;">รองรับนามสกุล .jpg, .png (เลือกทีละหลายๆ รูปได้)</p>
+            
+            <form method="POST" enctype="multipart/form-data" id="ocrForm">
+                {% csrf_token %}
+                <label class="custom-file-upload">
+                    <input type="file" name="slips" multiple accept="image/*" onchange="submitForm()">
+                    📂 เลือกไฟล์สลิป
+                </label>
+            </form>
+            
+            <div id="loadingSpinner">
+                <span style="font-size: 24px; display: inline-block; animation: spin 1s linear infinite;">⏳</span> กำลังใช้ AI สแกนยอดเงินจากสลิป...
+            </div>
+        </div>
+
+        <div class="grid-container">
+            <!-- 1. ตารางประวัติการขาย (ฝั่งซ้าย) -->
+            <div class="table-card">
+                <h3>🛒 ประวัติบิลวันนี้</h3>
+                <table class="data-table">
+                    <thead>
+                        <tr>
+                            <th>เลขที่บิล / เวลา</th>
+                            <th>ข้อมูลหอพัก & สินค้า</th>
+                            <th>ยอดรวม</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for order in orders %}
+                        <tr>
+                            <td>
+                                <strong style="color: #1e40af;">{{ order.receipt_number }}</strong><br>
+                                <span style="color: #64748b; font-size:11px;">{{ order.created_at|time:"H:i" }} น.</span>
+                            </td>
+                            <td>
+                                <!-- ข้อมูลหอพัก -->
+                                {% if order.delivery_info and order.delivery_info.destination %}
+                                    <div style="color: #0f172a; font-weight: bold;">
+                                        📍 {{ order.delivery_info.destination.name }}
+                                    </div>
+                                {% else %}
+                                    <div style="color: #94a3b8; font-weight: bold;">📍 หน้าร้าน/ไม่ระบุ</div>
+                                {% endif %}
+                                
+                                <!-- รายการสินค้า -->
+                                <ul class="item-list">
+                                    {% for item in order.items.all %}
+                                        <li>{{ item.product.name }} (x{{ item.quantity }})</li>
+                                    {% endfor %}
+                                </ul>
+                            </td>
+                            <td>
+                                <strong style="font-size: 14px;">฿{{ order.total_amount|floatformat:2 }}</strong><br>
+                                {% if order.payment_status == 'PAID' %}
+                                    <span class="status-badge badge-success" style="margin-top: 5px;">✅ จ่ายแล้ว</span>
+                                {% else %}
+                                    <span class="status-badge badge-warning" style="margin-top: 5px;">⏳ รอโอน</span>
+                                {% endif %}
+                            </td>
+                        </tr>
+                        {% empty %}
+                        <tr>
+                            <td colspan="3" style="color: #94a3b8; text-align: center; padding: 20px;">ไม่มีบิลในระบบวันนี้</td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+
+            <!-- 2. ตารางผลการสแกนสลิป (ฝั่งขวา) -->
+            <div class="table-card">
+                <div style="display: flex; justify-content: space-between; align-items: center; border-bottom: 2px solid #f1f5f9; padding-bottom: 10px; margin-bottom: 10px;">
+                    <h3 style="margin: 0; border: none; padding: 0;">📊 ผลการจับคู่สลิปล่าสุด</h3>
+                    
+                    {% if results %}
+                    <button class="btn-confirm" id="saveBtn" onclick="confirmSlips()">
+                        💾 บันทึกยอดบิลที่ตรงกัน
+                    </button>
+                    {% endif %}
+                </div>
+                
+                {% if results %}
+                <table class="data-table">
+                    <thead>
+                        <tr>
+                            <th>ยอด/เวลา (สลิป)</th>
+                            <th>บิลที่จับคู่ (หอพัก)</th>
+                            <th>เวลาห่าง</th>
+                            <th>สถานะ</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for res in results %}
+                        <tr class="{% if res.status == 'MATCHED' %}row-matched{% elif res.status == 'DUPLICATE' %}row-duplicate{% else %}row-not-found{% endif %}"
+                            data-status="{{ res.status }}"
+                            data-order-id="{{ res.order_id|default:'' }}"
+                            data-ref="{{ res.transaction_ref|default:'' }}">
+                            
+                            <!-- ข้อมูลสลิป -->
+                            <td>
+                                {% if res.amount %}
+                                    <strong style="font-size: 15px; color: #0f172a;">฿{{ res.amount|floatformat:2 }}</strong><br>
+                                    <span style="font-size: 12px; color: #64748b;">{{ res.time }} น.</span>
+                                    {% if res.transaction_ref %}
+                                        <br><span style="font-size: 10px; color: #94a3b8;">Ref: {{ res.transaction_ref|truncatechars:12 }}</span>
+                                    {% endif %}
+                                {% else %}
+                                    <span style="color:#ef4444;">อ่านไม่ได้</span>
+                                {% endif %}
+                            </td>
+                            
+                            <!-- ข้อมูลบิลที่ระบบหาเจอ -->
+                            <td>
+                                {% if res.order_ref != "-" %}
+                                    <strong style="color: #1e40af;">{{ res.order_ref }}</strong><br>
+                                    <span style="font-size: 12px; color: #0f172a; font-weight:bold;">📍 {{ res.dorm_name }}</span>
+                                    
+                                    {% if res.items %}
+                                        <ul class="item-list">
+                                            {% for item in res.items %}
+                                                <li>{{ item }}</li>
+                                            {% endfor %}
+                                        </ul>
+                                    {% endif %}
+                                {% else %}
+                                    <span style="color: #94a3b8;">-</span>
+                                {% endif %}
+                            </td>
+                            
+                            <!-- ระยะเวลาที่ห่างกัน -->
+                            <td>
+                                {% if res.time_diff != None %}
+                                    {% if res.time_diff <= 120 %}
+                                        <span style="color: #16a34a; font-weight: bold;">{{ res.time_diff }} นาที</span>
+                                    {% else %}
+                                        <span style="color: #ea580c; font-weight: bold;">{{ res.time_diff }} นาที<br><small>(ดูยอดเงิน)</small></span>
+                                    {% endif %}
+                                {% else %}
+                                    -
+                                {% endif %}
+                            </td>
+                            
+                            <!-- สถานะ -->
+                            <td>
+                                {% if res.status == 'MATCHED' %}
+                                    <span class="status-badge badge-success">✅ ตรงกัน</span>
+                                {% elif res.status == 'DUPLICATE' %}
+                                    <span class="status-badge badge-duplicate">🔁 เคยสแกนแล้ว</span>
+                                {% elif res.status == 'NOT_FOUND' %}
+                                    <span class="status-badge badge-error">❌ ไม่พบยอด</span>
+                                {% else %}
+                                    <span class="status-badge" style="background:#f1f5f9; color:#475569;">⚠️ ล้มเหลว</span>
+                                {% endif %}
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+                {% else %}
+                    <div style="text-align: center; color: #94a3b8; padding: 20px;">
+                        ยังไม่มีผลการสแกน กรุณาอัปโหลดสลิปด้านบน
+                    </div>
+                {% endif %}
+            </div>
+        </div>
+    </main>
+
+<script>
+    function submitForm() {
+        document.getElementById('ocrForm').style.display = 'none';
+        document.getElementById('loadingSpinner').style.display = 'block';
+        document.getElementById('ocrForm').submit();
+    }
+
+    function confirmSlips() {
+        const matches = [];
+        const matchedRows = document.querySelectorAll('tr[data-status="MATCHED"]');
+        
+        matchedRows.forEach(row => {
+            const orderId = row.getAttribute('data-order-id');
+            const ref = row.getAttribute('data-ref');
+            
+            if (orderId) {
+                matches.push({
+                    order_id: orderId,
+                    transaction_ref: ref
+                });
+            }
+        });
+
+        if (matches.length === 0) {
+            alert('ไม่มีรายการที่จับคู่สำเร็จให้บันทึก');
+            return;
+        }
+
+        if (!confirm(`ต้องการยืนยันการรับเงินจำนวน ${matches.length} บิล ใช่หรือไม่?`)) {
+            return;
+        }
+
+        const btn = document.getElementById('saveBtn');
+        btn.disabled = true;
+        btn.innerHTML = '⏳ กำลังบันทึก...';
+
+        // ส่งข้อมูลยืนยันไปยัง API
+        fetch("{% url 'pos:confirm_slips' %}", {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'X-CSRFToken': '{{ csrf_token }}'
+            },
+            body: JSON.stringify({ matches: matches })
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (data.status === 'success') {
+                alert(data.message);
+                window.location.reload(); 
+            } else {
+                alert('เกิดข้อผิดพลาด: ' + data.message);
+                btn.disabled = false;
+                btn.innerHTML = '💾 บันทึกยอดบิลที่ตรงกัน';
+            }
+        })
+        .catch(error => {
+            console.error('Error:', error);
+            alert('เกิดข้อผิดพลาดในการเชื่อมต่อเซิร์ฟเวอร์');
+            btn.disabled = false;
+            btn.innerHTML = '💾 บันทึกยอดบิลที่ตรงกัน';
+        });
+    }
+</script>
+
+</body>
+</html>

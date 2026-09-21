@@ -85,7 +85,6 @@
         .no-bill-box:hover { background: #fef3c7; }
         .no-bill-text { font-size: 14px; font-weight: bold; color: #d97706; display: flex; align-items: center; gap: 8px; }
 
-        /* 🌟 แก้ไข CSS ของ Switch ให้ใช้งานได้ 🌟 */
         .switch { position: relative; display: inline-block; width: 46px; height: 24px; }
         .switch input { opacity: 0; width: 0; height: 0; }
         .slider { position: absolute; cursor: pointer; top: 0; left: 0; right: 0; bottom: 0; background-color: #d1d5db; transition: .4s; border-radius: 24px; }
@@ -94,7 +93,6 @@
         .switch input:focus + .slider { box-shadow: 0 0 1px #16a34a; }
         .switch input:checked + .slider:before { transform: translateX(22px); }
 
-        /* 🌟 CSS สำหรับปุ่มเลือกโซนหอพัก */
         .zone-badge { padding: 6px 12px; border-radius: 15px; background: white; color: #3b82f6; font-size: 13px; font-weight: bold; cursor: pointer; border: 1px solid #93c5fd; transition: 0.2s; white-space: nowrap; }
         .zone-badge:hover { background: #eff6ff; }
         .zone-badge.active { background: #3b82f6; color: white; border-color: #3b82f6; }
@@ -128,7 +126,6 @@
 
 <div class="app">
 
-    <!-- SIDEBAR -->
     <aside class="sidebar">
         <div class="logo">
             <h2>KhaiKhao</h2>
@@ -137,6 +134,7 @@
         <nav class="menu">
             <a href="{% url 'pos:home' %}" class="menu-item active"><span>🏠</span><span>หน้าหลัก</span></a>
             <a href="{% url 'history:home' %}" class="menu-item"><span>📜</span><span>ประวัติการขาย</span></a>
+            <a href="{% url 'pos:check_slips' %}" class="menu-item"><span>📸</span><span>ตรวจสอบสลิป</span></a>
             <a href="{% url 'expenses:home' %}" class="menu-item"><span>💵</span><span>บันทึกรายจ่าย</span></a>
             <a href="{% url 'products:list' %}" class="menu-item"><span>📦</span><span>สินค้า</span></a>
             <a href="{% url 'stocks:list' %}" class="menu-item"><span>🛒</span><span>สต๊อกของใช้</span></a>
@@ -162,7 +160,6 @@
         </div>
     </aside>
 
-    <!-- MAIN -->
     <main class="main">
 
         <header class="header">
@@ -310,7 +307,6 @@
                 <span id="grandTotal" style="color: #16a34a; font-size: 22px;">฿0.00</span>
             </div>
 
-            <!-- 🌟 สวิตช์ลูกค้าไม่รับบิล 🌟 -->
             <div class="no-bill-box">
                 <span class="no-bill-text">🌱 ลูกค้าไม่รับบิล</span>
                 <label class="switch">
@@ -438,7 +434,6 @@
                         <input type="radio" name="billType" value="screen" style="accent-color: #16a34a; transform: scale(1.2);"> แสดงผลบิลบนหน้าจอ (ไม่บันทึก)
                     </label>
                     
-                    <!-- 🌟 เพิ่มตัวเลือก "ไม่รับบิล" เพื่อให้ข้ามหน้าใบเสร็จทันที 🌟 -->
                     <label style="cursor: pointer; font-size: 14px; display: flex; align-items: center; gap: 8px; color: #ef4444; font-weight: bold;">
                         <input type="radio" name="billType" value="none" style="accent-color: #ef4444; transform: scale(1.2);"> ไม่รับบิล (จบการขายทันที)
                     </label>
@@ -706,7 +701,6 @@
 
         updatePrintSlotStatus(); 
 
-        // 🌟 เปลี่ยนให้ปุ่ม "ลูกค้าไม่รับบิล" เลือกรัศมี "none" อัตโนมัติ 🌟
         const noBillToggleCart = document.getElementById('no_bill_toggle_cart');
         if (noBillToggleCart && noBillToggleCart.checked) {
             document.querySelector('input[name="billType"][value="none"]').checked = true;
@@ -776,7 +770,6 @@
                 const noBillToggleCart = document.getElementById('no_bill_toggle_cart');
                 if(noBillToggleCart) noBillToggleCart.checked = false;
 
-                // 🌟 หากเลือกไม่รับบิล (none) จะข้ามทุกอย่างและรีเฟรชหน้าเลย 🌟
                 if (selectedBillType === 'print') {
                     triggerPrintReceipt(receiptNo, currentCart, totalPrice, qrDataUrl, shopName, selectedDormName);
                     setTimeout(() => { window.location.href = "{% url 'pos:home' %}"; }, 1500);
@@ -802,6 +795,7 @@
         });
     }
 
+    // 🌟 ทุกร้านใช้วิธีดึงจุดส่งและปิดเวลา
     function triggerPrintReceipt(receiptNo, items, total, qrDataUrl, shopName, selectedDormName) {
         let printWindow = window.open('', '_blank');
         let currentSlot = parseInt(localStorage.getItem('printSlotIndex')) || 0;
@@ -814,8 +808,12 @@
         let leftOffset = 15 + (col * 95);  
         let topOffset = 10 + (row * 95);   
 
-        let isDeliveryShop = shopName.includes("P184");
-        let qrFooterDesc = (shopName.includes("M053") || shopName.includes("เรื่องของหมู")) ? 
+        let fullShopName = shopName;
+        if (shopName === 'P184') fullShopName = "🔥 ร้านทอดเป่า P184 🔥";
+        else if (shopName === 'M053') fullShopName = "🐷 ร้านเรื่องของหมู M053 🐷";
+        else if (!shopName.includes("ร้าน")) fullShopName = "🛒 ร้าน " + shopName;
+
+        let qrFooterDesc = (fullShopName.includes("M053") || fullShopName.includes("เรื่องของหมู")) ? 
             `🐷 โอนแล้วรอสักครู่นะคะ 🐷<br>
             ⚠️ รบกวนตรวจสอบยอดเงินก่อนยืนยัน ⚠️<br>
             ขอบคุณที่อุดหนุนร้านเรื่องของหมูค่ะ 🙏` : 
@@ -825,11 +823,8 @@
             ↘❗ กรุณาแจ้งทางร้านทันที<br>
             🙇🏻‍♀️ ขอบคุณค่ะ/ครับ 🙇`;
 
-        let dormHtml = "";
-        if (isDeliveryShop) {
-            let dormText = selectedDormName ? selectedDormName : "อยู่ระหว่างรวบรวมข้อมูลหอพัก";
-            dormHtml = `<div class="info-text">จุดส่ง: <strong>${dormText}</strong></div>`;
-        }
+        let dormText = (selectedDormName && selectedDormName.trim() !== "") ? selectedDormName : "รับหน้าร้าน (ไม่จัดส่ง)";
+        let dormHtml = `<div class="info-text">จุดส่ง: <strong>${dormText}</strong></div>`;
 
         let htmlContent = `
             <html>
@@ -838,7 +833,7 @@
                 <style>
                     @page { size: A4; margin: 0; }
                     body { font-family: 'Courier New', Courier, monospace; margin: 0; padding: 0; background: #fff; color: #000; }
-                    .receipt-box { position: absolute; left: ${leftOffset}mm; top: ${topOffset}mm; width: 85mm; height: 88mm; padding: 3mm 4mm; box-sizing: border-box; border: 1px dashed #e5e7eb; display: flex; flex-direction: column; overflow: hidden; }
+                    .receipt-box { position: absolute; left: ${leftOffset}mm; top: ${topOffset}mm; width: 85mm; height: 88mm; padding: 3mm 4mm; box-sizing: border-box; border: 1px dashed #ccc; display: flex; flex-direction: column; overflow: hidden; }
                     .center { text-align: center; }
                     .line { border-bottom: 1px dashed #000; margin: 4px 0; }
                     .flex { display: flex; justify-content: space-between; }
@@ -854,7 +849,7 @@
             <body onload="setTimeout(() => { window.print(); window.close(); }, 800);">
                 <div class="receipt-box">
                     <div class="center">
-                        <div class="shop-name">${shopName}</div>
+                        <div class="shop-name">${fullShopName}</div>
                         <div class="info-text">ใบเสร็จรับเงิน / Receipt</div>
                     </div>
                     <div class="line"></div>
@@ -917,6 +912,11 @@
     }
 
     function downloadSlipImage(receiptNo, items, total, qrDataUrl, shopName, selectedDormName) {
+        let fullShopName = shopName;
+        if (shopName === 'P184') fullShopName = "🔥 ร้านทอดเป่า P184 🔥";
+        else if (shopName === 'M053') fullShopName = "🐷 ร้านเรื่องของหมู M053 🐷";
+        else if (!shopName.includes("ร้าน")) fullShopName = "🛒 ร้าน " + shopName;
+
         const slipContainer = document.createElement('div');
         slipContainer.style.position = 'absolute';
         slipContainer.style.left = '-9999px';
@@ -931,12 +931,8 @@
         const excludeKeywords = ["topping", "ท็อปปิ้ง", "พิเศษ", "เครื่องดื่ม", "เพิ่มเติม"];
         let mainIndex = 1;
 
-        let isDeliveryShop = shopName.includes("P184");
-        let dormHtml = "";
-        if (isDeliveryShop) {
-            let dormText = selectedDormName ? selectedDormName : "อยู่ระหว่างรวบรวมข้อมูลหอพัก";
-            dormHtml = `<div style="display: flex; justify-content: space-between; margin-top: 4px;"><span>จัดส่ง:</span> <span style="font-weight: 500; text-align: right; max-width: 70%;">${dormText}</span></div>`;
-        }
+        let dormText = (selectedDormName && selectedDormName.trim() !== "") ? selectedDormName : "รับหน้าร้าน (ไม่จัดส่ง)";
+        let dormHtml = `<div style="display: flex; justify-content: space-between; margin-top: 4px;"><span>จัดส่ง:</span> <span style="font-weight: 500; text-align: right; max-width: 70%;">${dormText}</span></div>`;
 
         let itemsHtml = items.map(item => {
             const catName = (item.category || "").toLowerCase();
@@ -965,10 +961,10 @@
             }
         }).join('');
 
-        if (shopName.includes("M053") || shopName.includes("เรื่องของหมู")) {
+        if (fullShopName.includes("M053") || fullShopName.includes("เรื่องของหมู")) {
             slipContainer.innerHTML = `
                 <div style="text-align: center; border-bottom: 2px dashed #fbcfe8; padding-bottom: 15px; margin-bottom: 15px;">
-                    <h2 style="margin: 0 0 5px 0; font-size: 24px; color: #be185d;">${shopName}</h2>
+                    <h2 style="margin: 0 0 5px 0; font-size: 24px; color: #be185d;">${fullShopName}</h2>
                     <p style="margin: 0; font-size: 14px; color: #db2777;">รายละเอียดออเดอร์</p>
                 </div>
                 <div style="margin-bottom: 20px; font-size: 14px; color: #4b5563; line-height: 1.6;">
@@ -997,7 +993,7 @@
             slipContainer.innerHTML = `
                 <div style="text-align: center; border-bottom: 1px dashed #d1d5db; padding-bottom: 15px; margin-bottom: 15px;">
                     <div style="font-size: 30px; margin-bottom: 5px;">POS By Danai</div>
-                    <h2 style="margin: 0 0 5px 0; font-size: 24px; color: #111827;">${shopName}</h2>
+                    <h2 style="margin: 0 0 5px 0; font-size: 24px; color: #111827;">${fullShopName}</h2>
                     <p style="margin: 0; font-size: 14px; color: #6b7280;">ใบรายละเอียดออเดอร์ / Order Details</p>
                 </div>
                 <div style="margin-bottom: 20px; font-size: 14px; color: #4b5563; line-height: 1.6;">
@@ -1016,10 +1012,10 @@
                     ${qrDataUrl ? `<img src="${qrDataUrl}" style="width: 140px; height: 140px; margin-bottom: 12px; mix-blend-mode: multiply;">` : ''}
                     <p style="margin: 0; font-size: 13px; color: #4b5563; font-weight: bold; line-height: 1.5;">
                        ⚠️ กรุณาตรวจสอบความถูกต้องของยอดเงิน<br>
-                       ↘❗ ก่อนกดยืนยันทุกครั้ง<br>
-                       📢 หากพบว่ายอดเงินไม่ถูกต้อง<br>
-                       ↘❗ กรุณาแจ้งทางร้านทันที<br>
-                       🙇🏻‍♀️ ขอบคุณที่มาอุดหนุนนะค้าบ 🙇
+                        ↘❗ ก่อนกดยืนยันทุกครั้ง<br>
+                        📢 หากพบว่ายอดเงินไม่ถูกต้อง<br>
+                        ↘❗ กรุณาแจ้งทางร้านทันที<br>
+                        🙇🏻‍♀️ ขอบคุณที่มาอุดหนุนนะค้าบ 🙇
                     </p>
                 </div>
             `;
@@ -1029,7 +1025,7 @@
 
         html2canvas(slipContainer, { scale: 2, backgroundColor: '#ffffff' }).then(canvas => {
             let link = document.createElement('a');
-            link.download = `${receiptNo}.png`;
+            link.download = `Slip_${receiptNo}.png`;
             link.href = canvas.toDataURL('image/png');
             link.click();
             document.body.removeChild(slipContainer);
@@ -1041,14 +1037,10 @@
         document.getElementById('billReceiptNum').innerText = receiptNo;
         
         let dormElem = document.getElementById('screenBillDorm');
-        if (shopName && shopName.includes("P184")) {
-            let dormText = selectedDormName ? selectedDormName : "อยู่ระหว่างรวบรวมข้อมูลหอพัก";
-            dormElem.innerHTML = `จัดส่ง: <strong style="color: #1f2937;">${dormText}</strong>`;
-            dormElem.style.display = "block";
-            document.getElementById('billReceiptNum').parentElement.style.marginBottom = "5px";
-        } else {
-            if(dormElem) dormElem.style.display = "none";
-        }
+        let dormText = (selectedDormName && selectedDormName.trim() !== "") ? selectedDormName : "รับหน้าร้าน (ไม่จัดส่ง)";
+        dormElem.innerHTML = `จัดส่ง: <strong style="color: #1f2937;">${dormText}</strong>`;
+        dormElem.style.display = "block";
+        document.getElementById('billReceiptNum').parentElement.style.marginBottom = "5px";
 
         document.getElementById('billGrandTotal').innerText = '฿' + total.toLocaleString(undefined, {minimumFractionDigits: 2});
 
@@ -1170,7 +1162,7 @@
             container.innerHTML = `<div style="text-align: center; color: #9ca3af; margin-top: 50px;"><div style="font-size: 40px; margin-bottom: 10px;">🛒</div>ยังไม่มีสินค้าในตะกร้า</div>`;
             grandTotalEl.innerText = '฿0.00'; 
             btnCheckout.disabled = true; 
-            btnCheckout.style.background = "#16a34a";
+            btnCheckout.style.background = "#16a34a"; // รีเซ็ตสีปุ่ม
             btnCheckout.innerText = "รับชำระเงิน (QR พร้อมเพย์/แม่มณี)";
             return;
         }
@@ -1198,18 +1190,15 @@
         
         if (HAS_BOX_ITEM && requiredBoxes > BOX_QUANTITY) {
             btnCheckout.disabled = true;
-            btnCheckout.style.background = "#dc2626";
+            btnCheckout.style.background = "#dc2626"; // ปุ่มสีแดง
             btnCheckout.innerText = `⚠️ กล่องไม่พอ (ต้องการ ${requiredBoxes} ใบ, มี ${Math.floor(BOX_QUANTITY)} ใบ)`;
         } else {
             btnCheckout.disabled = false;
-            btnCheckout.style.background = "#16a34a";
+            btnCheckout.style.background = "#16a34a"; // ปุ่มสีเขียวปกติ
             btnCheckout.innerText = "รับชำระเงิน (QR พร้อมเพย์/แม่มณี)";
         }
     }
 
-    // -----------------------------------------------------
-    // 🌟 ระบบค้นหาและกรองหอพัก (Search & Filter)
-    // -----------------------------------------------------
     let allDormsList = [];
     let currentZoneFilter = '';
 

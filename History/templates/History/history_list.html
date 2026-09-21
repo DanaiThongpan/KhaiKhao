@@ -20,7 +20,7 @@
         .history-table th, .history-table td { padding: 16px 20px; border-bottom: 1px solid #e5e7eb; vertical-align: middle; }
         .history-table th { background: #f8fafc; font-weight: bold; color: #475569; font-size: 14px; white-space: nowrap; }
         .history-table tr:hover { background: #f8fafc; }
-        .status-badge { padding: 6px 12px; border-radius: 20px; font-size: 12px; font-weight: bold; background: #dcfce7; color: #166534; display: inline-block; white-space: nowrap; }
+        .status-badge { padding: 6px 12px; border-radius: 20px; font-size: 12px; font-weight: bold; display: inline-block; white-space: nowrap; }
 
         .action-buttons { display: flex; gap: 8px; justify-content: center; }
         .action-btn { background: #fff; border: 1px solid #d1d5db; padding: 8px 14px; border-radius: 8px; font-size: 13px; cursor: pointer; color: #374151; font-weight: bold; transition: all 0.2s; display: inline-flex; align-items: center; justify-content: center; gap: 6px; box-shadow: 0 1px 2px rgba(0,0,0,0.02); white-space: nowrap; width: 100%; max-width: 85px; }
@@ -91,6 +91,7 @@
         <nav class="menu">
             <a href="{% url 'pos:home' %}" class="menu-item"><span>🏠</span><span>หน้าหลัก</span></a>
             <a href="{% url 'history:home' %}" class="menu-item active"><span>📜</span><span>ประวัติการขาย</span></a>
+            <a href="{% url 'pos:check_slips' %}" class="menu-item"><span>📸</span><span>ตรวจสอบสลิป</span></a>
             <a href="{% url 'expenses:home' %}" class="menu-item"><span>💵</span><span>บันทึกรายจ่าย</span></a>
             <a href="{% url 'products:list' %}" class="menu-item"><span>📦</span><span>สินค้า</span></a>
             <a href="{% url 'stocks:list' %}" class="menu-item"><span>🛒</span><span>สต๊อกของใช้</span></a>
@@ -214,14 +215,19 @@
                         <td style="text-align: center; white-space: nowrap;">{{ order.created_at|date:"d/m/Y H:i" }}</td>
                         <td style="text-align: center; font-weight: bold; color: #16a34a;">฿{{ order.total_amount|floatformat:2 }}</td>
                         
-                        <!-- 🌟 เปลี่ยนกล่องสถานะ ให้แสดงหอพัก, สถานะการส่ง, และนาที -->
                         <td style="text-align: center;">
-                            <span class="status-badge" style="margin-bottom: 5px; display: inline-block;">✅ ชำระแล้ว</span>
+                            <!-- 🌟 อัปเดตการแสดงสถานะการโอนเงิน -->
+                            {% if order.payment_status == 'PAID' %}
+                                <span class="status-badge" style="margin-bottom: 5px; display: inline-block; background: #dcfce7; color: #166534;">✅ ชำระแล้ว</span>
+                            {% else %}
+                                <span class="status-badge" style="margin-bottom: 5px; display: inline-block; background: #fef3c7; color: #d97706;">⏳ รอโอนเงิน</span>
+                            {% endif %}
                             
+                            <!-- ข้อมูลการจัดส่ง -->
                             {% if order.delivery_info %}
                                 {% if order.delivery_info.destination %}
-                                    <div style="font-size: 12px; color: #1e40af; font-weight: bold; background: #dbeafe; padding: 4px 8px; border-radius: 6px; display: inline-block; white-space: nowrap; margin-bottom: 5px;">
-                                        📍 {{ order.delivery_info.destination.name }}
+                                    <div style="font-size: 12px; color: #1e40af; font-weight: bold; background: #dbeafe; padding: 4px 8px; border-radius: 6px; display: inline-block; white-space: nowrap; margin-bottom: 5px; width: 100%;">
+                                        📍 [{{ order.delivery_info.destination.zone }}] {{ order.delivery_info.destination.name }}
                                     </div>
                                 {% endif %}
 
@@ -257,7 +263,7 @@
                                 <button class="action-btn edit" onclick="openEditModal({{ order.id }}, '{{ order.receipt_number }}', 'items-{{ order.id }}')">
                                     ✏️ แก้ไข
                                 </button>
-                                <button class="action-btn download" onclick="openSlipModal('{{ order.receipt_number }}', '{{ order.created_at|date:'d/m/Y H:i' }}', {{ order.total_amount }}, '{{ request.user.username }}', 'items-{{ order.id }}')">
+                                <button class="action-btn download" onclick="openSlipModal('{{ order.receipt_number }}', '{{ order.created_at|date:'d/m/Y' }}', {{ order.total_amount }}, '{{ request.user.username }}', 'items-{{ order.id }}', '{% if order.delivery_info.destination %}[{{ order.delivery_info.destination.zone|escapejs }}] {{ order.delivery_info.destination.name|escapejs }}{% endif %}')">
                                     📥 สลิป
                                 </button>
                             </div>
@@ -281,6 +287,7 @@
      MODAL แก้ไขรายการ
 =============================================== -->
 <div id="editModal" class="modal-overlay">
+    <!-- คงส่วน Modal แก้ไขรายการเดิมไว้ -->
     <div class="modal-content">
         <h3 style="margin: 0 0 15px 0; color: #1f2937; display: flex; justify-content: space-between; align-items: center;">
             <span>✏️ แก้ไขรายการสินค้าในบิล</span>
@@ -317,6 +324,7 @@
      MODAL รูปแบบออกบิล
 =============================================== -->
 <div id="slipModal" class="modal-overlay" style="display: none;">
+    <!-- คงส่วน Modal พิมพ์บิลเดิมไว้ -->
     <div class="modal-content" style="max-width: 440px; text-align: center;">
         <div style="display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid #e5e7eb; padding-bottom: 15px; margin-bottom: 15px;">
             <h3 style="margin: 0; font-size: 18px;">📱 สร้าง QR Code & ดาวน์โหลดสลิป</h3>
@@ -350,11 +358,13 @@
 </div>
 
 <script>
+    // สคริปต์คงเดิม
     const PROMPTPAY_ID = "{{ shop_promptpay }}";
     const allProducts = JSON.parse(document.getElementById('all-products-data').textContent);
     
     const queryParams = "?days={{ days|default:'' }}&start_date={{ start_date|default:'' }}&end_date={{ end_date|default:'' }}";
     let currentDeleteUrl = ""; 
+    let currentSlipData = {};
 
     function generatePromptPayPayload(target, amount) {
         function tlv(tag, value) { return tag + String(value.length).padStart(2, '0') + value; }
@@ -467,8 +477,6 @@
         document.getElementById('editTotalPreview').innerText = sum.toFixed(2);
     }
 
-    let currentSlipData = {};
-
     function updatePrintSlotStatus() {
         let slot = parseInt(localStorage.getItem('printSlotIndex')) || 0;
         let statusEl = document.getElementById('printSlotStatus');
@@ -481,8 +489,8 @@
         alert("✅ รีเซ็ตตำแหน่งกระดาษ A4 เรียบร้อยแล้ว");
     }
 
-    function openSlipModal(receiptNo, dateStr, total, shopName, itemsScriptId) {
-        currentSlipData = { receiptNo, dateStr, total, shopName, itemsScriptId };
+    function openSlipModal(receiptNo, dateStr, total, shopName, itemsScriptId, dormName = "") {
+        currentSlipData = { receiptNo, dateStr, total, shopName, itemsScriptId, dormName };
         updatePrintSlotStatus();
         document.getElementById('slipModalTotal').innerText = '฿' + parseFloat(total).toFixed(2);
 
@@ -501,7 +509,7 @@
 
     function confirmReprint() {
         const type = document.querySelector('input[name="reprintType"]:checked').value;
-        const { receiptNo, dateStr, total, shopName, itemsScriptId } = currentSlipData;
+        const { receiptNo, dateStr, total, shopName, itemsScriptId, dormName } = currentSlipData;
 
         let qrContainer = document.getElementById('slipQrcode');
         let qrImg = qrContainer.querySelector('img') || qrContainer.querySelector('canvas');
@@ -510,14 +518,20 @@
         closeSlipModal();
 
         if (type === 'print') {
-            triggerPrintReceipt(receiptNo, itemsScriptId, parseFloat(total), qrDataUrl, shopName);
+            triggerPrintReceipt(receiptNo, itemsScriptId, parseFloat(total), qrDataUrl, shopName, dormName, dateStr);
         } else {
-            downloadSlipImage(receiptNo, dateStr, parseFloat(total), qrDataUrl, shopName, itemsScriptId);
+            downloadSlipImage(receiptNo, dateStr, parseFloat(total), qrDataUrl, shopName, itemsScriptId, dormName);
         }
     }
 
-    function triggerPrintReceipt(receiptNo, itemsScriptId, total, qrDataUrl, shopName) {
+    function triggerPrintReceipt(receiptNo, itemsScriptId, total, qrDataUrl, shopName, dormName, dateStr) {
         const items = JSON.parse(document.getElementById(itemsScriptId).textContent);
+        
+        let fullShopName = shopName;
+        if (shopName === 'P184') fullShopName = "🔥 ร้านทอดเป่า P184 🔥";
+        else if (shopName === 'M053') fullShopName = "🐷 ร้านเรื่องของหมู M053 🐷";
+        else if (!shopName.includes("ร้าน")) fullShopName = "🛒 ร้าน " + shopName;
+
         let printWindow = window.open('', '_blank');
         let currentSlot = parseInt(localStorage.getItem('printSlotIndex')) || 0;
 
@@ -528,11 +542,24 @@
         let leftOffset = 15 + (col * 95);
         let topOffset = 10 + (row * 95);
 
+        let dormText = (dormName && dormName.trim() !== "") ? dormName : "รับหน้าร้าน (ไม่จัดส่ง)";
+        let dormHtml = `<div class="info-text">จุดส่ง: <strong>${dormText}</strong></div>`;
+
+        let qrFooterDesc = (fullShopName.includes("M053") || fullShopName.includes("เรื่องของหมู")) ? 
+            `🐷 โอนแล้วรอสักครู่นะคะ 🐷<br>
+            ⚠️ รบกวนตรวจสอบยอดเงินก่อนยืนยัน ⚠️<br>
+            ขอบคุณที่อุดหนุนร้านเรื่องของหมูค่ะ 🙏` : 
+            `⚠️ กรุณาตรวจสอบความถูกต้องของยอดเงิน<br>
+            ↘❗ ก่อนกดยืนยันทุกครั้ง<br>
+            📢 หากพบว่ายอดเงินไม่ถูกต้อง<br>
+            ↘❗ กรุณาแจ้งทางร้านทันที<br>
+            🙇🏻‍♀️ ขอบคุณค่ะ/ครับ 🙇`;
+
         let htmlContent = `
             <html><head><title>ใบเสร็จ - ${receiptNo}</title>
             <style>
                 @page { size: A4; margin: 0; }
-                body { font-family: 'Courier New', Courier, monospace; margin: 0; background: #fff; color: #000; }
+                body { font-family: 'Courier New', Courier, monospace; margin: 0; padding: 0; background: #fff; color: #000; }
                 .receipt-box { position: absolute; left: ${leftOffset}mm; top: ${topOffset}mm; width: 85mm; height: 88mm; padding: 3mm 4mm; box-sizing: border-box; border: 1px dashed #ccc; display: flex; flex-direction: column; overflow: hidden; }
                 .center { text-align: center; }
                 .line { border-bottom: 1px dashed #000; margin: 4px 0; }
@@ -541,16 +568,18 @@
                 .qr-footer { display: flex; align-items: center; gap: 10px; margin-top: auto; }
                 .qr-footer img { width: 75px; height: 75px; }
                 .qr-desc { font-size: 9px; line-height: 1.3; color: #333; font-weight: bold; }
+                .info-text { font-size: 11px; margin: 2px 0; color: #333; }
             </style></head>
             <body onload="setTimeout(() => { window.print(); window.close(); }, 800);">
                 <div class="receipt-box">
                     <div class="center">
-                        <div style="font-size: 14px; font-weight: bold; margin: 0;">ร้าน ${shopName}</div>
+                        <div style="font-size: 14px; font-weight: bold; margin: 0;">${fullShopName}</div>
                         <div style="font-size: 10px; margin: 2px 0; color: #333;">สำเนาใบเสร็จ / Receipt Copy</div>
                     </div>
                     <div class="line"></div>
                     <div style="font-size: 11px;">เลขอ้างอิง: ${receiptNo}</div>
-                    <div style="font-size: 11px;">วันที่: ${new Date().toLocaleString('th-TH')}</div>
+                    <div style="font-size: 11px;">วันที่: ${dateStr}</div>
+                    ${dormHtml}
                     <div class="line"></div>
                     <div style="flex-grow: 1; overflow: hidden;">
         `;
@@ -563,7 +592,6 @@
             const prodName = item.name.toLowerCase();
             let isSubItem = excludeKeywords.some(kw => prodName.includes(kw) || catName.includes(kw));
 
-             // บังคับให้ กับข้าว, น้ำเปล่า, ข้าวเปล่า เป็นรายการหลักเสมอ (มีเลขนำหน้า)
             if (prodName.includes("กับข้าว") || catName.includes("กับข้าว") || prodName.includes("น้ำเปล่า") || prodName.includes("ข้าวเปล่า") || prodName.includes("ข้าวปล่าว")) {
                 isSubItem = false;
             }
@@ -594,7 +622,7 @@
                     </div>
                     <div class="qr-footer">
                         ${qrDataUrl ? `<img src="${qrDataUrl}">` : ''}
-                        <div class="qr-desc">⚠️ สแกนจ่ายผ่าน QR Code<br>ตรวจสอบยอดก่อนกดยืนยัน<br>ขอบคุณค่ะ/ครับ</div>
+                        <div class="qr-desc">${qrFooterDesc}</div>
                     </div>
                 </div>
             </body></html>
@@ -603,8 +631,13 @@
         printWindow.document.close();
     }
 
-    function downloadSlipImage(receiptNo, dateStr, total, qrDataUrl, shopName, itemsScriptId) {
+    function downloadSlipImage(receiptNo, dateStr, total, qrDataUrl, shopName, itemsScriptId, dormName) {
         const items = JSON.parse(document.getElementById(itemsScriptId).textContent);
+
+        let fullShopName = shopName;
+        if (shopName === 'P184') fullShopName = "🔥 ร้านทอดเป่า P184 🔥";
+        else if (shopName === 'M053') fullShopName = "🐷 ร้านเรื่องของหมู M053 🐷";
+        else if (!shopName.includes("ร้าน")) fullShopName = "🛒 ร้าน " + shopName;
 
         const slipContainer = document.createElement('div');
         slipContainer.style.position = 'absolute';
@@ -619,6 +652,9 @@
 
         const excludeKeywords = ["topping", "ท็อปปิ้ง", "กับข้าว", "พิเศษ", "เครื่องดื่ม", "เพิ่มเติม"];
         let mainIndex = 1;
+
+        let dormText = (dormName && dormName.trim() !== "") ? dormName : "รับหน้าร้าน (ไม่จัดส่ง)";
+        let dormHtml = `<div style="display: flex; justify-content: space-between; margin-top: 4px;"><span>จัดส่ง:</span> <span style="font-weight: 500; text-align: right; max-width: 70%;">${dormText}</span></div>`;
         
         let itemsHtml = items.map(item => {
             const catName = (item.category || "").toLowerCase();
@@ -647,15 +683,16 @@
             }
         }).join('');
 
-        if (shopName.includes("M053") || shopName.includes("เรื่องของหมู")) {
+        if (fullShopName.includes("M053") || fullShopName.includes("เรื่องของหมู")) {
             slipContainer.innerHTML = `
                 <div style="text-align: center; border-bottom: 2px dashed #fbcfe8; padding-bottom: 15px; margin-bottom: 15px;">
-                    <h2 style="margin: 0 0 5px 0; font-size: 24px; color: #be185d;">🐷 ร้านเรื่องของหมู 🐷</h2>
+                    <h2 style="margin: 0 0 5px 0; font-size: 24px; color: #be185d;">${fullShopName}</h2>
                     <p style="margin: 0; font-size: 14px; color: #db2777;">รายละเอียดออเดอร์</p>
                 </div>
                 <div style="margin-bottom: 20px; font-size: 14px; color: #4b5563; line-height: 1.6;">
                     <div style="display: flex; justify-content: space-between;"><span>เลขที่บิล:</span> <span style="font-weight: 500;">${receiptNo}</span></div>
                     <div style="display: flex; justify-content: space-between;"><span>วันที่:</span> <span>${dateStr}</span></div>
+                    ${dormHtml}
                 </div>
                 <div style="border-bottom: 2px dashed #fbcfe8; border-top: 2px dashed #fbcfe8; padding: 15px 0; margin-bottom: 15px;">
                     <div style="font-weight: bold; margin-bottom: 8px; color: #be185d;">รายการอาหาร:</div>
@@ -678,12 +715,13 @@
             slipContainer.innerHTML = `
                 <div style="text-align: center; border-bottom: 1px dashed #d1d5db; padding-bottom: 15px; margin-bottom: 15px;">
                     <div style="font-size: 30px; margin-bottom: 5px;">POS By Danai</div>
-                    <h2 style="margin: 0 0 5px 0; font-size: 24px; color: #111827;">🔥 ร้านทอดเป่า P184 🔥</h2>
+                    <h2 style="margin: 0 0 5px 0; font-size: 24px; color: #111827;">${fullShopName}</h2>
                     <p style="margin: 0; font-size: 14px; color: #6b7280;">ใบรายละเอียดออเดอร์ / Order Details</p>
                 </div>
                 <div style="margin-bottom: 20px; font-size: 14px; color: #4b5563; line-height: 1.6;">
                     <div style="display: flex; justify-content: space-between;"><span>เลขที่บิล:</span> <span style="font-weight: 500;">${receiptNo}</span></div>
                     <div style="display: flex; justify-content: space-between;"><span>วันที่:</span> <span>${dateStr}</span></div>
+                    ${dormHtml}
                 </div>
                 <div style="border-bottom: 1px dashed #d1d5db; border-top: 1px dashed #d1d5db; padding: 15px 0; margin-bottom: 15px;">
                     ${itemsHtml}

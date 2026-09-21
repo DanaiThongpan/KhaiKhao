@@ -23,10 +23,12 @@
             margin-bottom: 25px;
             border: 1px solid #e5e7eb;
         }
-        .filter-group { display: flex; flex-direction: column; gap: 5px; }
+        .filter-group { display: flex; flex-direction: column; gap: 5px; flex: 1; min-width: 150px; }
         .filter-group label { font-size: 13px; font-weight: bold; color: #4b5563; }
-        .filter-group select { padding: 8px 12px; border: 1px solid #d1d5db; border-radius: 6px; font-size: 14px; outline: none; background: #fff; cursor: pointer; }
-        .btn-reset { background: #64748b; color: white; text-decoration: none; padding: 8px 15px; border-radius: 6px; font-size: 14px; font-weight: bold; display: inline-block; transition: 0.2s; }
+        .filter-group select, .filter-group input { padding: 10px 12px; border: 1px solid #d1d5db; border-radius: 6px; font-size: 14px; outline: none; background: #fff; cursor: pointer; width: 100%; font-family: inherit; }
+        .filter-group select:focus, .filter-group input:focus { border-color: #16a34a; box-shadow: 0 0 0 2px rgba(22,163,74,0.1); }
+        
+        .btn-reset { background: #64748b; color: white; text-decoration: none; padding: 10px 15px; border-radius: 6px; font-size: 14px; font-weight: bold; display: inline-block; transition: 0.2s; white-space: nowrap; height: 42px; line-height: 22px; }
         .btn-reset:hover { background: #475569; }
 
         /* =====================================================
@@ -95,6 +97,7 @@
             padding: 4px;
             border-radius: 30px;
             gap: 2px;
+            flex-wrap: wrap;
         }
         .filter-btn {
             padding: 8px 20px;
@@ -202,13 +205,12 @@
             text-shadow: 0 1px 1px rgba(0,0,0,0.05);
         }
 
-        /* =====================================================
-           RESPONSIVE
-        ===================================================== */
         @media (max-width: 768px) {
             .total-summary-card { flex-direction: column; text-align: center; justify-content: center; }
             .chart-header { flex-direction: column; align-items: flex-start; }
             .report-grid { grid-template-columns: 1fr; }
+            .filter-form-bar { flex-direction: column; align-items: stretch; }
+            .btn-reset { text-align: center; }
         }
     </style>
 </head>
@@ -266,8 +268,9 @@
 
         <div style="max-width: 1400px; margin: 0 auto; padding-top: 10px;">
             
+            <!-- 🌟 FILTER BAR (อัปเดตเพิ่มตัวเลือกเดือน) 🌟 -->
             <form method="GET" class="filter-form-bar">
-                <div class="filter-group" style="flex: 1; max-width: 350px;">
+                <div class="filter-group" style="max-width: 350px;">
                     <label for="user">เลือกร้านค้า / ผู้ใช้งาน:</label>
                     <select name="user" id="user" onchange="this.form.submit()">
                         <option value="">🌐 ยอดรวมทั้งหมด (ทุกร้าน)</option>
@@ -278,17 +281,24 @@
                         {% endfor %}
                     </select>
                 </div>
+                
+                <div class="filter-group" style="max-width: 250px;">
+                    <label for="month_picker">เลือกเดือนเฉพาะเจาะจง:</label>
+                    <input type="month" name="month_picker" id="month_picker" value="{{ selected_month }}" onchange="this.form.submit()">
+                </div>
+
                 <input type="hidden" name="filter" value="{{ filter_type }}">
-                {% if selected_user_id %}
+                
+                {% if selected_user_id or selected_month %}
                 <div style="align-self: flex-end;">
-                    <a href="{% url 'reports:home' %}" class="btn-reset">🔄 ล้างการกรอง</a>
+                    <a href="{% url 'reports:home' %}?filter={{ filter_type }}" class="btn-reset">🔄 ล้างการกรอง</a>
                 </div>
                 {% endif %}
             </form>
 
             <div class="total-summary-card">
                 <div class="details">
-                    <span>ยอดขายสะสมรวมทั้งหมด (Grand Total)</span>
+                    <span>ยอดขายสะสมตามช่วงเวลาที่กรอง</span>
                     <strong>฿{{ grand_total|floatformat:2 }}</strong>
                 </div>
                 <div class="icon">💰</div>
@@ -299,9 +309,11 @@
                 <div class="chart-header">
                     <h3>📈 {{ chart_label }}</h3>
                     <div class="filter-tabs">
-                        <a href="?filter=day{% if selected_user_id %}&user={{ selected_user_id }}{% endif %}" class="filter-btn {% if filter_type == 'day' %}active{% endif %}">รายวัน</a>
-                        <a href="?filter=month{% if selected_user_id %}&user={{ selected_user_id }}{% endif %}" class="filter-btn {% if filter_type == 'month' %}active{% endif %}">รายเดือน</a>
-                        <a href="?filter=year{% if selected_user_id %}&user={{ selected_user_id }}{% endif %}" class="filter-btn {% if filter_type == 'year' %}active{% endif %}">รายปี</a>
+                        <!-- 🌟 ส่ง parameter ทั้งหมดกลับไปด้วยเพื่อคงค่าการกรองร้านและเดือน 🌟 -->
+                        <a href="?filter=day{% if selected_user_id %}&user={{ selected_user_id }}{% endif %}{% if selected_month %}&month_picker={{ selected_month }}{% endif %}" class="filter-btn {% if filter_type == 'day' %}active{% endif %}">รายวัน</a>
+                        <a href="?filter=week{% if selected_user_id %}&user={{ selected_user_id }}{% endif %}{% if selected_month %}&month_picker={{ selected_month }}{% endif %}" class="filter-btn {% if filter_type == 'week' %}active{% endif %}">รายสัปดาห์</a>
+                        <a href="?filter=month{% if selected_user_id %}&user={{ selected_user_id }}{% endif %}{% if selected_month %}&month_picker={{ selected_month }}{% endif %}" class="filter-btn {% if filter_type == 'month' %}active{% endif %}">รายเดือน</a>
+                        <a href="?filter=year{% if selected_user_id %}&user={{ selected_user_id }}{% endif %}{% if selected_month %}&month_picker={{ selected_month }}{% endif %}" class="filter-btn {% if filter_type == 'year' %}active{% endif %}">รายปี</a>
                     </div>
                 </div>
                 <div style="position: relative; height: 350px; width: 100%;">
@@ -399,7 +411,7 @@
 <script>
     const labels = [
         {% for row in chart_data %}
-            "{% if filter_type == 'year' %}{{ row.period|date:'Y' }}{% elif filter_type == 'month' %}{{ row.period|date:'M Y' }}{% else %}{{ row.period|date:'d M' }}{% endif %}",
+            "{% if filter_type == 'year' %}{{ row.period|date:'Y' }}{% elif filter_type == 'month' %}{{ row.period|date:'M Y' }}{% elif filter_type == 'week' %}สัปดาห์ {{ row.period|date:'d M Y' }}{% else %}{{ row.period|date:'d M' }}{% endif %}",
         {% endfor %}
     ];
 
@@ -409,14 +421,12 @@
         {% endfor %}
     ];
 
-    // ดึงจำนวนออเดอร์มาใส่กราฟ
     const orderCounts = [
         {% for row in chart_data %}
             {{ row.order_count|default:0 }},
         {% endfor %}
     ];
     
-    // ดึงจำนวนกล่องมาใส่กราฟ (ถ้าใน views.py ส่งค่า item_qty มา จะแสดงจำนวนกล่องที่ขายได้)
     const itemQtys = [
         {% for row in chart_data %}
             {{ row.item_qty|default:0 }},
@@ -456,8 +466,8 @@
                     pointBorderWidth: 2,
                     pointRadius: 5, 
                     pointHoverRadius: 7,
-                    tension: 0.4, // ใช้เส้นโค้งสวยงามเหมือนเดิม
-                    yAxisID: 'y' // ใช้แกนเดียวกับกราฟแท่ง ทำให้เส้นทับกันพอดี
+                    tension: 0.4, 
+                    yAxisID: 'y'
                 }
             ]
         },
@@ -481,7 +491,7 @@
             },
             plugins: {
                 legend: { 
-                    display: false // ซ่อนแถบด้านบนเพื่อให้กราฟดูคลีนๆ (เพราะมันคือข้อมูลเดียวกัน)
+                    display: false 
                 },
                 tooltip: {
                     backgroundColor: 'rgba(15, 23, 42, 0.95)',
@@ -489,7 +499,6 @@
                     bodyFont: { size: 14, font: 'normal' },
                     padding: 12,
                     cornerRadius: 8,
-                    // กรองให้โชว์กล่อง Tooltip แค่กล่องเดียว (ป้องกันข้อความซ้ำกัน)
                     filter: function(tooltipItem) {
                         return tooltipItem.datasetIndex === 0;
                     },
@@ -497,7 +506,6 @@
                         label: function(context) {
                             return ' 💰 ยอดขาย: ฿' + context.parsed.y.toLocaleString(undefined, {minimumFractionDigits: 2});
                         },
-                        // เพิ่มข้อมูลอื่นๆ ต่อท้ายด้านล่างยอดขาย
                         afterLabel: function(context) {
                             let index = context.dataIndex;
                             let orders = orderCounts[index];
