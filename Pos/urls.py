@@ -10,5 +10,7 @@ urlpatterns = [
     path('api/compare/', views.api_compare_profit, name='api_compare'), # <--- เพิ่มบรรทัดนี้
     path('check-slips/', views.check_slips, name='check_slips'),
     path('api/check-slips/', views.api_check_slips, name='api_check_slips'),
-    path('confirm-slips/', views.confirm_matched_slips, name='confirm_slips')
+    path('confirm-slips/', views.confirm_matched_slips, name='confirm_slips'),
+    path('mark-unpaid/', views.mark_order_unpaid, name='mark_unpaid'),
+    path('reset-slip/', views.reset_slip_ref, name='reset_slip_ref'),
 ]

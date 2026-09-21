@@ -264,12 +264,12 @@ def process_checkout(request):
             return JsonResponse({"status": "error", "message": str(e)}, status=500)
 
     return JsonResponse({"status": "error", "message": "Invalid request"}, status=400)
+
 @login_required
 def check_slips(request):
     results = []
-    today = timezone.localdate()
     
-    # 🌟 1. รับค่าวันที่จากช่องค้นหา (ถ้าไม่ได้เลือก ให้ใช้วันนี้)
+    # 1. รับค่าวันที่จากช่องค้นหา (ถ้าไม่ได้เลือก ให้ใช้วันนี้)
     filter_date_str = request.GET.get('filter_date')
     if filter_date_str:
         try:
@@ -279,24 +279,25 @@ def check_slips(request):
     else:
         selected_date = timezone.localdate()
     
-    # 🌟 2. ดึงบิลตามวันที่กรอง (สำหรับแสดงฝั่งซ้าย)
+    # ดึงบิลตามวันที่กรองเฉพาะที่ยังไม่จ่าย (หรือทั้งหมดตามต้องการ)
     orders = Order.objects.filter(
         created_by=request.user, 
         created_at__date=selected_date
     ).select_related('delivery_info__destination').prefetch_related('items__product').order_by('-created_at')
     
-    # (ลบโค้ด orders บรรทัดที่ดึง today ซ้ำออกไป เพื่อไม่ให้ทับค่า selected_date)
-    
     if request.method == 'POST' and request.FILES.getlist('slips'):
         files = request.FILES.getlist('slips')
         
-        # ดึงบิลย้อนหลัง 2 วัน
+        # ดึงบิลมาเทียบเฉพาะวันที่กรอง
         recent_orders = Order.objects.filter(
             created_by=request.user,
-            created_at__gte=timezone.localtime() - timedelta(days=2)
+            created_at__date=selected_date
         ).select_related('delivery_info__destination').prefetch_related('items__product').order_by('-created_at')
 
-        used_transactions = [] # สมมติลิสต์รายการที่เคยใช้
+        used_transactions = list(Order.objects.filter(
+            created_by=request.user, 
+            transaction_ref__isnull=False
+        ).exclude(transaction_ref="").values_list('transaction_ref', flat=True))
 
         for f in files:
             try:
@@ -305,39 +306,78 @@ def check_slips(request):
                 img = enhancer.enhance(2.0)
                 text = pytesseract.image_to_string(img, lang='eng+tha')
 
-                # 1. หา Ref
                 ref_matches = re.findall(r'[A-Za-z0-9]{15,30}', text)
                 slip_ref_id = ref_matches[0] if ref_matches else None
 
-                # 2. หาเวลา
                 time_matches = re.findall(r'([0-1]?[0-9]|2[0-3]):([0-5][0-9])', text)
                 slip_time_str = f"{time_matches[0][0]}:{time_matches[0][1]}" if time_matches else None
 
-                # 3. หายอดเงิน "ทุกตัว" ที่เป็นไปได้ในสลิป
-                amount_matches = re.findall(r'\d{1,3}(?:,\d{3})*\.\d{2}', text)
-                float_amounts = [float(a.replace(',', '')) for a in amount_matches]
+                # 🌟 ปรับปรุงการสแกนยอดเงินให้อัจฉริยะขึ้น (มองหาคำว่า "จํานวน", "THB", "บาท" หรือตัวเลขที่อยู่หลังหัวข้อจำนวนเงิน)
+                slip_amount = None
                 
+                # วิธีที่ 1: ค้นหาบรรทัดที่มีคำว่า จำนวน / บาท / THB แล้วดึงตัวเลขราคาขึ้นมา
+                lines = text.split('\n')
+                for i, line in enumerate(lines):
+                    if any(kw in line for kw in ['จำนวน', 'จํานวน', 'THB', 'บาท', 'Amount']):
+                        # ลองหาตัวเลขทศนิยมในบรรทัดเดียวกันหรือบรรทัดใกล้เคียง
+                        nums = re.findall(r'\d{1,3}(?:,\d{3})*\.\d{2}', line)
+                        if nums:
+                            val = float(nums[-1].replace(',', ''))
+                            if val > 0 and val < 100000: # กรองช่วงราคาอาหารปกติ
+                                slip_amount = val
+                                break
+                
+                # วิธีที่ 2: ถ้าวิธีแรกไม่เจอ ให้หากลุ่มตัวเลขทั้งหมด แต่กรองตัวเลขที่เป็นไปไม่ได้ออก (เช่น ตัด 0.00 หรือเลขบัญชี)
+                if not slip_amount:
+                    all_amounts = re.findall(r'\d{1,3}(?:,\d{3})*\.\d{2}', text)
+                    valid_amounts = []
+                    for a in all_amounts:
+                        val = float(a.replace(',', ''))
+                        # ตัดค่าธรรมเนียม 0.00 หรือเลขบัญชี/เลขอ้างอิงที่มักจะเป็นเลขศูนย์หรือค่าแปลกๆ ออก
+                        if val > 0.00 and val != 0.00:
+                            valid_amounts.append(val)
+                    
+                    if valid_amounts:
+                        # หากมีหลายค่า ให้เลือกค่าที่ตรงกับ "ยอดรวมของบิลที่มีอยู่ในระบบของวันนี้" ก่อน (ฉลาดขึ้น!)
+                        matching_order_amt = None
+                        for order in recent_orders:
+                            if float(order.total_amount) in valid_amounts:
+                                matching_order_amt = float(order.total_amount)
+                                break
+                        
+                        if matching_order_amt:
+                            slip_amount = matching_order_amt
+                        else:
+                            # ถ้าไม่ตรงกับบิลไหนเลย ให้เอาค่าที่สมเหตุสมผลที่สุด (เช่น ค่ากลางๆ หรือค่าที่ไม่ใช่เลขบัญชี)
+                            slip_amount = max(valid_amounts) if valid_amounts else None
+
                 matched_order = None
                 match_status = "NOT_FOUND"
                 time_diff_minutes = None
-                
-                # Default ยอดเงินที่จะแสดง (กรณีหาไม่เจอบิลจริงๆ จะโชว์ยอดมากสุด)
-                final_amount = max(float_amounts) if float_amounts else None
+                possible_matches = []
 
                 if slip_ref_id and slip_ref_id in used_transactions:
                     match_status = "DUPLICATE"
-                elif float_amounts:
-                    # 🌟 ลอจิกใหม่: นำยอดที่อ่านเจอทุกตัวไปหาบิล (เผื่อ OCR อ่านขยะมาด้วย)
-                    potential_orders = []
-                    for amt in sorted(float_amounts, reverse=True):
-                        # ใช้ abs() < 0.01 ช่วยเทียบยอดเงิน กันปัญหาทศนิยม (เช่น 55.00 != 55.0001)
-                        pots = [o for o in recent_orders if abs(float(o.total_amount) - amt) < 0.01]
-                        if pots:
-                            potential_orders = pots
-                            final_amount = amt # ยึดยอดนี้เป็นหลักทันที
-                            break
+                
+                elif slip_amount:
+                    # ค้นหาบิลที่ยอดเงินตรงกัน (บวก/ลบไม่เกิน 0.01 และยังไม่จ่าย)
+                    potential_orders = [o for o in recent_orders if abs(float(o.total_amount) - slip_amount) < 0.01 and o.payment_status != 'PAID']
 
                     if potential_orders:
+                        for po in potential_orders:
+                            d_name = "หน้าร้าน/ไม่ระบุ"
+                            if hasattr(po, 'delivery_info') and po.delivery_info.destination:
+                                d_name = po.delivery_info.destination.name
+                            i_text = [f"{i.product.name} (x{i.quantity})" for i in po.items.all()]
+                            
+                            possible_matches.append({
+                                'id': po.id,
+                                'receipt_number': po.receipt_number,
+                                'dorm_name': d_name,
+                                'items': i_text,
+                                'time': timezone.localtime(po.created_at).strftime('%H:%M')
+                            })
+
                         if slip_time_str:
                             best_order = None
                             min_diff = float('inf')
@@ -361,27 +401,26 @@ def check_slips(request):
                         if match_status != "DUPLICATE":
                             match_status = "MATCHED"
 
-                # ดึงข้อมูลมาแสดงผล
                 order_items_text = []
-                dorm_name = "-"
+                dorm_name = "หน้าร้าน/ไม่ระบุ"
                 if matched_order:
                     for item in matched_order.items.all():
                         order_items_text.append(f"{item.product.name} (x{item.quantity})")
-                    
                     if hasattr(matched_order, 'delivery_info') and matched_order.delivery_info.destination:
                         dorm_name = matched_order.delivery_info.destination.name
 
                 results.append({
                     'filename': f.name,
-                    'amount': final_amount,
+                    'amount': slip_amount,
                     'time': slip_time_str,
                     'transaction_ref': slip_ref_id,
-                    'order_id': matched_order.id if matched_order else None, # 🌟 เพิ่มบรรทัดนี้
+                    'order_id': matched_order.id if matched_order else None,
                     'order_ref': matched_order.receipt_number if matched_order else "-",
                     'dorm_name': dorm_name,
                     'items': order_items_text,
                     'status': match_status,
-                    'time_diff': time_diff_minutes
+                    'time_diff': time_diff_minutes,
+                    'possible_matches': possible_matches
                 })
 
             except Exception as e:
@@ -394,9 +433,45 @@ def check_slips(request):
     return render(request, 'Pos/check_slips.html', {
         'results': results, 
         'orders': orders,
-        'selected_date': selected_date.strftime('%Y-%m-%d') # ส่งไปแสดงผลในช่องเลือกวันที่
+        'selected_date': selected_date.strftime('%Y-%m-%d')
     })
+from django.views.decorators.http import require_POST
+# API เปลี่ยนสถานะบิลกลับเป็น "ยังไม่จ่าย" (PENDING)
+@login_required
+@require_POST
+def mark_order_unpaid(request):
+    try:
+        data = json.loads(request.body)
+        order_id = data.get('order_id')
+        
+        if order_id:
+            Order.objects.filter(id=order_id, created_by=request.user).update(
+                payment_status='PENDING',
+                transaction_ref=None
+            )
+            return JsonResponse({"status": "success", "message": "อัปเดตสถานะเป็นยังไม่จ่ายเรียบร้อยแล้ว"})
+        return JsonResponse({"status": "error", "message": "ไม่พบรหัสบิล"}, status=400)
+    except Exception as e:
+        return JsonResponse({"status": "error", "message": str(e)}, status=500)
 
+# เพิ่มฟังก์ชันล้างค่า Ref เก่า (สำหรับปลดล็อกสลิปที่ขึ้นว่าเคยสแกนแล้ว)
+@login_required
+@require_POST
+def reset_slip_ref(request):
+    try:
+        data = json.loads(request.body)
+        ref = data.get('transaction_ref')
+        if ref:
+            # ไปเคลียร์ transaction_ref ให้เป็นค่าว่าง เพื่อให้สลิปนี้กลับมาสแกนใหม่ได้
+            Order.objects.filter(created_by=request.user, transaction_ref=ref).update(
+                transaction_ref=None,
+                payment_status='PENDING'
+            )
+            return JsonResponse({"status": "success", "message": "รีเซ็ตสลิปซ้ำเรียบร้อยแล้ว สามารถสแกนใหม่อีกครั้งได้"})
+        return JsonResponse({"status": "error", "message": "ไม่พบเลขอ้างอิงสลิป"}, status=400)
+    except Exception as e:
+        return JsonResponse({"status": "error", "message": str(e)}, status=500)
+    
 @login_required
 def api_check_slips(request):
     if request.method == 'POST' and request.FILES.getlist('slips'):

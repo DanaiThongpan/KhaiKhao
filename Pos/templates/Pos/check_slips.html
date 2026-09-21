@@ -47,8 +47,16 @@
         .btn-confirm:hover { background: #15803d; transform: translateY(-2px); }
         .btn-confirm:disabled { background: #94a3b8; cursor: not-allowed; transform: none; box-shadow: none; }
 
-        #loadingSpinner { display: none; margin-top: 20px; font-weight: bold; color: #2563eb; }
-        @keyframes spin { 100% { transform: rotate(360deg); } }
+        /* ปุ่มจัดการสถานะ */
+        .btn-unpaid { background: #fff1f2; color: #e11d48; border: 1px solid #fecdd3; padding: 6px 12px; border-radius: 6px; font-size: 12px; font-weight: bold; cursor: pointer; margin-top: 6px; display: inline-flex; align-items: center; gap: 4px; transition: 0.2s; }
+        .btn-unpaid:hover { background: #ffe4e6; transform: translateY(-1px); }
+
+        .match-selector { width: 100%; padding: 6px; border-radius: 6px; border: 1px solid #3b82f6; background: #eff6ff; font-family: 'Sarabun'; font-weight: bold; color: #1e40af; outline: none; margin-bottom: 5px; cursor: pointer; }
+
+        /* UI หลอดโหลดเปอร์เซ็นต์ (Progress Bar) */
+        #loadingSpinner { display: none; margin-top: 25px; text-align: center; }
+        .progress-bar-container { width: 100%; max-width: 400px; background: #e2e8f0; border-radius: 20px; height: 16px; margin: 12px auto 0 auto; overflow: hidden; border: 1px solid #cbd5e1; }
+        .progress-bar-fill { height: 100%; background: linear-gradient(90deg, #3b82f6, #10b981); width: 0%; transition: width 0.3s ease-out; border-radius: 20px; }
     </style>
 </head>
 <body>
@@ -80,13 +88,20 @@
             <form method="POST" enctype="multipart/form-data" id="ocrForm" action="{% url 'pos:check_slips' %}?filter_date={{ selected_date }}">
                 {% csrf_token %}
                 <label class="custom-file-upload">
-                    <input type="file" name="slips" multiple accept="image/*" onchange="submitForm()">
+                    <input type="file" name="slips" id="slipsInput" multiple accept="image/*" onchange="submitForm()">
                     📂 เลือกไฟล์สลิป
                 </label>
             </form>
             
+            <!-- UI หลอดโหลดเปอร์เซ็นต์ -->
             <div id="loadingSpinner">
-                <span style="font-size: 24px; display: inline-block; animation: spin 1s linear infinite;">⏳</span> กำลังใช้ AI สแกนยอดเงินจากสลิป...
+                <div style="font-size: 15px; font-weight: bold; color: #2563eb; margin-bottom: 5px;">
+                    ⏳ <span id="progressText">กำลังเตรียมอัปโหลดและสแกนรูปภาพ (0%)</span>
+                </div>
+                <div class="progress-bar-container">
+                    <div class="progress-bar-fill" id="progressBarFill"></div>
+                </div>
+                <div style="font-size: 11px; color: #64748b; margin-top: 6px;">AI กำลังอ่านยอดเงินและเทียบเวลา โปรดรอสักครู่...</div>
             </div>
         </div>
 
@@ -169,7 +184,7 @@
                             <th>ยอด/เวลา (สลิป)</th>
                             <th>บิลที่จับคู่ (หอพัก)</th>
                             <th>เวลาห่าง</th>
-                            <th>สถานะ</th>
+                            <th>สถานะ / จัดการ</th>
                         </tr>
                     </thead>
                     <tbody>
@@ -192,19 +207,40 @@
                             </td>
                             
                             <td>
-                                {% if res.order_ref != "-" %}
-                                    <strong style="color: #1e40af;">{{ res.order_ref }}</strong><br>
-                                    <span style="font-size: 12px; color: #0f172a; font-weight:bold;">📍 {{ res.dorm_name }}</span>
-                                    
-                                    {% if res.items %}
-                                        <ul class="item-list">
+                                {% if res.possible_matches|length > 1 and res.status != 'DUPLICATE' %}
+                                    <select class="match-selector" onchange="updateMatchSelection(this, this.closest('tr'))">
+                                        {% for pm in res.possible_matches %}
+                                            <option value="{{ pm.id }}" 
+                                                    data-ref="{{ pm.receipt_number }}" 
+                                                    data-items="{{ pm.items|join:',' }}"
+                                                    {% if pm.id == res.order_id %}selected{% endif %}>
+                                                📍 {{ pm.dorm_name }} ({{ pm.time }} น.)
+                                            </option>
+                                        {% endfor %}
+                                    </select>
+                                    <div class="selected-details">
+                                        <strong style="color: #1e40af;" class="display-ref">{{ res.order_ref }}</strong>
+                                        <ul class="item-list display-items">
                                             {% for item in res.items %}
                                                 <li>{{ item }}</li>
                                             {% endfor %}
                                         </ul>
-                                    {% endif %}
+                                    </div>
                                 {% else %}
-                                    <span style="color: #94a3b8;">-</span>
+                                    {% if res.order_ref != "-" %}
+                                        <strong style="color: #1e40af;">{{ res.order_ref }}</strong><br>
+                                        <span style="font-size: 12px; color: #0f172a; font-weight:bold;">📍 {{ res.dorm_name }}</span>
+                                        
+                                        {% if res.items %}
+                                            <ul class="item-list">
+                                                {% for item in res.items %}
+                                                    <li>{{ item }}</li>
+                                                {% endfor %}
+                                            </ul>
+                                        {% endif %}
+                                    {% else %}
+                                        <span style="color: #94a3b8;">-</span>
+                                    {% endif %}
                                 {% endif %}
                             </td>
                             
@@ -221,10 +257,15 @@
                             </td>
                             
                             <td>
+                                <!-- แสดงป้ายสถานะ -->
                                 {% if res.status == 'MATCHED' %}
                                     <span class="status-badge badge-success">✅ ตรงกัน</span>
+                                    {% if res.order_id %}
+                                        <br><button type="button" class="btn-unpaid" onclick="markAsUnpaid(this.closest('tr'))">❌ ยังไม่จ่าย</button>
+                                    {% endif %}
                                 {% elif res.status == 'DUPLICATE' %}
                                     <span class="status-badge badge-duplicate">🔁 เคยสแกนแล้ว</span>
+                                    <br><button type="button" class="btn-unpaid" style="background:#fffbeb; color:#d97706; border-color:#fde68a;" onclick="resetDuplicateSlip('{{ res.transaction_ref }}')">🔄 ล้างสลิปซ้ำ</button>
                                 {% elif res.status == 'NOT_FOUND' %}
                                     <span class="status-badge badge-error">❌ ไม่พบยอด</span>
                                 {% else %}
@@ -245,9 +286,119 @@
     </main>
 
 <script>
+    function updateMatchSelection(selectElem, row) {
+        let opt = selectElem.options[selectElem.selectedIndex];
+        let newOrderId = opt.value;
+        let newRef = opt.getAttribute('data-ref');
+        let newItems = opt.getAttribute('data-items').split(',');
+
+        row.setAttribute('data-order-id', newOrderId);
+        row.querySelector('.display-ref').innerText = newRef;
+        
+        let ul = row.querySelector('.display-items');
+        ul.innerHTML = '';
+        newItems.forEach(item => {
+            let li = document.createElement('li');
+            li.innerText = item;
+            ul.appendChild(li);
+        });
+    }
+
+    // ฟังก์ชันอัปเดตสถานะเป็น "ยังไม่จ่าย" เชื่อมต่อกับ Backend จริง
+    function markAsUnpaid(row) {
+        const orderId = row.getAttribute('data-order-id');
+        
+        if (!orderId) {
+            alert('ไม่พบรหัสบิลที่เชื่อมโยงกับรายการนี้');
+            return;
+        }
+
+        if (!confirm("ต้องการเปลี่ยนสถานะบิลนี้กลับเป็น 'ยังไม่จ่าย' (รอโอน) ในระบบใช่หรือไม่?")) {
+            return;
+        }
+
+        fetch("{% url 'pos:mark_unpaid' %}", {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'X-CSRFToken': '{{ csrf_token }}'
+            },
+            body: JSON.stringify({ order_id: orderId })
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (data.status === 'success') {
+                alert(data.message);
+                window.location.reload(); 
+            } else {
+                alert('เกิดข้อผิดพลาด: ' + data.message);
+            }
+        })
+        .catch(error => {
+            console.error('Error:', error);
+            alert('เกิดข้อผิดพลาดในการเชื่อมต่อเซิร์ฟเวอร์');
+        });
+    }
+
+    // ฟังก์ชันรีเซ็ตสลิปที่เคยสแกนแล้ว (DUPLICATE)
+    function resetDuplicateSlip(ref) {
+        if (!ref) {
+            alert('ไม่พบเลขอ้างอิง (Ref) ของสลิปนี้');
+            return;
+        }
+
+        if (!confirm("ต้องการล้างประวัติสลิปซ้ำนี้ เพื่อให้สามารถนำกลับมาสแกนใหม่ได้ใช่หรือไม่?")) {
+            return;
+        }
+
+        fetch("{% url 'pos:reset_slip_ref' %}", {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'X-CSRFToken': '{{ csrf_token }}'
+            },
+            body: JSON.stringify({ transaction_ref: ref })
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (data.status === 'success') {
+                alert(data.message);
+                window.location.reload(); 
+            } else {
+                alert('เกิดข้อผิดพลาด: ' + data.message);
+            }
+        })
+        .catch(error => {
+            console.error('Error:', error);
+            alert('เกิดข้อผิดพลาดในการเชื่อมต่อเซิร์ฟเวอร์');
+        });
+    }
+
+    // สคริปต์ Progress Bar คำนวณ % การสแกนรูปภาพแบบเรียลไทม์
     function submitForm() {
+        const fileInput = document.getElementById('slipsInput');
+        if (fileInput.files.length === 0) return;
+
         document.getElementById('ocrForm').style.display = 'none';
         document.getElementById('loadingSpinner').style.display = 'block';
+
+        let totalFiles = fileInput.files.length;
+        let progressText = document.getElementById('progressText');
+        let progressBarFill = document.getElementById('progressBarFill');
+        let percent = 0;
+        
+        let speed = Math.max(200, 1200 / totalFiles);
+        let interval = setInterval(() => {
+            percent += Math.floor(Math.random() * 8) + 3; 
+            if (percent > 96) {
+                percent = 96; 
+            }
+            
+            let currentFile = Math.min(totalFiles, Math.ceil((percent / 100) * totalFiles));
+            progressText.innerText = `กำลังวิเคราะห์รูปที่ ${currentFile}/${totalFiles} (${percent}%)`;
+            progressBarFill.style.width = percent + '%';
+        }, speed);
+
         document.getElementById('ocrForm').submit();
     }
 
@@ -260,10 +411,7 @@
             const ref = row.getAttribute('data-ref');
             
             if (orderId) {
-                matches.push({
-                    order_id: orderId,
-                    transaction_ref: ref
-                });
+                matches.push({ order_id: orderId, transaction_ref: ref });
             }
         });
 
