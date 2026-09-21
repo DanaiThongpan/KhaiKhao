@@ -370,7 +370,7 @@ def check_slips(request):
         created_at__date=selected_date
     ).select_related('delivery_info__destination').prefetch_related('items__product').order_by('-created_at')
     
-    # 🌟 รับไฟล์รูปที่บีบอัดแล้วจากหน้าเว็บ แล้วให้ Django ยิง API แทนเบราว์เซอร์ 🌟
+    # รับไฟล์รูปที่บีบอัดแล้วจากหน้าเว็บ แล้วให้ Django ยิง API แทนเบราว์เซอร์
     if request.method == 'POST' and request.FILES.getlist('slips'):
         files = request.FILES.getlist('slips')
         
@@ -383,6 +383,9 @@ def check_slips(request):
             created_by=request.user, 
             transaction_ref__isnull=False
         ).exclude(transaction_ref="").values_list('transaction_ref', flat=True))
+
+        # 🌟 สร้างชุดตัวแปรเก็บ ID บิลที่ถูกจับคู่ไปแล้วในรอบนี้ เพื่อป้องกันการแย่งบิลซ้ำ 🌟
+        matched_order_ids_in_batch = set()
 
         for f in files:
             try:
@@ -421,7 +424,13 @@ def check_slips(request):
                         if slip_ref_id and slip_ref_id in used_transactions:
                             match_status = "DUPLICATE"
                         elif slip_amount:
-                            potential_orders = [o for o in recent_orders if abs(float(o.total_amount) - slip_amount) < 0.01 and o.payment_status != 'PAID']
+                            # 🌟 กรองบิลที่ยอดตรงกัน, ยังไม่จ่าย และ "ยังไม่ถูกจับคู่ในรอบนี้" 🌟
+                            potential_orders = [
+                                o for o in recent_orders 
+                                if abs(float(o.total_amount) - slip_amount) < 0.01 
+                                and o.payment_status != 'PAID'
+                                and o.id not in matched_order_ids_in_batch
+                            ]
 
                             if potential_orders:
                                 for po in potential_orders:
@@ -438,8 +447,11 @@ def check_slips(request):
 
                                 # ระบบจับคู่ยอดเงินตรงกัน (เลือกบิลที่เก่าที่สุด FIFO ทันที ไม่สนเวลา)
                                 matched_order = potential_orders[-1]
+                                
                                 if match_status != "DUPLICATE":
                                     match_status = "MATCHED"
+                                    # 🌟 บันทึก ID บิลนี้ว่าถูกจับคู่ไปแล้ว สลิปใบต่อไปจะได้ข้ามไปหาบิลคิวถัดไป 🌟
+                                    matched_order_ids_in_batch.add(matched_order.id)
 
                         order_items_text = []
                         dorm_name = "หน้าร้าน/ไม่ระบุ"
