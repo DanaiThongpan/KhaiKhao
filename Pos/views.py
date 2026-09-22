@@ -350,7 +350,7 @@ from django.contrib.auth.decorators import login_required
 # สมมติว่าดึงโมเดลมาครบแล้ว เช่น Order, OrderItem, Dormitory...
 
 # 🌟 ใส่ลิงก์ Go API ตรงนี้
-API_GO_URL = "https://3aa8-49-229-22-76.ngrok-free.app/api/v1/scan-slip"
+API_GO_URL = "https://godanai.wdlabs.online/api/v1/scan-slip"
 
 @login_required
 def check_slips(request):
