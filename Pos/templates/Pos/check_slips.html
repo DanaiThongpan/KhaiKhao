@@ -41,6 +41,11 @@
         .btn-confirm:disabled { background: #94a3b8; cursor: not-allowed; transform: none; box-shadow: none; }
         .btn-unpaid { background: #fff1f2; color: #e11d48; border: 1px solid #fecdd3; padding: 6px 12px; border-radius: 6px; font-size: 12px; font-weight: bold; cursor: pointer; margin-top: 6px; display: inline-flex; align-items: center; gap: 4px; transition: 0.2s; }
         .btn-unpaid:hover { background: #ffe4e6; transform: translateY(-1px); }
+        
+        /* 🌟 CSS ปุ่มกดรับเงินแมนวล 🌟 */
+        .btn-manual-paid { background: #16a34a; color: white; border: none; padding: 6px 12px; border-radius: 6px; font-size: 11px; font-weight: bold; cursor: pointer; margin-top: 6px; display: inline-flex; align-items: center; gap: 4px; transition: 0.2s; box-shadow: 0 2px 4px rgba(22, 163, 74, 0.2); }
+        .btn-manual-paid:hover { background: #15803d; transform: translateY(-1px); }
+
         .match-selector { width: 100%; padding: 6px; border-radius: 6px; border: 1px solid #3b82f6; background: #eff6ff; font-family: 'Sarabun'; font-weight: bold; color: #1e40af; outline: none; margin-bottom: 5px; cursor: pointer; }
         #loadingSpinner { display: none; margin-top: 25px; text-align: center; }
         .progress-bar-container { width: 100%; max-width: 400px; background: #e2e8f0; border-radius: 20px; height: 16px; margin: 12px auto 0 auto; overflow: hidden; border: 1px solid #cbd5e1; }
@@ -86,7 +91,6 @@
             <h1 style="color: #1e293b; margin: 0; font-size: 22px;">🧾 ตรวจสอบสลิป (OCR)</h1>
         </div>
 
-        <!-- 🌟 แผงสรุปยอดขายของวันนี้ พร้อมจำนวนบิลขนาดใหญ่ 🌟 -->
         <div style="display: flex; gap: 15px; margin-bottom: 20px; flex-wrap: wrap;">
             <div style="background: white; padding: 15px 20px; border-radius: 12px; box-shadow: 0 4px 6px rgba(0,0,0,0.05); flex: 1; min-width: 150px; border-left: 4px solid #3b82f6;">
                 <div style="font-size: 12px; color: #64748b; font-weight: bold;">ยอดทั้งหมด ({{ orders|length }} บิล)</div>
@@ -98,7 +102,6 @@
                     <div style="font-size: 12px; color: #64748b; font-weight: bold;">ได้รับแล้ว (PAID)</div>
                     <div style="font-size: 20px; font-weight: bold; color: #16a34a;" id="summaryPaid">฿0.00</div>
                 </div>
-                <!-- 🌟 กล่องโชว์จำนวนโอนแล้ว X/Y ตัวใหญ่ 🌟 -->
                 <div style="text-align: right; background: #dcfce7; padding: 5px 15px; border-radius: 8px;">
                     <div style="font-size: 11px; color: #16a34a; font-weight: bold;">โอนแล้ว (บิล)</div>
                     <div style="font-size: 28px; font-weight: bold; color: #15803d; line-height: 1;" id="summaryCount">0/0</div>
@@ -116,7 +119,6 @@
             <h3 style="margin: 0 0 5px 0; color: #334155;">ลากไฟล์สลิปมาวางที่นี่ หรือคลิกเพื่อเลือกไฟล์</h3>
             <p style="margin: 0; color: #16a34a; font-weight: bold; font-size: 14px;">(ระบบ Real-Time API • ไฟล์ต้นฉบับ 100% • จับคู่ 1:1)</p>
             
-            <!-- 🌟 ปุ่มเลือกไฟล์ และ ปุ่มหยุดสแกน 🌟 -->
             <div style="display: flex; gap: 10px; justify-content: center; margin-top: 15px;">
                 <label class="custom-file-upload" id="uploadLabel">
                     <input type="file" id="slipsInput" multiple accept="image/*" onchange="startRealTimeScan()">
@@ -158,7 +160,7 @@
                             <tr>
                                 <th>เลขที่บิล / เวลา</th>
                                 <th>ข้อมูลหอพัก & สินค้า</th>
-                                <th>ยอดรวม</th>
+                                <th>ยอดรวม / สถานะ</th>
                             </tr>
                         </thead>
                         <tbody id="historyTbody">
@@ -185,7 +187,11 @@
                                     {% if order.payment_status == 'PAID' %}
                                         <span class="status-badge badge-success" style="margin-top: 5px;">✅ จ่ายแล้ว</span>
                                     {% else %}
-                                        <span class="status-badge badge-warning" style="margin-top: 5px;">⏳ รอโอน</span>
+                                        <span class="status-badge badge-warning" style="margin-top: 5px;">⏳ รอโอน</span><br>
+                                        <!-- 🌟 ปุ่มกดแมนวลรับเงินทันที โดยไม่ต้องสแกนสลิป 🌟 -->
+                                        <button type="button" class="btn-manual-paid" onclick="manualMarkPaid({{ order.id }})">
+                                            💵 กดรับเงินแล้ว
+                                        </button>
                                     {% endif %}
                                 </td>
                             </tr>
@@ -242,7 +248,7 @@
     let countPendingOrders = 0;
     const totalOrdersCount = {{ orders|length }}; 
     
-    let abortScan = false; // 🌟 ตัวแปรสำหรับปุ่มหยุดสแกน 🌟
+    let abortScan = false;
 
     document.addEventListener('DOMContentLoaded', () => {
         calculateSummary(); 
@@ -274,9 +280,33 @@
         document.getElementById('summaryTotal').innerText = `฿${totalSales.toLocaleString('th-TH', {minimumFractionDigits: 2, maximumFractionDigits: 2})}`;
         document.getElementById('summaryPaid').innerText = `฿${totalPaid.toLocaleString('th-TH', {minimumFractionDigits: 2, maximumFractionDigits: 2})}`;
         document.getElementById('summaryPending').innerText = `฿${totalPending.toLocaleString('th-TH', {minimumFractionDigits: 2, maximumFractionDigits: 2})}`;
-        
-        // 🌟 อัปเดตตัวเลข โอนแล้ว X/Y บนกล่องสีเขียว 🌟
         document.getElementById('summaryCount').innerText = `${countPaidOrders}/${totalOrdersCount}`;
+    }
+
+    // 🌟 ฟังก์ชันอัปเดตบิลเป็นจ่ายแล้ว (Manual แบบไม่ง้อสลิป) 🌟
+    function manualMarkPaid(orderId) {
+        if (!confirm("ต้องการเปลี่ยนสถานะบิลนี้เป็น 'จ่ายแล้ว' (ชำระเงินสด/โอนตรง) ใช่หรือไม่?")) return;
+
+        let csrfToken = document.querySelector('#csrf-wrapper input[name=csrfmiddlewaretoken]').value;
+        
+        // อาศัย API การบันทึกสลิปเดิม โดยแนบ Transaction Ref เป็นรหัสจำลองของระบบ
+        let payload = {
+            matches: [
+                { order_id: orderId, transaction_ref: "MANUAL-" + Math.floor(Math.random() * 1000000) }
+            ]
+        };
+
+        fetch("{% url 'pos:confirm_slips' %}", {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json', 'X-CSRFToken': csrfToken },
+            body: JSON.stringify(payload)
+        }).then(res => res.json()).then(data => {
+            if (data.status === 'success') { 
+                alert("✅ บันทึกรับเงินสำเร็จ!");
+                window.location.reload(); 
+            } 
+            else { alert('เกิดข้อผิดพลาด: ' + data.message); }
+        });
     }
 
     function toggleEditMatch(elem, showEdit) {
@@ -435,7 +465,6 @@
         `;
     }
 
-    // 🌟 ฟังก์ชันหยุดการสแกน 🌟
     function stopScan() {
         if (confirm("ต้องการหยุดสแกนสลิปรูปที่เหลือใช่หรือไม่?")) {
             abortScan = true;
@@ -459,7 +488,6 @@
         document.getElementById('resultsTableContainer').style.display = 'block';
         document.getElementById('saveBtn').style.display = 'inline-flex';
         
-        // 🌟 สลับปุ่มอัปโหลดเป็นปุ่มหยุดสแกน 🌟
         document.getElementById('uploadLabel').style.display = 'none';
         document.getElementById('stopScanBtn').style.display = 'inline-block';
         document.getElementById('stopScanBtn').disabled = false;
@@ -475,7 +503,6 @@
         document.querySelector('details.table-card').removeAttribute('open');
 
         for (let i = 0; i < files.length; i++) {
-            // 🌟 เช็คว่ามีการกดหยุดหรือไม่ 🌟
             if (abortScan) {
                 let tr = document.createElement('tr');
                 tr.innerHTML = `<td colspan="3" style="text-align:center; padding:15px; color:#ef4444; font-weight:bold; background:#fef2f2;">🛑 ถูกยกเลิกโดยผู้ใช้ (สแกนสำเร็จไป ${i} ใบ)</td>`;
@@ -524,7 +551,6 @@
             updateBadge();
         }
 
-        // 🌟 ซ่อนปุ่มหยุด คืนค่าปุ่มอัปโหลดเมื่อจบการสแกน 🌟
         document.getElementById('uploadLabel').style.display = 'inline-block';
         document.getElementById('stopScanBtn').style.display = 'none';
         
@@ -539,7 +565,7 @@
             document.getElementById('loadingSpinner').style.display = 'none';
         }, 3000);
         
-        fileInput.value = ''; // เคลียร์ไฟล์เก่าออกเผื่อกดอัปโหลดใหม่
+        fileInput.value = ''; 
     }
 
     function confirmSlips() {
