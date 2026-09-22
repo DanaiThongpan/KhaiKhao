@@ -16,9 +16,13 @@
         .upload-card { background: white; padding: 30px 20px; border-radius: 16px; box-shadow: 0 4px 6px rgba(0,0,0,0.05); margin-bottom: 20px; text-align: center; border: 2px dashed #cbd5e1; transition: 0.3s; }
         .upload-card:hover { border-color: #3b82f6; background: #eff6ff; }
         input[type="file"] { display: none; }
-        .custom-file-upload { display: inline-block; padding: 12px 24px; cursor: pointer; background: #3b82f6; color: white; font-weight: bold; border-radius: 8px; font-size: 16px; transition: 0.2s; box-shadow: 0 4px 6px rgba(59, 130, 246, 0.2); margin-top: 15px; width: 100%; max-width: 300px; }
+        .custom-file-upload { display: inline-block; padding: 12px 24px; cursor: pointer; background: #3b82f6; color: white; font-weight: bold; border-radius: 8px; font-size: 16px; transition: 0.2s; box-shadow: 0 4px 6px rgba(59, 130, 246, 0.2); width: 100%; max-width: 300px; }
         .custom-file-upload:hover { background: #2563eb; transform: translateY(-2px); }
-        .grid-container { display: grid; grid-template-columns: 1fr 1.2fr; gap: 20px; align-items: start; }
+        .btn-stop-scan { display: inline-block; padding: 12px 24px; cursor: pointer; background: #ef4444; color: white; font-weight: bold; border-radius: 8px; font-size: 16px; border: none; box-shadow: 0 4px 6px rgba(239, 68, 68, 0.2); transition: 0.2s; width: 100%; max-width: 300px; }
+        .btn-stop-scan:hover { background: #dc2626; transform: translateY(-2px); }
+        .btn-stop-scan:disabled { background: #fca5a5; cursor: not-allowed; transform: none; box-shadow: none; }
+        
+        .grid-container { display: grid; grid-template-columns: 1fr; gap: 20px; align-items: start; } 
         .table-card { background: white; padding: 20px; border-radius: 16px; box-shadow: 0 4px 6px rgba(0,0,0,0.05); overflow-x: auto; }
         .data-table { width: 100%; border-collapse: collapse; font-size: 13px; }
         .data-table th, .data-table td { padding: 12px 10px; border-bottom: 1px solid #e2e8f0; vertical-align: top; }
@@ -42,8 +46,10 @@
         .progress-bar-container { width: 100%; max-width: 400px; background: #e2e8f0; border-radius: 20px; height: 16px; margin: 12px auto 0 auto; overflow: hidden; border: 1px solid #cbd5e1; }
         .progress-bar-fill { height: 100%; background: linear-gradient(90deg, #3b82f6, #10b981); width: 0%; transition: width 0.3s ease-out; border-radius: 20px; }
 
+        details > summary { list-style: none; outline: none; }
+        details > summary::-webkit-details-marker { display: none; }
+
         @media (max-width: 1024px) {
-            .grid-container { grid-template-columns: 1fr; }
             .sidebar { width: 70px; }
             .sidebar-header { font-size: 12px; padding: 15px 5px; }
             .menu-item span:nth-child(2) { display: none; }
@@ -79,222 +85,229 @@
         <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px; flex-wrap: wrap; gap: 10px;">
             <h1 style="color: #1e293b; margin: 0; font-size: 22px;">🧾 ตรวจสอบสลิป (OCR)</h1>
         </div>
+
+        <!-- 🌟 แผงสรุปยอดขายของวันนี้ พร้อมจำนวนบิลขนาดใหญ่ 🌟 -->
+        <div style="display: flex; gap: 15px; margin-bottom: 20px; flex-wrap: wrap;">
+            <div style="background: white; padding: 15px 20px; border-radius: 12px; box-shadow: 0 4px 6px rgba(0,0,0,0.05); flex: 1; min-width: 150px; border-left: 4px solid #3b82f6;">
+                <div style="font-size: 12px; color: #64748b; font-weight: bold;">ยอดทั้งหมด ({{ orders|length }} บิล)</div>
+                <div style="font-size: 20px; font-weight: bold; color: #1e293b;" id="summaryTotal">฿0.00</div>
+            </div>
+            
+            <div style="background: white; padding: 15px 20px; border-radius: 12px; box-shadow: 0 4px 6px rgba(0,0,0,0.05); flex: 1.5; min-width: 250px; border-left: 4px solid #16a34a; display: flex; justify-content: space-between; align-items: center;">
+                <div>
+                    <div style="font-size: 12px; color: #64748b; font-weight: bold;">ได้รับแล้ว (PAID)</div>
+                    <div style="font-size: 20px; font-weight: bold; color: #16a34a;" id="summaryPaid">฿0.00</div>
+                </div>
+                <!-- 🌟 กล่องโชว์จำนวนโอนแล้ว X/Y ตัวใหญ่ 🌟 -->
+                <div style="text-align: right; background: #dcfce7; padding: 5px 15px; border-radius: 8px;">
+                    <div style="font-size: 11px; color: #16a34a; font-weight: bold;">โอนแล้ว (บิล)</div>
+                    <div style="font-size: 28px; font-weight: bold; color: #15803d; line-height: 1;" id="summaryCount">0/0</div>
+                </div>
+            </div>
+            
+            <div style="background: white; padding: 15px 20px; border-radius: 12px; box-shadow: 0 4px 6px rgba(0,0,0,0.05); flex: 1; min-width: 150px; border-left: 4px solid #f59e0b;">
+                <div style="font-size: 12px; color: #64748b; font-weight: bold;">รอโอน (PENDING)</div>
+                <div style="font-size: 20px; font-weight: bold; color: #d97706;" id="summaryPending">฿0.00</div>
+            </div>
+        </div>
         
         <div class="upload-card">
             <div style="font-size: 40px; margin-bottom: 10px;">⚡</div>
             <h3 style="margin: 0 0 5px 0; color: #334155;">ลากไฟล์สลิปมาวางที่นี่ หรือคลิกเพื่อเลือกไฟล์</h3>
-            <p style="margin: 0; color: #16a34a; font-weight: bold; font-size: 14px;">(ระบบสแกนผ่าน Go API แบบแก้บั๊ก CORS 100%)</p>
+            <p style="margin: 0; color: #16a34a; font-weight: bold; font-size: 14px;">(ระบบ Real-Time API • ไฟล์ต้นฉบับ 100% • จับคู่ 1:1)</p>
             
-            <label class="custom-file-upload">
-                <input type="file" id="slipsInput" multiple accept="image/*" onchange="submitForm()">
-                📂 เลือกไฟล์สลิป
-            </label>
+            <!-- 🌟 ปุ่มเลือกไฟล์ และ ปุ่มหยุดสแกน 🌟 -->
+            <div style="display: flex; gap: 10px; justify-content: center; margin-top: 15px;">
+                <label class="custom-file-upload" id="uploadLabel">
+                    <input type="file" id="slipsInput" multiple accept="image/*" onchange="startRealTimeScan()">
+                    📂 เลือกไฟล์สลิป
+                </label>
+                <button type="button" id="stopScanBtn" class="btn-stop-scan" style="display: none;" onclick="stopScan()">
+                    🛑 หยุดการสแกน
+                </button>
+            </div>
             
             <div id="loadingSpinner">
                 <div style="font-size: 15px; font-weight: bold; color: #2563eb; margin-bottom: 5px;">
-                    ⏳ <span id="progressText">กำลังเตรียมอัปโหลดและสแกนรูปภาพ (0%)</span>
+                    ⏳ <span id="progressText">กำลังวิเคราะห์รูปภาพ (0%)</span>
                 </div>
                 <div class="progress-bar-container">
                     <div class="progress-bar-fill" id="progressBarFill"></div>
                 </div>
-                <div style="font-size: 11px; color: #64748b; margin-top: 6px;">ระบบกำลังสกัดยอดเงินและจับคู่ โปรดรอสักครู่...</div>
+                <div style="font-size: 11px; color: #64748b; margin-top: 6px;">ระบบกำลังสกัดยอดเงินทีละสลิป โปรดรอสักครู่...</div>
             </div>
         </div>
 
         <div class="grid-container">
-            <div class="table-card">
-                <div style="display: flex; justify-content: space-between; align-items: center; border-bottom: 2px solid #f1f5f9; padding-bottom: 10px; margin-bottom: 10px; flex-wrap: wrap; gap: 10px;">
-                    <h3 style="margin: 0; border: none; padding: 0;">🛒 ประวัติบิล</h3>
+            <details class="table-card" style="padding: 15px 20px;">
+                <summary style="display: flex; justify-content: space-between; align-items: center; cursor: pointer; color: #475569; flex-wrap: wrap; gap: 10px;">
+                    <div style="display: flex; align-items: center; gap: 10px; flex-wrap: wrap;">
+                        <h3 style="margin: 0; border: none; padding: 0;">🛒 ประวัติบิล วันที่ {{ selected_date }} (ทั้งหมด {{ orders|length }} ออเดอร์)</h3>
+                        <span style="font-size: 12px; background: #e2e8f0; padding: 3px 8px; border-radius: 12px;">คลิกเพื่อกาง/พับ 🔽</span>
+                    </div>
                     
-                    <form method="GET" style="display: flex; gap: 8px;">
+                    <form method="GET" style="display: flex; gap: 8px; align-items: center;" onclick="event.stopPropagation();">
                         <input type="date" name="filter_date" value="{{ selected_date }}" style="padding: 6px; border: 1px solid #cbd5e1; border-radius: 6px; font-family: inherit; font-size: 12px; outline: none;">
                         <button type="submit" style="background: #2563eb; color: white; border: none; padding: 6px 12px; border-radius: 6px; cursor: pointer; font-weight: bold; font-size: 12px;">🔍 กรอง</button>
                     </form>
-                </div>
+                </summary>
                 
-                <table class="data-table">
-                    <thead>
-                        <tr>
-                            <th>เลขที่บิล / เวลา</th>
-                            <th>ข้อมูลหอพัก & สินค้า</th>
-                            <th>ยอดรวม</th>
-                        </tr>
-                    </thead>
-                    <tbody>
-                        {% for order in orders %}
-                        <tr>
-                            <td>
-                                <strong style="color: #1e40af;">{{ order.receipt_number }}</strong><br>
-                                <span style="color: #64748b; font-size:11px;">{{ order.created_at|time:"H:i" }} น.</span>
-                            </td>
-                            <td>
-                                {% if order.delivery_info and order.delivery_info.destination %}
-                                    <div style="color: #0f172a; font-weight: bold;">
-                                        📍 {{ order.delivery_info.destination.name }}
-                                    </div>
-                                {% else %}
-                                    <div style="color: #94a3b8; font-weight: bold;">📍 หน้าร้าน/ไม่ระบุ</div>
-                                {% endif %}
-                                
-                                <ul class="item-list">
-                                    {% for item in order.items.all %}
-                                        <li>{{ item.product.name }} (x{{ item.quantity }})</li>
-                                    {% endfor %}
-                                </ul>
-                            </td>
-                            <td>
-                                <strong style="font-size: 14px;">฿{{ order.total_amount|floatformat:2 }}</strong><br>
-                                {% if order.payment_status == 'PAID' %}
-                                    <span class="status-badge badge-success" style="margin-top: 5px;">✅ จ่ายแล้ว</span>
-                                {% else %}
-                                    <span class="status-badge badge-warning" style="margin-top: 5px;">⏳ รอโอน</span>
-                                {% endif %}
-                            </td>
-                        </tr>
-                        {% empty %}
-                        <tr>
-                            <td colspan="3" style="color: #94a3b8; text-align: center; padding: 20px;">ไม่มีบิลในระบบ</td>
-                        </tr>
-                        {% endfor %}
-                    </tbody>
-                </table>
-            </div>
+                <div style="margin-top: 15px; border-top: 1px dashed #cbd5e1; padding-top: 15px;">
+                    <table class="data-table">
+                        <thead>
+                            <tr>
+                                <th>เลขที่บิล / เวลา</th>
+                                <th>ข้อมูลหอพัก & สินค้า</th>
+                                <th>ยอดรวม</th>
+                            </tr>
+                        </thead>
+                        <tbody id="historyTbody">
+                            {% for order in orders %}
+                            <tr class="history-row" data-amount="{{ order.total_amount }}" data-status="{{ order.payment_status }}">
+                                <td>
+                                    <strong style="color: #1e40af;">{{ order.receipt_number }}</strong><br>
+                                    <span style="color: #64748b; font-size:11px;">{{ order.created_at|time:"H:i" }} น.</span>
+                                </td>
+                                <td>
+                                    {% if order.delivery_info and order.delivery_info.destination %}
+                                        <div style="color: #0f172a; font-weight: bold;">📍 {{ order.delivery_info.destination.name }}</div>
+                                    {% else %}
+                                        <div style="color: #94a3b8; font-weight: bold;">📍 หน้าร้าน/ไม่ระบุ</div>
+                                    {% endif %}
+                                    <ul class="item-list">
+                                        {% for item in order.items.all %}
+                                            <li>{{ item.product.name }} (x{{ item.quantity }})</li>
+                                        {% endfor %}
+                                    </ul>
+                                </td>
+                                <td>
+                                    <strong style="font-size: 14px;">฿{{ order.total_amount|floatformat:2 }}</strong><br>
+                                    {% if order.payment_status == 'PAID' %}
+                                        <span class="status-badge badge-success" style="margin-top: 5px;">✅ จ่ายแล้ว</span>
+                                    {% else %}
+                                        <span class="status-badge badge-warning" style="margin-top: 5px;">⏳ รอโอน</span>
+                                    {% endif %}
+                                </td>
+                            </tr>
+                            {% empty %}
+                            <tr>
+                                <td colspan="3" style="color: #94a3b8; text-align: center; padding: 20px;">ไม่มีบิลในระบบของวันนี้</td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+            </details>
 
             <div class="table-card">
                 <div style="display: flex; justify-content: space-between; align-items: center; border-bottom: 2px solid #f1f5f9; padding-bottom: 10px; margin-bottom: 10px; flex-wrap: wrap; gap: 10px;">
                     <div style="display: flex; align-items: center; gap: 10px;">
-                        <h3 style="margin: 0; border: none; padding: 0;">📊 ผลการจับคู่สลิปล่าสุด</h3>
-                        <span id="matchedCountBadge" class="status-badge badge-success" style="font-size: 13px;">✅ ตรงกัน 0 ยอด</span>
+                        <h3 style="margin: 0; border: none; padding: 0;">📊 ผลการจับคู่สลิป</h3>
+                        <span id="matchedCountBadge" class="status-badge badge-success" style="font-size: 13px; background: #f1f5f9; color: #64748b; border-color: #cbd5e1;">รอรับไฟล์สลิป...</span>
                     </div>
                     
-                    {% if results %}
-                    <button class="btn-confirm" id="saveBtn" onclick="confirmSlips()">
+                    <button class="btn-confirm" id="saveBtn" style="display:none;" onclick="confirmSlips()">
                         💾 บันทึกยอดที่ตรงกัน
                     </button>
-                    {% endif %}
                 </div>
                 
-                {% if results %}
-                <table class="data-table">
-                    <thead>
-                        <tr>
-                            <th>ยอด (สลิป)</th>
-                            <th>บิลที่จับคู่</th>
-                            <th>จัดการ</th>
-                        </tr>
-                    </thead>
-                    <tbody>
-                        {% for res in results %}
-                        <tr class="{% if res.status == 'MATCHED' %}row-matched{% elif res.status == 'DUPLICATE' %}row-duplicate{% else %}row-not-found{% endif %}"
-                            data-status="{{ res.status }}"
-                            data-order-id="{{ res.order_id|default:'' }}"
-                            data-ref="{{ res.transaction_ref|default:'' }}">
-                            
-                            <td>
-                                {% if res.amount %}
-                                    <strong style="font-size: 15px; color: #0f172a;">฿{{ res.amount|floatformat:2 }}</strong><br>
-                                    <span style="font-size: 12px; color: #64748b;">{{ res.time }} น.</span>
-                                    {% if res.transaction_ref %}
-                                        <br><span style="font-size: 10px; color: #94a3b8;">Ref: {{ res.transaction_ref|truncatechars:12 }}</span>
-                                    {% endif %}
-                                {% else %}
-                                    <span style="color:#ef4444; font-weight: bold;">อ่านไม่ได้</span><br>
-                                    {% if res.error_msg %}
-                                        <span style="font-size: 9px; color:#ef4444;">{{ res.error_msg }}</span>
-                                    {% endif %}
-                                {% endif %}
-                            </td>
-                            
-                            <td>
-                                {% if res.possible_matches|length > 1 and res.status != 'DUPLICATE' %}
-                                    <select class="match-selector" onchange="updateMatchSelection(this, this.closest('tr'))">
-                                        {% for pm in res.possible_matches %}
-                                            <option value="{{ pm.id }}" 
-                                                    data-ref="{{ pm.receipt_number }}" 
-                                                    data-items="{{ pm.items|join:',' }}"
-                                                    {% if pm.id == res.order_id %}selected{% endif %}>
-                                                📍 {{ pm.dorm_name }}
-                                            </option>
-                                        {% endfor %}
-                                    </select>
-                                    <div class="selected-details">
-                                        <strong style="color: #1e40af;" class="display-ref">{{ res.order_ref }}</strong>
-                                        <ul class="item-list display-items">
-                                            {% for item in res.items %}
-                                                <li>{{ item }}</li>
-                                            {% endfor %}
-                                        </ul>
-                                    </div>
-                                {% else %}
-                                    {% if res.order_ref != "-" %}
-                                        <strong style="color: #1e40af;">{{ res.order_ref }}</strong><br>
-                                        <span style="font-size: 12px; color: #0f172a; font-weight:bold;">📍 {{ res.dorm_name }}</span>
-                                        
-                                        {% if res.items %}
-                                            <ul class="item-list">
-                                                {% for item in res.items %}
-                                                    <li>{{ item }}</li>
-                                                {% endfor %}
-                                            </ul>
-                                        {% endif %}
-                                    {% else %}
-                                        <span style="color: #94a3b8;">-</span>
-                                    {% endif %}
-                                {% endif %}
-                            </td>
-                            
-                            <td>
-                                {% if res.status == 'MATCHED' %}
-                                    <span class="status-badge badge-success">✅ ตรงกัน</span>
-                                    {% if res.order_id %}
-                                        <br><button type="button" class="btn-unpaid" onclick="markAsUnpaid(this.closest('tr'))">❌ ยกเลิก</button>
-                                    {% endif %}
-                                {% elif res.status == 'DUPLICATE' %}
-                                    <span class="status-badge badge-duplicate">🔁 สแกนซ้ำ</span>
-                                    <br><button type="button" class="btn-unpaid" style="background:#fffbeb; color:#d97706; border-color:#fde68a;" onclick="resetDuplicateSlip('{{ res.transaction_ref }}')">🔄 ล้างค่าซ้ำ</button>
-                                {% elif res.status == 'NOT_FOUND' %}
-                                    <span class="status-badge badge-error">❌ ไม่พบยอด</span>
-                                {% else %}
-                                    <span class="status-badge" style="background:#f1f5f9; color:#475569;">⚠️ ล้มเหลว</span>
-                                {% endif %}
-                            </td>
-                        </tr>
-                        {% endfor %}
-                    </tbody>
-                </table>
-                {% else %}
-                    <div style="text-align: center; color: #9ca3af; padding: 20px;">
-                        ยังไม่มีผลการสแกน กรุณาอัปโหลดสลิปด้านบน
-                    </div>
-                {% endif %}
+                <div id="resultsTableContainer" style="display:none;">
+                    <table class="data-table">
+                        <thead>
+                            <tr>
+                                <th>รายละเอียดสลิป (OCR)</th>
+                                <th>บิลที่ถูกจับคู่</th>
+                                <th>จัดการ</th>
+                            </tr>
+                        </thead>
+                        <tbody id="resultsTbody">
+                            <!-- แถวข้อมูลจะถูกเติมที่นี่แบบ Real-time -->
+                        </tbody>
+                    </table>
+                </div>
+                
+                <div id="noResultsMsg" style="text-align: center; color: #9ca3af; padding: 20px;">
+                    ยังไม่มีผลการสแกน กรุณาอัปโหลดสลิปด้านบนเพื่อเริ่มการจับคู่อัตโนมัติ
+                </div>
             </div>
         </div>
     </main>
 
 <script>
+    let matchedOrderIds = []; 
+    let totalMatchedCount = 0;
+    let totalUploadedCount = 0;
+    
+    let countPaidOrders = 0;
+    let countPendingOrders = 0;
+    const totalOrdersCount = {{ orders|length }}; 
+    
+    let abortScan = false; // 🌟 ตัวแปรสำหรับปุ่มหยุดสแกน 🌟
+
     document.addEventListener('DOMContentLoaded', () => {
-        const matchedCount = document.querySelectorAll('tr.row-matched').length;
-        const badge = document.getElementById('matchedCountBadge');
-        if (badge) {
-            badge.innerText = `✅ ตรงกัน ${matchedCount} ยอด`;
-            if(matchedCount === 0) {
-                badge.style.background = "#f1f5f9";
-                badge.style.color = "#64748b";
-                badge.style.borderColor = "#cbd5e1";
-            }
-        }
+        calculateSummary(); 
     });
+
+    function calculateSummary() {
+        let totalSales = 0;
+        let totalPaid = 0;
+        let totalPending = 0;
+        
+        countPaidOrders = 0;
+        countPendingOrders = 0;
+
+        const rows = document.querySelectorAll('.history-row');
+        rows.forEach(row => {
+            const amount = parseFloat(row.getAttribute('data-amount')) || 0;
+            const status = row.getAttribute('data-status'); 
+            
+            totalSales += amount;
+            if (status === 'PAID') {
+                totalPaid += amount;
+                countPaidOrders++; 
+            } else {
+                totalPending += amount;
+                countPendingOrders++; 
+            }
+        });
+
+        document.getElementById('summaryTotal').innerText = `฿${totalSales.toLocaleString('th-TH', {minimumFractionDigits: 2, maximumFractionDigits: 2})}`;
+        document.getElementById('summaryPaid').innerText = `฿${totalPaid.toLocaleString('th-TH', {minimumFractionDigits: 2, maximumFractionDigits: 2})}`;
+        document.getElementById('summaryPending').innerText = `฿${totalPending.toLocaleString('th-TH', {minimumFractionDigits: 2, maximumFractionDigits: 2})}`;
+        
+        // 🌟 อัปเดตตัวเลข โอนแล้ว X/Y บนกล่องสีเขียว 🌟
+        document.getElementById('summaryCount').innerText = `${countPaidOrders}/${totalOrdersCount}`;
+    }
+
+    function toggleEditMatch(elem, showEdit) {
+        let td = elem.closest('td');
+        if (showEdit) {
+            td.querySelector('.view-mode').style.display = 'none';
+            td.querySelector('.edit-mode').style.display = 'block';
+        } else {
+            td.querySelector('.edit-mode').style.display = 'none';
+            td.querySelector('.view-mode').style.display = 'block';
+        }
+    }
 
     function updateMatchSelection(selectElem, row) {
         let opt = selectElem.options[selectElem.selectedIndex];
         let newOrderId = opt.value;
         let newRef = opt.getAttribute('data-ref');
         let newItems = opt.getAttribute('data-items').split(',');
+        let newDorm = opt.innerText;
+
         row.setAttribute('data-order-id', newOrderId);
-        row.querySelector('.display-ref').innerText = newRef;
-        let ul = row.querySelector('.display-items');
+        
+        let viewMode = row.querySelector('.view-mode');
+        viewMode.querySelector('.display-ref').innerText = newRef;
+        viewMode.querySelector('.display-dorm').innerText = newDorm;
+        
+        let ul = viewMode.querySelector('.display-items');
         ul.innerHTML = '';
         newItems.forEach(item => { let li = document.createElement('li'); li.innerText = item; ul.appendChild(li); });
+
+        toggleEditMatch(selectElem, false);
     }
 
     function markAsUnpaid(row) {
@@ -328,109 +341,210 @@
         });
     }
 
-    function compressImagePromise(file) {
-        return new Promise((resolve, reject) => {
-            const reader = new FileReader();
-            reader.readAsDataURL(file);
-            reader.onload = function (event) {
-                const img = new Image();
-                img.src = event.target.result;
-                img.onload = function () {
-                    const canvas = document.createElement('canvas');
-                    const MAX_WIDTH = 1500; const MAX_HEIGHT = 1500;
-                    let width = img.width; let height = img.height;
-                    
-                    if (width > height) {
-                        if (width > MAX_WIDTH) { height *= MAX_WIDTH / width; width = MAX_WIDTH; }
-                    } else {
-                        if (height > MAX_HEIGHT) { width *= MAX_HEIGHT / height; height = MAX_HEIGHT; }
-                    }
-                    
-                    canvas.width = width; canvas.height = height;
-                    const ctx = canvas.getContext('2d');
-                    ctx.drawImage(img, 0, 0, width, height);
-
-                    canvas.toBlob((blob) => {
-                        if (!blob) { reject(new Error('Canvas failed')); return; }
-                        resolve(new File([blob], file.name, { type: 'image/jpeg', lastModified: Date.now() }));
-                    }, 'image/jpeg', 0.85); 
-                };
-            };
-        });
+    function updateBadge() {
+        const badge = document.getElementById('matchedCountBadge');
+        if (totalUploadedCount > 0) {
+            badge.innerText = `✅ จับคู่สำเร็จ ${totalMatchedCount} ออเดอร์ (จากสลิป ${totalUploadedCount} ใบ / รอโอน ${countPendingOrders} ออเดอร์ / โอนแล้ว ${countPaidOrders} ออเดอร์)`;
+            if (totalMatchedCount > 0) {
+                badge.style.background = "#dcfce7";
+                badge.style.color = "#16a34a";
+                badge.style.borderColor = "#bbf7d0";
+            } else {
+                badge.style.background = "#fef2f2";
+                badge.style.color = "#ef4444";
+                badge.style.borderColor = "#fecaca";
+            }
+        }
     }
 
-    async function submitForm() {
+    function renderResultRow(tr, data) {
+        let statusClass = data.match_status === 'MATCHED' ? 'row-matched' : (data.match_status === 'DUPLICATE' ? 'row-duplicate' : 'row-not-found');
+        tr.className = statusClass;
+        tr.setAttribute('data-status', data.match_status);
+        tr.setAttribute('data-order-id', data.order_id || '');
+        tr.setAttribute('data-ref', data.transaction_ref || '');
+
+        let amountHtml = '';
+        if (data.amount) {
+            amountHtml = `
+                <strong style="font-size: 16px; color: #0f172a;">฿${data.amount.toFixed(2)}</strong><br>
+                <span style="font-size: 12px; color: #64748b;">${data.time || '-'} น.</span>
+                <div style="margin-top: 5px; padding: 6px; background: #f8fafc; border-radius: 6px; border: 1px solid #e2e8f0;">
+                    ${data.sender_name ? `<div style="font-size: 11px; color: #334155; margin-bottom: 2px;"><strong style="color: #64748b;">ผู้โอน:</strong> ${data.sender_name}</div>` : ''}
+                    ${data.receiver_name ? `<div style="font-size: 11px; color: #334155; margin-bottom: 2px;"><strong style="color: #64748b;">ผู้รับ:</strong> ${data.receiver_name}</div>` : ''}
+                    ${data.transaction_ref ? `<div style="font-size: 10px; color: #94a3b8; margin-top: 4px;">Ref: ${data.transaction_ref.substring(0,18)}</div>` : ''}
+                </div>
+            `;
+        } else {
+            amountHtml = `<span style="color:#ef4444; font-weight: bold;">อ่านไม่ได้</span>`;
+        }
+
+        let orderHtml = '';
+        if (data.possible_matches && data.possible_matches.length > 1 && data.match_status !== 'DUPLICATE') {
+            let options = data.possible_matches.map(pm => `<option value="${pm.id}" data-ref="${pm.receipt_number}" data-items="${pm.items.join(',')}" ${pm.id === data.order_id ? 'selected' : ''}>📍 ${pm.dorm_name} (${pm.time} น.)</option>`).join('');
+            let itemsHtml = data.items.map(item => `<li>${item}</li>`).join('');
+            
+            orderHtml = `
+                <div class="view-mode">
+                    <strong style="color: #1e40af;" class="display-ref">${data.order_ref}</strong><br>
+                    <span class="display-dorm" style="font-size: 12px; color: #0f172a; font-weight:bold;">📍 ${data.dorm_name}</span>
+                    <ul class="item-list display-items">${itemsHtml}</ul>
+                    <button type="button" class="btn-unpaid" style="background:#eff6ff; color:#3b82f6; border-color:#bfdbfe; margin-top:5px; padding: 4px 8px; font-size:11px;" onclick="toggleEditMatch(this, true)">🔄 สลับบิล (มียอด ฿${data.amount.toFixed(2)} ซ้ำ)</button>
+                </div>
+                <div class="edit-mode" style="display:none; background: #f8fafc; padding: 10px; border-radius: 8px; border: 1px dashed #cbd5e1; margin-top: 5px;">
+                    <div style="font-size: 11px; color: #64748b; margin-bottom: 5px; font-weight:bold;">เลือกบิลที่ต้องการจับคู่:</div>
+                    <select class="match-selector" onchange="updateMatchSelection(this, this.closest('tr'))">
+                        ${options}
+                    </select>
+                    <button type="button" class="btn-unpaid" style="background:#f1f5f9; color:#64748b; border-color:#e2e8f0; margin-top:5px; width: 100%; justify-content:center;" onclick="toggleEditMatch(this, false)">❌ ปิดการสลับบิล</button>
+                </div>
+            `;
+        } else {
+            if (data.order_ref !== "-") {
+                let itemsHtml = data.items.map(item => `<li>${item}</li>`).join('');
+                orderHtml = `
+                    <div class="view-mode">
+                        <strong style="color: #1e40af;">${data.order_ref}</strong><br>
+                        <span style="font-size: 12px; color: #0f172a; font-weight:bold;">📍 ${data.dorm_name}</span>
+                        <ul class="item-list">${itemsHtml}</ul>
+                    </div>
+                `;
+            } else {
+                orderHtml = `<span style="color: #94a3b8;">-</span>`;
+            }
+        }
+
+        let statusHtml = '';
+        if (data.match_status === 'MATCHED') {
+            statusHtml = `<span class="status-badge badge-success">✅ ตรงกัน</span><br><button type="button" class="btn-unpaid" onclick="markAsUnpaid(this.closest('tr'))">❌ ยกเลิก</button>`;
+        } else if (data.match_status === 'DUPLICATE') {
+            statusHtml = `<span class="status-badge badge-duplicate">🔁 สแกนซ้ำ</span><br><button type="button" class="btn-unpaid" style="background:#fffbeb; color:#d97706; border-color:#fde68a;" onclick="resetDuplicateSlip('${data.transaction_ref}')">🔄 ล้างค่าซ้ำ</button>`;
+        } else {
+            statusHtml = `<span class="status-badge badge-error">❌ ไม่พบยอด</span>`;
+        }
+
+        tr.innerHTML = `<td>${amountHtml}</td><td>${orderHtml}</td><td>${statusHtml}</td>`;
+    }
+
+    function renderErrorRow(tr, errorMsg) {
+        tr.className = '';
+        tr.innerHTML = `
+            <td><span style="color:#ef4444; font-weight: bold;">อ่านไม่ได้</span><br><span style="font-size: 9px; color:#ef4444;">${errorMsg}</span></td>
+            <td><span style="color: #94a3b8;">-</span></td>
+            <td><span class="status-badge badge-error">⚠️ ล้มเหลว</span></td>
+        `;
+    }
+
+    // 🌟 ฟังก์ชันหยุดการสแกน 🌟
+    function stopScan() {
+        if (confirm("ต้องการหยุดสแกนสลิปรูปที่เหลือใช่หรือไม่?")) {
+            abortScan = true;
+            document.getElementById('stopScanBtn').innerHTML = '⏳ กำลังหยุด...';
+            document.getElementById('stopScanBtn').disabled = true;
+        }
+    }
+
+    async function startRealTimeScan() {
         const fileInput = document.getElementById('slipsInput');
         if (fileInput.files.length === 0) return;
 
-        document.getElementById('loadingSpinner').style.display = 'block';
+        const files = Array.from(fileInput.files);
+        totalUploadedCount = files.length;
+        totalMatchedCount = 0;
+        matchedOrderIds = [];
+        abortScan = false;
 
-        let totalFiles = fileInput.files.length;
+        document.getElementById('loadingSpinner').style.display = 'block';
+        document.getElementById('noResultsMsg').style.display = 'none';
+        document.getElementById('resultsTableContainer').style.display = 'block';
+        document.getElementById('saveBtn').style.display = 'inline-flex';
+        
+        // 🌟 สลับปุ่มอัปโหลดเป็นปุ่มหยุดสแกน 🌟
+        document.getElementById('uploadLabel').style.display = 'none';
+        document.getElementById('stopScanBtn').style.display = 'inline-block';
+        document.getElementById('stopScanBtn').disabled = false;
+        document.getElementById('stopScanBtn').innerHTML = '🛑 หยุดการสแกน';
+        
+        const tbody = document.getElementById('resultsTbody');
+        tbody.innerHTML = '';
+        updateBadge();
+
         let progressText = document.getElementById('progressText');
         let progressBarFill = document.getElementById('progressBarFill');
-        
-        progressText.innerText = `กำลังบีบอัดไฟล์สลิป ${totalFiles} รูปก่อนส่ง...`;
-        progressBarFill.style.width = '10%';
 
-        try {
-            const compressedFiles = [];
-            for (let i = 0; i < totalFiles; i++) {
-                progressText.innerText = `กำลังบีบอัดรูปที่ ${i + 1}/${totalFiles}`;
-                progressBarFill.style.width = Math.floor(10 + ((i + 1) / totalFiles) * 40) + '%';
-                try {
-                    let compressedFile = await compressImagePromise(fileInput.files[i]);
-                    compressedFiles.push(compressedFile);
-                } catch (e) {
-                    console.warn("บีบอัดรูปไม่สำเร็จ ใช้ไฟล์เดิมแทน", e);
-                    compressedFiles.push(fileInput.files[i]);
-                }
+        document.querySelector('details.table-card').removeAttribute('open');
+
+        for (let i = 0; i < files.length; i++) {
+            // 🌟 เช็คว่ามีการกดหยุดหรือไม่ 🌟
+            if (abortScan) {
+                let tr = document.createElement('tr');
+                tr.innerHTML = `<td colspan="3" style="text-align:center; padding:15px; color:#ef4444; font-weight:bold; background:#fef2f2;">🛑 ถูกยกเลิกโดยผู้ใช้ (สแกนสำเร็จไป ${i} ใบ)</td>`;
+                tbody.appendChild(tr);
+                break;
             }
 
-            const dataTransfer = new DataTransfer();
-            compressedFiles.forEach(file => dataTransfer.items.add(file));
-            
-            progressText.innerText = `กำลังส่งข้อมูลให้เซิร์ฟเวอร์สแกน OCR...`;
-            progressBarFill.style.width = '55%';
+            let percent = Math.floor((i / files.length) * 100);
+            progressText.innerText = `กำลังวิเคราะห์ใบที่ ${i + 1}/${files.length}...`;
+            progressBarFill.style.width = percent + '%';
 
-            let percent = 55;
-            setInterval(() => {
-                percent += Math.floor(Math.random() * 5) + 2; 
-                if (percent > 95) percent = 95;
-                progressBarFill.style.width = percent + '%';
-                progressText.innerText = `Django กำลังเชื่อมต่อ Go API (${percent}%)`;
-            }, 500);
+            let tr = document.createElement('tr');
+            tr.innerHTML = `<td colspan="3" style="text-align:center; padding:20px; color:#3b82f6;">⏳ กำลังสแกนสลิปรูปที่ ${i + 1}...</td>`;
+            tbody.appendChild(tr);
 
-            // 🌟 สร้างฟอร์มจำลองเพื่อส่ง "ไฟล์รูป" เข้า Django แทนการยิง JS 🌟
-            let form = document.createElement('form');
-            form.method = 'POST';
-            form.enctype = 'multipart/form-data'; // บังคับส่งแบบแนบไฟล์
-            form.action = "{% url 'pos:check_slips' %}?filter_date={{ selected_date }}";
-            
-            let csrfInput = document.createElement('input');
-            csrfInput.type = 'hidden';
-            csrfInput.name = 'csrfmiddlewaretoken';
-            csrfInput.value = document.querySelector('#csrf-wrapper input[name=csrfmiddlewaretoken]').value;
-            form.appendChild(csrfInput);
-
-            let newFileInput = document.createElement('input');
-            newFileInput.type = 'file';
-            newFileInput.name = 'slips';
-            newFileInput.multiple = true;
-            newFileInput.files = dataTransfer.files; // ยัดไฟล์ที่บีบอัดแล้วเข้าไป
-            form.appendChild(newFileInput);
-
-            document.body.appendChild(form);
-            form.submit();
-
-        } catch (error) {
-            console.error("เกิดข้อผิดพลาดในการรันระบบ:", error);
-            alert("มีบางอย่างผิดพลาด กรุณาลองใหม่อีกครั้ง");
+            try {
+                let formData = new FormData();
+                formData.append('slip', files[i]); 
+                formData.append('filter_date', '{{ selected_date }}'); 
+                formData.append('exclude_ids', JSON.stringify(matchedOrderIds)); 
+                
+                let csrfToken = document.querySelector('#csrf-wrapper input[name=csrfmiddlewaretoken]').value;
+                
+                let response = await fetch("{% url 'pos:api_process_single_slip' %}", {
+                    method: 'POST',
+                    headers: { 'X-CSRFToken': csrfToken },
+                    body: formData
+                });
+                
+                let result = await response.json();
+                
+                if (result.status === 'SUCCESS') {
+                    let data = result.data;
+                    if (data.match_status === 'MATCHED' && data.order_id) {
+                        matchedOrderIds.push(data.order_id); 
+                        totalMatchedCount++;
+                    }
+                    renderResultRow(tr, data);
+                } else {
+                    renderErrorRow(tr, result.error_msg);
+                }
+                
+            } catch (e) {
+                renderErrorRow(tr, "เชื่อมต่อล้มเหลว");
+            }
+            updateBadge();
         }
+
+        // 🌟 ซ่อนปุ่มหยุด คืนค่าปุ่มอัปโหลดเมื่อจบการสแกน 🌟
+        document.getElementById('uploadLabel').style.display = 'inline-block';
+        document.getElementById('stopScanBtn').style.display = 'none';
+        
+        if (!abortScan) {
+            progressBarFill.style.width = '100%';
+            progressText.innerText = `🎉 สแกนเสร็จสิ้นทั้งหมด ${files.length} ใบ!`;
+        } else {
+            progressText.innerText = `🛑 สแกนถูกยกเลิก!`;
+        }
+
+        setTimeout(() => {
+            document.getElementById('loadingSpinner').style.display = 'none';
+        }, 3000);
+        
+        fileInput.value = ''; // เคลียร์ไฟล์เก่าออกเผื่อกดอัปโหลดใหม่
     }
 
     function confirmSlips() {
         const matches = [];
-        const matchedRows = document.querySelectorAll('tr[data-status="MATCHED"]');
+        const matchedRows = document.querySelectorAll('tr.row-matched');
         
         matchedRows.forEach(row => {
             const orderId = row.getAttribute('data-order-id');

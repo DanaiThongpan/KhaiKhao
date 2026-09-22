@@ -13,4 +13,5 @@ urlpatterns = [
     path('confirm-slips/', views.confirm_matched_slips, name='confirm_slips'),
     path('mark-unpaid/', views.mark_order_unpaid, name='mark_unpaid'),
     path('reset-slip/', views.reset_slip_ref, name='reset_slip_ref'),
+    path('api-process-single-slip/', views.api_process_single_slip, name='api_process_single_slip'),
 ]

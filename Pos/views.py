@@ -349,13 +349,12 @@ from django.views.decorators.http import require_POST
 from django.contrib.auth.decorators import login_required
 # สมมติว่าดึงโมเดลมาครบแล้ว เช่น Order, OrderItem, Dormitory...
 
-# 🌟 ใส่ลิงก์ Go API ตรงนี้ (แก้ตรงนี้จุดเดียวถ้างอกลิงก์ใหม่) 🌟
-API_GO_URL = "https://d9a6-2405-9800-bcb0-61ac-d638-f429-3759-da42.ngrok-free.app/api/v1/scan-slip"
+# 🌟 ใส่ลิงก์ Go API ตรงนี้
+API_GO_URL = "https://3aa8-49-229-22-76.ngrok-free.app/api/v1/scan-slip"
 
 @login_required
 def check_slips(request):
-    results = []
-    
+    # ฟังก์ชันนี้ใช้แค่สำหรับโหลดโครงหน้าเว็บตอนแรกเท่านั้น (ไม่ทำการประมวลผลรูปภาพที่นี่แล้ว)
     filter_date_str = request.GET.get('filter_date')
     if filter_date_str:
         try:
@@ -369,117 +368,134 @@ def check_slips(request):
         created_by=request.user, 
         created_at__date=selected_date
     ).select_related('delivery_info__destination').prefetch_related('items__product').order_by('-created_at')
-    
-    # รับไฟล์รูปที่บีบอัดแล้วจากหน้าเว็บ แล้วให้ Django ยิง API แทนเบราว์เซอร์
-    if request.method == 'POST' and request.FILES.getlist('slips'):
-        files = request.FILES.getlist('slips')
+
+    return render(request, 'Pos/check_slips.html', {
+        'orders': orders,
+        'selected_date': selected_date.strftime('%Y-%m-%d')
+    })
+
+
+@login_required
+@require_POST
+def api_process_single_slip(request):
+    try:
+        filter_date_str = request.POST.get('filter_date')
+        if filter_date_str:
+            selected_date = datetime.strptime(filter_date_str, '%Y-%m-%d').date()
+        else:
+            selected_date = timezone.localdate()
+            
+        exclude_ids_str = request.POST.get('exclude_ids', '[]')
         
+        # 🌟 แก้บั๊ก 1:1 ตรงนี้! แปลง ID ที่เป็นข้อความ (String) จาก JS ให้เป็นตัวเลข (Integer) ทั้งหมด 🌟
+        exclude_ids_raw = json.loads(exclude_ids_str)
+        exclude_ids = [int(eid) for eid in exclude_ids_raw if str(eid).isdigit()]
+        
+        image_file = request.FILES.get('slip')
+        if not image_file:
+            return JsonResponse({'status': 'ERROR', 'error_msg': 'ไม่พบไฟล์รูปภาพ'})
+            
+        files_payload = {'slip_image': (image_file.name, image_file.file, image_file.content_type)}
+        headers = {'ngrok-skip-browser-warning': 'true'}
+        
+        response = requests.post(API_GO_URL, files=files_payload, headers=headers, timeout=20)
+        if response.status_code != 200:
+            return JsonResponse({'status': 'ERROR', 'error_msg': f'API ล่ม (Code: {response.status_code})'})
+            
+        res_json = response.json()
+        if not res_json.get('success') or 'data' not in res_json:
+            return JsonResponse({'status': 'ERROR', 'error_msg': 'อ่านสลิปไม่ได้ (API ไม่ส่งข้อมูลมา)'})
+            
+        slip_data = res_json['data']
+        slip_amount = slip_data.get('amount')
+        if slip_amount is not None:
+            try: slip_amount = float(slip_amount)
+            except ValueError: slip_amount = None
+                
+        slip_ref_id = slip_data.get('transaction_ref')
+        raw_date = slip_data.get('date', '')
+        raw_text = slip_data.get('raw_text', '')
+        
+        # (ข้อมูลเหล่านี้จะยังว่างเปล่า จนกว่าคุณจะไปเขียน Regex เพิ่มในไฟล์ services.go)
+        sender_name = slip_data.get('sender_name', '')
+        receiver_name = slip_data.get('receiver_name', '')
+        
+        slip_time_str = None
+        if raw_date or raw_text:
+            time_matches = re.findall(r'([0-1]?[0-9]|2[0-3]):([0-5][0-9])', str(raw_date))
+            if not time_matches: 
+                time_matches = re.findall(r'([0-1]?[0-9]|2[0-3]):([0-5][0-9])', str(raw_text))
+            if time_matches:
+                slip_time_str = f"{time_matches[-1][0].zfill(2)}:{time_matches[-1][1]}"
+                
         recent_orders = Order.objects.filter(
             created_by=request.user,
             created_at__date=selected_date
         ).select_related('delivery_info__destination').prefetch_related('items__product').order_by('-created_at')
-
+        
         used_transactions = list(Order.objects.filter(
             created_by=request.user, 
             transaction_ref__isnull=False
         ).exclude(transaction_ref="").values_list('transaction_ref', flat=True))
-
-        # 🌟 สร้างชุดตัวแปรเก็บ ID บิลที่ถูกจับคู่ไปแล้วในรอบนี้ เพื่อป้องกันการแย่งบิลซ้ำ 🌟
-        matched_order_ids_in_batch = set()
-
-        for f in files:
-            try:
-                # ให้ Python เป็นคนยิง API (หมดปัญหาเบราว์เซอร์บล็อก CORS)
-                files_payload = {'slip_image': (f.name, f.file, f.content_type)}
-                headers = {'ngrok-skip-browser-warning': 'true'}
-                
-                response = requests.post(API_GO_URL, files=files_payload, headers=headers, timeout=20)
-                
-                if response.status_code == 200:
-                    res_json = response.json()
-                    if res_json.get('success') and 'data' in res_json:
-                        slip_data = res_json['data']
+        
+        match_status = "NOT_FOUND"
+        matched_order = None
+        possible_matches = []
+        
+        if slip_ref_id and slip_ref_id in used_transactions:
+            match_status = "DUPLICATE"
+        elif slip_amount is not None:
+            # 🌟 ตอนนี้ระบบจะจับคู่เฉพาะบิลที่ ID ไม่อยู่ในรายชื่อ exclude_ids ได้อย่างถูกต้องแล้ว 🌟
+            potential_orders = [
+                o for o in recent_orders 
+                if abs(float(o.total_amount) - slip_amount) < 0.01 
+                and o.payment_status != 'PAID'
+                and o.id not in exclude_ids
+            ]
+            
+            if potential_orders:
+                for po in potential_orders:
+                    d_name = "หน้าร้าน/ไม่ระบุ"
+                    if hasattr(po, 'delivery_info') and po.delivery_info and hasattr(po.delivery_info, 'destination') and po.delivery_info.destination:
+                        d_name = po.delivery_info.destination.name
                         
-                        slip_amount = slip_data.get('amount')
-                        if slip_amount is not None:
-                            try: slip_amount = float(slip_amount)
-                            except ValueError: slip_amount = None
-                                
-                        slip_ref_id = slip_data.get('transaction_ref')
-                        raw_date = slip_data.get('date', '')
-                        raw_text = slip_data.get('raw_text', '')
-
-                        slip_time_str = None
-                        if raw_date or raw_text:
-                            time_matches = re.findall(r'([0-1]?[0-9]|2[0-3]):([0-5][0-9])', str(raw_date))
-                            if not time_matches: 
-                                time_matches = re.findall(r'([0-1]?[0-9]|2[0-3]):([0-5][0-9])', str(raw_text))
-                            if time_matches:
-                                slip_time_str = f"{time_matches[-1][0].zfill(2)}:{time_matches[-1][1]}"
-
-                        matched_order = None
-                        match_status = "NOT_FOUND"
-                        possible_matches = []
-
-                        if slip_ref_id and slip_ref_id in used_transactions:
-                            match_status = "DUPLICATE"
-                        elif slip_amount:
-                            # 🌟 กรองบิลที่ยอดตรงกัน, ยังไม่จ่าย และ "ยังไม่ถูกจับคู่ในรอบนี้" 🌟
-                            potential_orders = [
-                                o for o in recent_orders 
-                                if abs(float(o.total_amount) - slip_amount) < 0.01 
-                                and o.payment_status != 'PAID'
-                                and o.id not in matched_order_ids_in_batch
-                            ]
-
-                            if potential_orders:
-                                for po in potential_orders:
-                                    d_name = "หน้าร้าน/ไม่ระบุ"
-                                    if hasattr(po, 'delivery_info') and po.delivery_info and hasattr(po.delivery_info, 'destination') and po.delivery_info.destination:
-                                        d_name = po.delivery_info.destination.name
-                                        
-                                    i_text = [f"{i.product.name} (x{i.quantity})" for i in po.items.all()]
-                                    possible_matches.append({
-                                        'id': po.id, 'receipt_number': po.receipt_number,
-                                        'dorm_name': d_name, 'items': i_text,
-                                        'time': timezone.localtime(po.created_at).strftime('%H:%M')
-                                    })
-
-                                # ระบบจับคู่ยอดเงินตรงกัน (เลือกบิลที่เก่าที่สุด FIFO ทันที ไม่สนเวลา)
-                                matched_order = potential_orders[-1]
-                                
-                                if match_status != "DUPLICATE":
-                                    match_status = "MATCHED"
-                                    # 🌟 บันทึก ID บิลนี้ว่าถูกจับคู่ไปแล้ว สลิปใบต่อไปจะได้ข้ามไปหาบิลคิวถัดไป 🌟
-                                    matched_order_ids_in_batch.add(matched_order.id)
-
-                        order_items_text = []
-                        dorm_name = "หน้าร้าน/ไม่ระบุ"
-                        if matched_order:
-                            for item in matched_order.items.all():
-                                order_items_text.append(f"{item.product.name} (x{item.quantity})")
-                            if hasattr(matched_order, 'delivery_info') and matched_order.delivery_info and hasattr(matched_order.delivery_info, 'destination') and matched_order.delivery_info.destination:
-                                dorm_name = matched_order.delivery_info.destination.name
-
-                        results.append({
-                            'amount': slip_amount, 'time': slip_time_str, 'transaction_ref': slip_ref_id,
-                            'order_id': matched_order.id if matched_order else None,
-                            'order_ref': matched_order.receipt_number if matched_order else "-",
-                            'dorm_name': dorm_name, 'items': order_items_text,
-                            'status': match_status, 'time_diff': None, 'possible_matches': possible_matches
-                        })
-                    else:
-                        results.append({'amount': None, 'time': None, 'status': 'ERROR', 'error_msg': "อ่านสลิปไม่ได้ (API ไม่ส่งข้อมูล)"})
-                else:
-                    results.append({'amount': None, 'time': None, 'status': 'ERROR', 'error_msg': f"API ล่ม (Code: {response.status_code})"})
-            except Exception as e_slip:
-                results.append({'amount': None, 'time': None, 'status': 'ERROR', 'error_msg': str(e_slip)})
-
-    return render(request, 'Pos/check_slips.html', {
-        'results': results, 
-        'orders': orders,
-        'selected_date': selected_date.strftime('%Y-%m-%d')
-    })
+                    i_text = [f"{i.product.name} (x{i.quantity})" for i in po.items.all()]
+                    possible_matches.append({
+                        'id': po.id, 'receipt_number': po.receipt_number,
+                        'dorm_name': d_name, 'items': i_text,
+                        'time': timezone.localtime(po.created_at).strftime('%H:%M')
+                    })
+                    
+                # เลือกบิลที่เก่าที่สุด (FIFO) ที่ยังว่างอยู่
+                matched_order = potential_orders[-1]
+                match_status = "MATCHED"
+                
+        order_items_text = []
+        dorm_name = "หน้าร้าน/ไม่ระบุ"
+        if matched_order:
+            for item in matched_order.items.all():
+                order_items_text.append(f"{item.product.name} (x{item.quantity})")
+            if hasattr(matched_order, 'delivery_info') and matched_order.delivery_info and hasattr(matched_order.delivery_info, 'destination') and matched_order.delivery_info.destination:
+                dorm_name = matched_order.delivery_info.destination.name
+                
+        return JsonResponse({
+            'status': 'SUCCESS',
+            'data': {
+                'amount': slip_amount,
+                'time': slip_time_str,
+                'transaction_ref': slip_ref_id,
+                'sender_name': sender_name,
+                'receiver_name': receiver_name,
+                'order_id': matched_order.id if matched_order else None,
+                'order_ref': matched_order.receipt_number if matched_order else "-",
+                'dorm_name': dorm_name,
+                'items': order_items_text,
+                'match_status': match_status,
+                'possible_matches': possible_matches
+            }
+        })
+    except Exception as e:
+        return JsonResponse({'status': 'ERROR', 'error_msg': str(e)})
 
 
 @login_required
