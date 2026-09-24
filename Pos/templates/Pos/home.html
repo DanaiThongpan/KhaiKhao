@@ -133,7 +133,6 @@
         </div>
         <nav class="menu">
             <a href="{% url 'pos:home' %}" class="menu-item active"><span>🏠</span><span>หน้าหลัก</span></a>
-            <a href="{% url 'pos:voice_order' %}" class="menu-item"><span>🎤</span><span>สั่งอาหารด้วยเสียง</span></a>
             <a href="{% url 'history:home' %}" class="menu-item"><span>📜</span><span>ประวัติการขาย</span></a>
             <a href="{% url 'pos:check_slips' %}" class="menu-item"><span>📸</span><span>ตรวจสอบสลิป</span></a>
             <a href="{% url 'expenses:home' %}" class="menu-item"><span>💵</span><span>บันทึกรายจ่าย</span></a>
@@ -412,7 +411,7 @@
                 </div>
 
                 <select id="checkoutDormSelect" style="width: 100%; padding: 10px; border-radius: 8px; border: 1px solid #93c5fd; font-size: 14px; outline: none; background: white;">
-                    <option value="" data-zone="">-- ลูกค้าซื้อหน้าร้าน (ไม่จัดส่ง) --</option>
+                    <option value="" data-zone="">-- อยู่ระหว่างรวบรวมข้อมูลหอพัก --</option>
                     {% for d in dorms %}
                         <option value="{{ d.id }}" data-zone="{{ d.zone }}">[{{ d.zone }}] {{ d.name }}</option>
                     {% endfor %}
@@ -824,7 +823,7 @@
             ↘❗ กรุณาแจ้งทางร้านทันที<br>
             🙇🏻‍♀️ ขอบคุณค่ะ/ครับ 🙇`;
 
-        let dormText = (selectedDormName && selectedDormName.trim() !== "") ? selectedDormName : "รับหน้าร้าน (ไม่จัดส่ง)";
+        let dormText = (selectedDormName && selectedDormName.trim() !== "") ? selectedDormName : "อยู่ระหว่างรวบรวมข้อมูลหอพัก";
         let dormHtml = `<div class="info-text">จุดส่ง: <strong>${dormText}</strong></div>`;
 
         let htmlContent = `
@@ -932,7 +931,7 @@
         const excludeKeywords = ["topping", "ท็อปปิ้ง", "พิเศษ", "เครื่องดื่ม", "เพิ่มเติม"];
         let mainIndex = 1;
 
-        let dormText = (selectedDormName && selectedDormName.trim() !== "") ? selectedDormName : "รับหน้าร้าน (ไม่จัดส่ง)";
+        let dormText = (selectedDormName && selectedDormName.trim() !== "") ? selectedDormName : "อยู่ระหว่างรวบรวมข้อมูลหอพัก";
         let dormHtml = `<div style="display: flex; justify-content: space-between; margin-top: 4px;"><span>จัดส่ง:</span> <span style="font-weight: 500; text-align: right; max-width: 70%;">${dormText}</span></div>`;
 
         let itemsHtml = items.map(item => {
@@ -1038,7 +1037,7 @@
         document.getElementById('billReceiptNum').innerText = receiptNo;
         
         let dormElem = document.getElementById('screenBillDorm');
-        let dormText = (selectedDormName && selectedDormName.trim() !== "") ? selectedDormName : "รับหน้าร้าน (ไม่จัดส่ง)";
+        let dormText = (selectedDormName && selectedDormName.trim() !== "") ? selectedDormName : "อยู่ระหว่างรวบรวมข้อมูลหอพัก";
         dormElem.innerHTML = `จัดส่ง: <strong style="color: #1f2937;">${dormText}</strong>`;
         dormElem.style.display = "block";
         document.getElementById('billReceiptNum').parentElement.style.marginBottom = "5px";

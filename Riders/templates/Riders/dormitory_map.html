@@ -314,30 +314,17 @@
     }
     const editIcon = L.icon({ iconUrl: iconBaseUrl + 'orange.png', ...iconOpts });
 
-    // 🌟 ระบบส่งพิกัด GPS ให้เซิร์ฟเวอร์อัตโนมัติ (ใส่ไว้ล่างสุดของ Riders/dashboard.html) 🌟
     document.addEventListener("DOMContentLoaded", function() {
-        if (navigator.geolocation) {
-            navigator.geolocation.watchPosition(
-                (pos) => {
-                    let currentLat = pos.coords.latitude;
-                    let currentLng = pos.coords.longitude;
-                    
-                    // ยิงพิกัดไปเก็บในฐานข้อมูล (ใช้เลข 0 เพื่อเหมาอัปเดตทุกออเดอร์ที่ถืออยู่)
-                    fetch("/riders/api/update-location/0/", {
-                        method: "POST",
-                        headers: { "Content-Type": "application/json" },
-                        body: JSON.stringify({
-                            lat: currentLat, 
-                            lng: currentLng
-                        })
-                    }).then(res => res.json())
-                    .then(data => console.log("อัปเดตพิกัดไรเดอร์ลง DB สำเร็จ:", data))
-                    .catch(err => console.error("อัปเดตพิกัดล้มเหลว:", err));
-                },
-                (err) => console.warn("ไม่สามารถอ่าน GPS ได้", err),
-                { enableHighAccuracy: true, timeout: 10000, maximumAge: 0 }
-            );
-        }
+        mapInstance = L.map("map", { zoomControl: false }).setView([15.1218, 104.9038], 14);
+        L.tileLayer('https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png', {
+            maxZoom: 19,
+            attribution: '&copy; OpenStreetMap contributors &copy; CARTO'
+        }).addTo(mapInstance);
+        L.control.zoom({ position: 'bottomright' }).addTo(mapInstance);
+        markerLayer.addTo(mapInstance);
+
+        updateDynamicZones();
+        renderMapAndTable();
     });
 
     function selectColor(mode, colorName, element) {

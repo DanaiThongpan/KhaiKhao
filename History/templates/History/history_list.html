@@ -542,7 +542,7 @@
         let leftOffset = 15 + (col * 95);
         let topOffset = 10 + (row * 95);
 
-        let dormText = (dormName && dormName.trim() !== "") ? dormName : "รับหน้าร้าน (ไม่จัดส่ง)";
+        let dormText = (dormName && dormName.trim() !== "") ? dormName : "อยู่ระหว่างรวบรวมข้อมูลหอพัก";
         let dormHtml = `<div class="info-text">จุดส่ง: <strong>${dormText}</strong></div>`;
 
         let qrFooterDesc = (fullShopName.includes("M053") || fullShopName.includes("เรื่องของหมู")) ? 
@@ -653,7 +653,7 @@
         const excludeKeywords = ["topping", "ท็อปปิ้ง", "กับข้าว", "พิเศษ", "เครื่องดื่ม", "เพิ่มเติม"];
         let mainIndex = 1;
 
-        let dormText = (dormName && dormName.trim() !== "") ? dormName : "รับหน้าร้าน (ไม่จัดส่ง)";
+        let dormText = (dormName && dormName.trim() !== "") ? dormName : "อยู่ระหว่างรวบรวมข้อมูลหอพัก";
         let dormHtml = `<div style="display: flex; justify-content: space-between; margin-top: 4px;"><span>จัดส่ง:</span> <span style="font-weight: 500; text-align: right; max-width: 70%;">${dormText}</span></div>`;
         
         let itemsHtml = items.map(item => {
