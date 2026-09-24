@@ -133,6 +133,7 @@
         </div>
         <nav class="menu">
             <a href="{% url 'pos:home' %}" class="menu-item active"><span>🏠</span><span>หน้าหลัก</span></a>
+            <a href="{% url 'pos:voice_order' %}" class="menu-item"><span>🎤</span><span>สั่งอาหารด้วยเสียง</span></a>
             <a href="{% url 'history:home' %}" class="menu-item"><span>📜</span><span>ประวัติการขาย</span></a>
             <a href="{% url 'pos:check_slips' %}" class="menu-item"><span>📸</span><span>ตรวจสอบสลิป</span></a>
             <a href="{% url 'expenses:home' %}" class="menu-item"><span>💵</span><span>บันทึกรายจ่าย</span></a>
@@ -1170,7 +1171,7 @@
         container.innerHTML = ''; 
         let totalPrice = 0;
         let requiredBoxes = 0;
-        const excludeKeywordsBox = ["topping", "ท็อปปิ้ง", "กับข้าว", "พิเศษ", "เครื่องดื่ม", "โปรโมชั่น", "เพิ่มเติม", "ของทานเล่น", "ค่าจัดส่ง", "โปรโมชั่นส่วนลด"];
+        const excludeKeywordsBox = ["topping", "ท็อปปิ้ง", "กับข้าว", "พิเศษ", "เครื่องดื่ม", "โปรโมชั่น", "เพิ่มเติม", "ค่าจัดส่ง", "โปรโมชั่นส่วนลด"];
 
         cart.forEach(item => {
             const itemTotal = item.price * item.qty; 

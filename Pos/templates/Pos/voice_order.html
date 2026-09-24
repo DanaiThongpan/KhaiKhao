@@ -1,0 +1,318 @@
+{% load static %}
+<!DOCTYPE html>
+<html lang="th">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>สั่งอาหารด้วยเสียง - KhaiKhao POS</title>
+    <style>
+        body { font-family: 'Sarabun', sans-serif; background: #f8fafc; margin: 0; display: flex; }
+        .sidebar { width: 250px; background: #1e293b; color: white; height: 100vh; position: fixed; top: 0; left: 0; overflow-y: auto; display: flex; flex-direction: column; transition: 0.3s; z-index: 100; }
+        .sidebar-header { padding: 20px; font-size: 20px; font-weight: bold; border-bottom: 1px solid #334155; text-align: center; }
+        .menu-item { display: flex; align-items: center; gap: 12px; padding: 15px 20px; color: #cbd5e1; text-decoration: none; transition: 0.2s; border-left: 4px solid transparent; }
+        .menu-item:hover { background: #334155; color: white; }
+        .menu-item.active { background: #3b82f6; color: white; border-left-color: #93c5fd; font-weight: bold; }
+        .main { margin-left: 250px; padding: 20px; width: calc(100% - 250px); box-sizing: border-box; min-height: 100vh; transition: 0.3s; display: flex; flex-direction: column; align-items: center; }
+        
+        .voice-card { background: white; padding: 30px; border-radius: 16px; box-shadow: 0 4px 10px rgba(0,0,0,0.05); border: 2px solid #cbd5e1; width: 100%; max-width: 600px; text-align: center; margin-top: 20px; transition: 0.3s; }
+        .voice-card:hover { border-color: #3b82f6; }
+        
+        .btn-mic { width: 150px; height: 150px; border-radius: 50%; background: #3b82f6; color: white; border: none; font-size: 60px; cursor: pointer; display: flex; justify-content: center; align-items: center; margin: 20px auto; box-shadow: 0 10px 25px rgba(59, 130, 246, 0.4); transition: 0.3s; }
+        .btn-mic:hover { background: #2563eb; transform: scale(1.05); }
+        .btn-mic.listening { background: #ef4444; box-shadow: 0 0 0 15px rgba(239, 68, 68, 0.2); animation: pulse 1.5s infinite; }
+        
+        @keyframes pulse {
+            0% { box-shadow: 0 0 0 0 rgba(239, 68, 68, 0.4); }
+            70% { box-shadow: 0 0 0 20px rgba(239, 68, 68, 0); }
+            100% { box-shadow: 0 0 0 0 rgba(239, 68, 68, 0); }
+        }
+
+        .order-summary-card { background: #ffffff; padding: 20px; border-radius: 12px; border: 2px solid #3b82f6; box-shadow: 0 8px 16px rgba(59, 130, 246, 0.1); margin-top: 20px; text-align: left; }
+        .heard-text-box { background: #eff6ff; padding: 15px; border-radius: 8px; border-left: 4px solid #3b82f6; margin-bottom: 20px; min-height: 50px;}
+        
+        .input-group { text-align: left; margin-bottom: 15px; }
+        .input-group label { font-size: 13px; font-weight: bold; color: #475569; display: block; margin-bottom: 5px; }
+        
+        /* 🌟 ปรับสไตล์ให้ครอบคลุมทั้ง input และ select 🌟 */
+        .input-group input, .input-group select { 
+            width: 100%; padding: 10px; border-radius: 8px; border: 1px solid #cbd5e1; 
+            font-family: 'Sarabun'; font-size: 15px; box-sizing: border-box; 
+            background: #f8fafc; color: #1e293b; font-weight: bold; 
+            appearance: auto; /* ให้แสดงลูกศร Dropdown */
+        }
+        .input-group input:focus, .input-group select:focus { outline: none; border-color: #3b82f6; background: white; }
+        
+        .btn-save { width: 100%; padding: 14px; background: #16a34a; color: white; border: none; border-radius: 8px; font-weight: bold; font-size: 16px; cursor: pointer; box-shadow: 0 4px 6px rgba(22, 163, 74, 0.2); transition: 0.2s; display: flex; justify-content: center; align-items: center; gap: 8px; }
+        .btn-save:hover { background: #15803d; transform: translateY(-2px); }
+
+        .btn-cancel { width: 100%; padding: 10px; background: #f1f5f9; color: #64748b; border: none; border-radius: 8px; font-weight: bold; font-size: 14px; cursor: pointer; transition: 0.2s; margin-top: 10px; }
+        .btn-cancel:hover { background: #e2e8f0; color: #334155; }
+
+        @media (max-width: 1024px) {
+            .sidebar { width: 70px; }
+            .sidebar-header { font-size: 12px; padding: 15px 5px; }
+            .menu-item span:nth-child(2) { display: none; }
+            .main { margin-left: 70px; width: calc(100% - 70px); padding: 15px; }
+        }
+    </style>
+</head>
+<body>
+
+    <div id="csrf-wrapper" style="display:none;">
+        {% csrf_token %}
+    </div>
+
+    <!-- แถบเมนูด้านซ้าย -->
+    <aside class="sidebar">
+        <div class="sidebar-header">🥚 POS</div>
+        <nav style="margin-top: 10px;">
+            <a href="{% url 'pos:home' %}" class="menu-item"><span>🏠</span><span>หน้าหลัก</span></a>
+            <a href="{% url 'pos:voice_order' %}" class="menu-item active"><span>🎙️</span><span>สั่งด้วยเสียง</span></a>
+            <a href="{% url 'pos:check_slips' %}" class="menu-item"><span>📸</span><span>ตรวจสอบสลิป</span></a>
+            <a href="{% url 'history:home' %}" class="menu-item"><span>📜</span><span>ประวัติการขาย</span></a>
+        </nav>
+    </aside>
+
+    <main class="main">
+        <div style="width: 100%; max-width: 600px;">
+            <h1 style="color: #1e293b; margin: 0 0 5px 0; font-size: 24px;">🎙️ สั่งอาหารด้วยเสียง (Voice Order)</h1>
+            <p style="color: #64748b; margin: 0 0 20px 0;">กดปุ่มไมโครโฟนแล้วพูดเพื่อบันทึกออเดอร์อย่างรวดเร็ว</p>
+        </div>
+
+        <div class="voice-card">
+            <div id="statusText" style="font-size: 18px; font-weight: bold; color: #334155; margin-bottom: 10px;">
+                กดปุ่มไมค์เพื่อเริ่มพูด
+            </div>
+            
+            <button id="micBtn" class="btn-mic" onclick="startDictation()">🎤</button>
+            
+            <div id="hintText" style="color: #94a3b8; font-size: 13px; margin-bottom: 20px;">
+                ตัวอย่าง: "ข้าวยำสามชั้น 2 กล่อง หอทวีทรัพย์"
+            </div>
+
+            <!-- การ์ดสรุปออเดอร์ -->
+            <div id="confirmBox" class="order-summary-card" style="display: none;">
+                
+                <!-- กล่องแสดงข้อความที่ระบบได้ยิน (โชว์แบบ Real-time) -->
+                <div class="heard-text-box">
+                    <div style="font-size: 12px; font-weight: bold; color: #3b82f6; margin-bottom: 5px;">🗣️ เสียงที่ระบบกำลังได้ยิน:</div>
+                    <div id="rawText" style="font-size: 18px; color: #1e293b; font-style: italic; line-height: 1.4;">...</div>
+                </div>
+                
+                <h4 style="margin: 0 0 15px 0; color: #1e293b; border-bottom: 1px solid #e2e8f0; padding-bottom: 10px;">📋 ตรวจสอบและแก้ไขออเดอร์</h4>
+                
+                <div class="input-group">
+                    <label>🍔 เมนูอาหาร:</label>
+                    <!-- เพิ่ม Auto-complete (Datalist) ให้เลือกเมนูง่ายๆ หากเดาผิด -->
+                    <input type="text" id="voiceMenu" list="menuOptions" placeholder="ระบุชื่อเมนู...">
+                    <datalist id="menuOptions"></datalist>
+                </div>
+                
+                <div style="display: flex; gap: 15px;">
+                    <div class="input-group" style="flex: 1;">
+                        <label>📦 จำนวน (กล่อง):</label>
+                        <input type="number" id="voiceQty" value="1" min="1">
+                    </div>
+                    <div class="input-group" style="flex: 2;">
+                        <label>📍 หอพัก/จุดส่ง (เลือกแก้ได้):</label>
+                        <!-- 🌟 เปลี่ยนจาก Input เป็น Select Dropdown 🌟 -->
+                        <select id="voiceDorm">
+                            <option value="หน้าร้าน/ไม่ระบุ">🏠 หน้าร้าน/ไม่ระบุ</option>
+                            <!-- หอพักจะถูกเติมอัตโนมัติด้วย JavaScript ด้านล่าง -->
+                        </select>
+                    </div>
+                </div>
+                
+                <button onclick="saveVoiceOrder()" class="btn-save" id="btnSaveOrder">
+                    ✅ ยืนยันบันทึกออเดอร์
+                </button>
+                <button onclick="cancelVoiceOrder()" class="btn-cancel">
+                    ❌ ฟังผิด / เริ่มใหม่
+                </button>
+            </div>
+        </div>
+    </main>
+
+<script>
+    // ดึงฐานข้อมูลคำศัพท์จาก Django แบบ Real-time
+    const menuKeywords = {{ product_names|safe }};
+    const dormKeywords = {{ dorm_names|safe }};
+
+    // 🌟 นำรายชื่อหอพักมาใส่เป็นตัวเลือกใน Dropdown ทันทีที่โหลดหน้า 🌟
+    document.addEventListener('DOMContentLoaded', () => {
+        const dormSelect = document.getElementById('voiceDorm');
+        dormKeywords.forEach(dorm => {
+            let opt = document.createElement('option');
+            opt.value = dorm;
+            opt.innerText = `📍 ${dorm}`;
+            dormSelect.appendChild(opt);
+        });
+
+        // นำรายชื่อเมนูมาใส่ใน Datalist เพื่อให้มี Auto-complete เวลาคลิกแก้เมนูเอง
+        const menuDatalist = document.getElementById('menuOptions');
+        menuKeywords.forEach(menu => {
+            let opt = document.createElement('option');
+            opt.value = menu;
+            menuDatalist.appendChild(opt);
+        });
+    });
+
+    let recognition;
+
+    function startDictation() {
+        if (window.hasOwnProperty('webkitSpeechRecognition')) {
+            recognition = new webkitSpeechRecognition();
+            recognition.continuous = false;
+            // 🌟 เปิดโหมด Interim Results ให้โชว์ข้อความแบบ Real-time ระหว่างพูด 🌟
+            recognition.interimResults = true;
+            recognition.lang = "th-TH"; 
+
+            const micBtn = document.getElementById('micBtn');
+            const statusText = document.getElementById('statusText');
+
+            micBtn.classList.add('listening');
+            statusText.innerText = "🔴 กำลังฟัง... (พูดได้เลย)";
+            statusText.style.color = "#ef4444";
+            
+            document.getElementById('confirmBox').style.display = "block";
+            document.getElementById('rawText').innerHTML = "<span style='color: #94a3b8;'>...</span>";
+            
+            // ล้างค่าเก่าเตรียมรับค่าใหม่
+            document.getElementById('voiceMenu').value = "";
+            document.getElementById('voiceMenu').style.borderColor = "#cbd5e1";
+            document.getElementById('voiceQty').value = "1";
+            document.getElementById('voiceDorm').value = "หน้าร้าน/ไม่ระบุ";
+
+            recognition.start();
+
+            recognition.onresult = function(e) {
+                let interimTranscript = '';
+                let finalTranscript = '';
+
+                // ประมวลผลข้อความทั้งแบบที่กำลังพูด (Interim) และพูดจบแล้ว (Final)
+                for (let i = e.resultIndex; i < e.results.length; ++i) {
+                    if (e.results[i].isFinal) {
+                        finalTranscript += e.results[i][0].transcript;
+                    } else {
+                        interimTranscript += e.results[i][0].transcript;
+                    }
+                }
+
+                // ⚡ โชว์ข้อความแบบสดๆ ทันทีที่เสียงเข้า
+                if (interimTranscript !== '') {
+                    document.getElementById('rawText').innerHTML = `<span style="color:#94a3b8;">${interimTranscript}</span>...`;
+                }
+
+                // 🧠 เมื่อพูดจบประโยค (isFinal = true) ค่อยทำ NLP แกะคำสั่ง
+                if (finalTranscript !== '') {
+                    document.getElementById('rawText').innerText = `"${finalTranscript}"`;
+                    
+                    let matchedMenu = "";
+                    let matchedDorm = "หน้าร้าน/ไม่ระบุ";
+                    let matchedQty = 1;
+
+                    // 1. หาจำนวนตัวเลข
+                    const qtyMatch = finalTranscript.match(/\d+/);
+                    if (qtyMatch) matchedQty = parseInt(qtyMatch[0]);
+
+                    // 2. เทียบเสียงพูดกับชื่อสินค้า
+                    menuKeywords.forEach(menu => {
+                        let shortName = menu.substring(0, 8); 
+                        if (finalTranscript.includes(shortName) || finalTranscript.includes(menu)) {
+                            matchedMenu = menu;
+                        }
+                    });
+
+                    // 3. เทียบเสียงพูดกับชื่อหอพัก
+                    dormKeywords.forEach(dorm => {
+                        if (finalTranscript.includes(dorm)) matchedDorm = dorm;
+                    });
+
+                    // นำค่าไปอัปเดตในฟอร์ม
+                    document.getElementById('voiceMenu').value = matchedMenu;
+                    document.getElementById('voiceQty').value = matchedQty;
+                    document.getElementById('voiceDorm').value = matchedDorm;
+
+                    // แจ้งเตือนด้วยกรอบสีแดงถ้าจับชื่อเมนูไม่ได้
+                    if(matchedMenu === "") {
+                        document.getElementById('voiceMenu').style.borderColor = "#ef4444";
+                        document.getElementById('voiceMenu').placeholder = "⚠️ โปรดระบุชื่อเมนูด้วยตนเอง...";
+                    } 
+                    
+                    document.getElementById('confirmBox').scrollIntoView({ behavior: 'smooth', block: 'center' });
+                    resetMicButton();
+                }
+            };
+
+            recognition.onerror = function(e) {
+                // ถ้าแค่หมดเวลาพูด ไม่ต้องแจ้งเตือน error ให้รำคาญ
+                if (e.error !== 'no-speech') {
+                    alert("เกิดข้อผิดพลาดในการฟังเสียง (" + e.error + ")");
+                }
+                resetMicButton();
+            };
+
+            recognition.onend = function() {
+                resetMicButton();
+            };
+
+        } else {
+            alert("เบราว์เซอร์นี้ไม่รองรับระบบเสียง กรุณาใช้ Google Chrome หรือ Safari");
+        }
+    }
+
+    function resetMicButton() {
+        const micBtn = document.getElementById('micBtn');
+        const statusText = document.getElementById('statusText');
+        
+        micBtn.classList.remove('listening');
+        statusText.innerText = "กดปุ่มไมค์เพื่อเริ่มพูด";
+        statusText.style.color = "#334155";
+    }
+
+    function cancelVoiceOrder() {
+        document.getElementById('confirmBox').style.display = "none";
+        document.getElementById('rawText').innerText = "";
+        window.scrollTo({ top: 0, behavior: 'smooth' });
+    }
+
+    function saveVoiceOrder() {
+        const menu = document.getElementById('voiceMenu').value.trim();
+        const qty = document.getElementById('voiceQty').value;
+        const dorm = document.getElementById('voiceDorm').value; // ดึงค่าจาก Select Dropdown
+
+        if (!menu) {
+            alert("กรุณาระบุชื่อเมนูอาหารให้ตรงกับในระบบ");
+            document.getElementById('voiceMenu').focus();
+            return;
+        }
+
+        const btnSave = document.getElementById('btnSaveOrder');
+        btnSave.disabled = true;
+        btnSave.innerHTML = "⏳ กำลังบันทึก...";
+
+        let csrfToken = document.querySelector('#csrf-wrapper input[name=csrfmiddlewaretoken]').value;
+
+        fetch("{% url 'pos:api_save_voice_order' %}", {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json', 'X-CSRFToken': csrfToken },
+            body: JSON.stringify({ product_name: menu, quantity: qty, dorm_name: dorm })
+        }).then(res => res.json()).then(data => {
+            if (data.status === 'success') {
+                alert("✅ บันทึกออเดอร์ลงฐานข้อมูลสำเร็จ!");
+                cancelVoiceOrder(); 
+            } else {
+                alert("❌ เกิดข้อผิดพลาด: " + data.message);
+            }
+            btnSave.disabled = false;
+            btnSave.innerHTML = "✅ ยืนยันบันทึกออเดอร์";
+        }).catch(err => {
+            alert("❌ ระบบขัดข้อง ไม่สามารถบันทึกได้");
+            btnSave.disabled = false;
+            btnSave.innerHTML = "✅ ยืนยันบันทึกออเดอร์";
+        });
+    }
+</script>
+
+</body>
+</html>

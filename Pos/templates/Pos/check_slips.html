@@ -42,7 +42,6 @@
         .btn-unpaid { background: #fff1f2; color: #e11d48; border: 1px solid #fecdd3; padding: 6px 12px; border-radius: 6px; font-size: 12px; font-weight: bold; cursor: pointer; margin-top: 6px; display: inline-flex; align-items: center; gap: 4px; transition: 0.2s; }
         .btn-unpaid:hover { background: #ffe4e6; transform: translateY(-1px); }
         
-        /* 🌟 CSS ปุ่มกดรับเงินแมนวล 🌟 */
         .btn-manual-paid { background: #16a34a; color: white; border: none; padding: 6px 12px; border-radius: 6px; font-size: 11px; font-weight: bold; cursor: pointer; margin-top: 6px; display: inline-flex; align-items: center; gap: 4px; transition: 0.2s; box-shadow: 0 2px 4px rgba(22, 163, 74, 0.2); }
         .btn-manual-paid:hover { background: #15803d; transform: translateY(-1px); }
 
@@ -188,7 +187,6 @@
                                         <span class="status-badge badge-success" style="margin-top: 5px;">✅ จ่ายแล้ว</span>
                                     {% else %}
                                         <span class="status-badge badge-warning" style="margin-top: 5px;">⏳ รอโอน</span><br>
-                                        <!-- 🌟 ปุ่มกดแมนวลรับเงินทันที โดยไม่ต้องสแกนสลิป 🌟 -->
                                         <button type="button" class="btn-manual-paid" onclick="manualMarkPaid({{ order.id }})">
                                             💵 กดรับเงินแล้ว
                                         </button>
@@ -283,13 +281,10 @@
         document.getElementById('summaryCount').innerText = `${countPaidOrders}/${totalOrdersCount}`;
     }
 
-    // 🌟 ฟังก์ชันอัปเดตบิลเป็นจ่ายแล้ว (Manual แบบไม่ง้อสลิป) 🌟
     function manualMarkPaid(orderId) {
         if (!confirm("ต้องการเปลี่ยนสถานะบิลนี้เป็น 'จ่ายแล้ว' (ชำระเงินสด/โอนตรง) ใช่หรือไม่?")) return;
 
         let csrfToken = document.querySelector('#csrf-wrapper input[name=csrfmiddlewaretoken]').value;
-        
-        // อาศัย API การบันทึกสลิปเดิม โดยแนบ Transaction Ref เป็นรหัสจำลองของระบบ
         let payload = {
             matches: [
                 { order_id: orderId, transaction_ref: "MANUAL-" + Math.floor(Math.random() * 1000000) }
@@ -519,34 +514,54 @@
             tbody.appendChild(tr);
 
             try {
-                let formData = new FormData();
-                formData.append('slip', files[i]); 
-                formData.append('filter_date', '{{ selected_date }}'); 
-                formData.append('exclude_ids', JSON.stringify(matchedOrderIds)); 
+                // 🌟 1. เบราว์เซอร์ยิงสลิปตรงไปที่ Go API
+                let goFormData = new FormData();
+                goFormData.append('slip_image', files[i]); 
                 
-                let csrfToken = document.querySelector('#csrf-wrapper input[name=csrfmiddlewaretoken]').value;
-                
-                let response = await fetch("{% url 'pos:api_process_single_slip' %}", {
+                let goResponse = await fetch("https://godanai.wdlabs.online/api/v1/scan-slip", {
                     method: 'POST',
-                    headers: { 'X-CSRFToken': csrfToken },
-                    body: formData
+                    body: goFormData
                 });
                 
-                let result = await response.json();
+                let goResult = await goResponse.json();
                 
-                if (result.status === 'SUCCESS') {
-                    let data = result.data;
-                    if (data.match_status === 'MATCHED' && data.order_id) {
-                        matchedOrderIds.push(data.order_id); 
-                        totalMatchedCount++;
+                // รองรับ JSON สองแบบเผื่อไว้
+                let slipData = goResult.data ? goResult.data : goResult;
+                
+                if (slipData && (slipData.amount !== undefined || slipData.transaction_ref)) {
+                    
+                    // 🌟 2. เอาข้อมูลสลิปที่อ่านได้ ส่งกลับไปหา Django เพื่อจับคู่
+                    let djangoFormData = new FormData();
+                    djangoFormData.append('extracted_data', JSON.stringify(slipData));
+                    djangoFormData.append('filter_date', '{{ selected_date }}'); 
+                    djangoFormData.append('exclude_ids', JSON.stringify(matchedOrderIds)); 
+                    
+                    let csrfToken = document.querySelector('#csrf-wrapper input[name=csrfmiddlewaretoken]').value;
+                    let djangoResponse = await fetch("{% url 'pos:api_process_single_slip' %}", {
+                        method: 'POST',
+                        headers: { 'X-CSRFToken': csrfToken },
+                        body: djangoFormData
+                    });
+                    
+                    let result = await djangoResponse.json();
+                    
+                    if (result.status === 'SUCCESS') {
+                        let data = result.data;
+                        if (data.match_status === 'MATCHED' && data.order_id) {
+                            matchedOrderIds.push(data.order_id); 
+                            totalMatchedCount++;
+                        }
+                        renderResultRow(tr, data);
+                    } else {
+                        renderErrorRow(tr, result.error_msg);
                     }
-                    renderResultRow(tr, data);
                 } else {
-                    renderErrorRow(tr, result.error_msg);
+                    renderErrorRow(tr, "ไม่มีข้อมูลยอดเงินในสลิป");
                 }
                 
             } catch (e) {
-                renderErrorRow(tr, "เชื่อมต่อล้มเหลว");
+                console.error(e);
+                renderErrorRow(tr, "เชื่อมต่อเซิร์ฟเวอร์สแกนสลิปไม่สำเร็จ (ล่มหรือติด CORS)");
             }
             updateBadge();
         }
@@ -566,35 +581,6 @@
         }, 3000);
         
         fileInput.value = ''; 
-    }
-
-    function confirmSlips() {
-        const matches = [];
-        const matchedRows = document.querySelectorAll('tr.row-matched');
-        
-        matchedRows.forEach(row => {
-            const orderId = row.getAttribute('data-order-id');
-            const ref = row.getAttribute('data-ref');
-            if (orderId) matches.push({ order_id: orderId, transaction_ref: ref });
-        });
-
-        if (matches.length === 0) return alert('ไม่มีรายการที่จับคู่สำเร็จให้บันทึก');
-        if (!confirm(`ต้องการยืนยันการรับเงินจำนวน ${matches.length} บิล ใช่หรือไม่?`)) return;
-
-        const btn = document.getElementById('saveBtn');
-        btn.disabled = true;
-        btn.innerHTML = '⏳ กำลังบันทึก...';
-        
-        let csrfToken = document.querySelector('#csrf-wrapper input[name=csrfmiddlewaretoken]').value;
-
-        fetch("{% url 'pos:confirm_slips' %}", {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json', 'X-CSRFToken': csrfToken },
-            body: JSON.stringify({ matches: matches })
-        }).then(res => res.json()).then(data => {
-            if (data.status === 'success') { alert(data.message); window.location.reload(); } 
-            else { alert('เกิดข้อผิดพลาด: ' + data.message); btn.disabled = false; btn.innerHTML = '💾 บันทึกยอดที่ตรงกัน'; }
-        });
     }
 </script>
 

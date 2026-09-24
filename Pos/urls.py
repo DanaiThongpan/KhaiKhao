@@ -14,4 +14,6 @@ urlpatterns = [
     path('mark-unpaid/', views.mark_order_unpaid, name='mark_unpaid'),
     path('reset-slip/', views.reset_slip_ref, name='reset_slip_ref'),
     path('api-process-single-slip/', views.api_process_single_slip, name='api_process_single_slip'),
+    path('voice-order/', views.voice_order_page, name='voice_order'),
+    path('api/voice-order/', views.api_save_voice_order, name='api_save_voice_order'),
 ]

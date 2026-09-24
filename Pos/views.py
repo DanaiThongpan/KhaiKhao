@@ -162,8 +162,12 @@ def process_checkout(request):
                 return JsonResponse({"status": "error", "message": "ตะกร้าว่างเปล่า"}, status=400)
 
             # คำนวณจำนวนกล่องที่ต้องใช้ก่อนบันทึกบิล
+# คำนวณจำนวนกล่องที่ต้องใช้ก่อนบันทึกบิล
             boxes_to_deduct = 0
-            exclude_keywords = ["topping", "ท็อปปิ้ง", "กับข้าว", "พิเศษ", "เครื่องดื่ม", "โปรโมชั่น", "เพิ่มเติม", "ของทานเล่น", "ค่าจัดส่ง", "โปรโมชั่นส่วนลด"]
+            exclude_keywords = ["topping", "ท็อปปิ้ง", "กับข้าว", "พิเศษ", "เครื่องดื่ม", "โปรโมชั่น", "เพิ่มเติม", "ค่าจัดส่ง", "โปรโมชั่นส่วนลด"]
+            
+            # 🌟 เพิ่มคีย์เวิร์ดของทานเล่นที่ "บังคับต้องใส่กล่อง" 🌟
+            force_box_keywords = ["เฟรนช์ฟรายส์", "นักเก็ต", "ไก่ป๊อป", "ทานเล่น"]
 
             for item in cart_items:
                 product = Product.objects.get(id=item['id'])
@@ -171,7 +175,13 @@ def process_checkout(request):
                 cat_name = product.category.name.lower() if product.category else ""
                 prod_name = product.name.lower()
 
+                # ตรวจสอบเบื้องต้นว่าติดคำยกเว้นหรือไม่
                 is_excluded = any(kw in cat_name or kw in prod_name for kw in exclude_keywords)
+                
+                # 🌟 ยกเลิกการแบน: ถ้าชื่อสินค้าตรงกับกลุ่ม "บังคับต้องใส่กล่อง" ให้เปลี่ยนค่า is_excluded เป็น False
+                if any(fw in prod_name for fw in force_box_keywords):
+                    is_excluded = False
+
                 if not is_excluded:
                     boxes_to_deduct += qty
 
@@ -386,27 +396,16 @@ def api_process_single_slip(request):
             selected_date = timezone.localdate()
             
         exclude_ids_str = request.POST.get('exclude_ids', '[]')
-        
-        # 🌟 แก้บั๊ก 1:1 ตรงนี้! แปลง ID ที่เป็นข้อความ (String) จาก JS ให้เป็นตัวเลข (Integer) ทั้งหมด 🌟
         exclude_ids_raw = json.loads(exclude_ids_str)
         exclude_ids = [int(eid) for eid in exclude_ids_raw if str(eid).isdigit()]
         
-        image_file = request.FILES.get('slip')
-        if not image_file:
-            return JsonResponse({'status': 'ERROR', 'error_msg': 'ไม่พบไฟล์รูปภาพ'})
+        # 🌟 รับข้อมูลที่ถูกสกัดมาจากหน้าเว็บ (แทนการรับไฟล์รูป) 🌟
+        extracted_data_str = request.POST.get('extracted_data')
+        if not extracted_data_str:
+            return JsonResponse({'status': 'ERROR', 'error_msg': 'ไม่พบข้อมูลที่สกัดจากสลิป'})
             
-        files_payload = {'slip_image': (image_file.name, image_file.file, image_file.content_type)}
-        headers = {'ngrok-skip-browser-warning': 'true'}
+        slip_data = json.loads(extracted_data_str)
         
-        response = requests.post(API_GO_URL, files=files_payload, headers=headers, timeout=20)
-        if response.status_code != 200:
-            return JsonResponse({'status': 'ERROR', 'error_msg': f'API ล่ม (Code: {response.status_code})'})
-            
-        res_json = response.json()
-        if not res_json.get('success') or 'data' not in res_json:
-            return JsonResponse({'status': 'ERROR', 'error_msg': 'อ่านสลิปไม่ได้ (API ไม่ส่งข้อมูลมา)'})
-            
-        slip_data = res_json['data']
         slip_amount = slip_data.get('amount')
         if slip_amount is not None:
             try: slip_amount = float(slip_amount)
@@ -415,8 +414,6 @@ def api_process_single_slip(request):
         slip_ref_id = slip_data.get('transaction_ref')
         raw_date = slip_data.get('date', '')
         raw_text = slip_data.get('raw_text', '')
-        
-        # (ข้อมูลเหล่านี้จะยังว่างเปล่า จนกว่าคุณจะไปเขียน Regex เพิ่มในไฟล์ services.go)
         sender_name = slip_data.get('sender_name', '')
         receiver_name = slip_data.get('receiver_name', '')
         
@@ -445,7 +442,6 @@ def api_process_single_slip(request):
         if slip_ref_id and slip_ref_id in used_transactions:
             match_status = "DUPLICATE"
         elif slip_amount is not None:
-            # 🌟 ตอนนี้ระบบจะจับคู่เฉพาะบิลที่ ID ไม่อยู่ในรายชื่อ exclude_ids ได้อย่างถูกต้องแล้ว 🌟
             potential_orders = [
                 o for o in recent_orders 
                 if abs(float(o.total_amount) - slip_amount) < 0.01 
@@ -466,7 +462,6 @@ def api_process_single_slip(request):
                         'time': timezone.localtime(po.created_at).strftime('%H:%M')
                     })
                     
-                # เลือกบิลที่เก่าที่สุด (FIFO) ที่ยังว่างอยู่
                 matched_order = potential_orders[-1]
                 match_status = "MATCHED"
                 
@@ -555,3 +550,71 @@ def confirm_matched_slips(request):
         return JsonResponse({"status": "success", "message": f"บันทึกยอดเงินสำเร็จ {updated_count} รายการ"})
     except Exception as e:
         return JsonResponse({"status": "error", "message": str(e)}, status=500)
+
+from django.utils.crypto import get_random_string
+
+@login_required
+def voice_order_page(request):
+    # 🌟 ดึงรายชื่อสินค้าและหอพักทั้งหมดที่ Active จากฐานข้อมูล เพื่อส่งไปให้ระบบ AI ฟังเสียง
+    products = list(Product.objects.filter(is_active=True).values_list('name', flat=True))
+    dorms = list(Dormitory.objects.all().values_list('name', flat=True))
+    
+    return render(request, 'Pos/voice_order.html', {
+        'product_names': json.dumps(products),
+        'dorm_names': json.dumps(dorms)
+    })
+
+
+@login_required
+@require_POST
+def api_save_voice_order(request):
+    try:
+        data = json.loads(request.body)
+        product_name = data.get('product_name')
+        quantity = int(data.get('quantity', 1))
+        dorm_name = data.get('dorm_name')
+
+        # 1. ค้นหาสินค้าจากฐานข้อมูล
+        product = Product.objects.filter(name__icontains=product_name, is_active=True).first()
+        if not product:
+            return JsonResponse({'status': 'error', 'message': f'ไม่พบสินค้าชื่อ: {product_name}'})
+
+        # 2. สร้างบิล (Order)
+        receipt_no = f"VOX-{get_random_string(8).upper()}"
+        new_order = Order.objects.create(
+            receipt_number=receipt_no,
+            total_amount=product.selling_price * quantity, # ใช้ selling_price ตามโมเดลจริง
+            created_by=request.user,
+            payment_status='PENDING'
+        )
+
+        # 3. สร้างรายการสินค้า (OrderItem)
+        OrderItem.objects.create(
+            order=new_order,
+            product=product,
+            price=product.selling_price,
+            quantity=quantity,
+            subtotal=product.selling_price * quantity
+        )
+
+        # 4. สร้างงานจัดส่ง (DeliveryTask)
+        if dorm_name and dorm_name != "หน้าร้าน/ไม่ระบุ":
+            # ค้นหาหอพักจากชื่อ
+            dorm = Dormitory.objects.filter(name__icontains=dorm_name).first()
+            if dorm:
+                DeliveryTask.objects.create(
+                    order=new_order,
+                    destination=dorm,
+                    status='PENDING'
+                )
+            else:
+                # ถ้าไม่เจอหอพักแต่มีการสั่งส่ง ให้สร้าง Task ว่างไว้
+                DeliveryTask.objects.create(
+                    order=new_order,
+                    status='PENDING'
+                )
+
+        return JsonResponse({'status': 'success', 'message': 'บันทึกออเดอร์ด้วยเสียงสำเร็จ'})
+
+    except Exception as e:
+        return JsonResponse({'status': 'error', 'message': str(e)})
