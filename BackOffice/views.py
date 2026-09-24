@@ -472,20 +472,37 @@ def api_rider_locations(request):
         r_name = getattr(t.rider, 'name', getattr(t.rider, 'username', f"ไรเดอร์ #{r_id}"))
         
         if r_id not in riders_data:
-            lat = getattr(t.rider, 'latitude', getattr(t.rider, 'lat', 15.1186 + (r_id * 0.0005)))
-            lng = getattr(t.rider, 'longitude', getattr(t.rider, 'lng', 104.9046 + (r_id * 0.0005)))
-            try: lat, lng = float(lat), float(lng)
-            except: lat, lng = 15.1186, 104.9046
-            
-            # 🌟 1. ดึงข้อมูล IP และ รุ่นมือถือของไรเดอร์ 🌟
+            # 🌟 1. ดึงข้อมูล IP และรุ่นมือถือ 🌟
             rider_ip = getattr(t.rider, 'client_ip', None) or 'ไม่ทราบ IP'
             rider_device = getattr(t.rider, 'device_info', None) or 'ไม่ทราบรุ่นมือถือ'
 
+            # ดึงพิกัดตั้งต้น (กรณีไม่มีข้อมูลเลย)
+            default_lat = getattr(t.rider, 'latitude', getattr(t.rider, 'lat', 15.1186 + (r_id * 0.0005)))
+            default_lng = getattr(t.rider, 'longitude', getattr(t.rider, 'lng', 104.9046 + (r_id * 0.0005)))
+            try: default_lat, default_lng = float(default_lat), float(default_lng)
+            except: default_lat, default_lng = 15.1186, 104.9046
+
             riders_data[r_id] = {
-                'id': r_id, 'name': r_name, 'lat': lat, 'lng': lng, 'orders': [],
+                'id': r_id, 'name': r_name, 
+                'lat': default_lat, 
+                'lng': default_lng, 
+                'orders': [],
                 'rider_ip': rider_ip,
-                'rider_device': rider_device
+                'rider_device': rider_device,
+                'last_update': None # ตัวแปรช่วยเช็กเวลาว่าพิกัดไหนใหม่สุด
             }
+        
+        # 🌟 2. จุดสำคัญ: ดึงพิกัดล่าสุดที่มือถือไรเดอร์ (หน้า /riders/) ยิงเข้ามา 🌟
+        if t.latitude and t.longitude:
+            try:
+                t_lat, t_lng = float(t.latitude), float(t.longitude)
+                # ถ้าออเดอร์นี้มีพิกัดที่อัปเดต "ใหม่กว่า" ให้อัปเดตตำแหน่งไรเดอร์บนแผนที่ทันที
+                if not riders_data[r_id]['last_update'] or (t.last_location_update and t.last_location_update > riders_data[r_id]['last_update']):
+                    riders_data[r_id]['lat'] = t_lat
+                    riders_data[r_id]['lng'] = t_lng
+                    riders_data[r_id]['last_update'] = t.last_location_update
+            except Exception:
+                pass
         
         duration_str = "เพิ่งเริ่ม"
         if t.started_at:
@@ -499,6 +516,7 @@ def api_rider_locations(request):
         
         shop_name = t.order.created_by.username if t.order.created_by else "ไม่ระบุร้าน"
         
+        # พิกัดเป้าหมาย (ปลายทางหอพัก)
         d_lat, d_lng = riders_data[r_id]['lat'], riders_data[r_id]['lng']
         if t.destination:
             dl = getattr(t.destination, 'latitude', getattr(t.destination, 'lat', d_lat))
@@ -506,7 +524,7 @@ def api_rider_locations(request):
             try: d_lat, d_lng = float(dl), float(dg)
             except: pass
 
-        # 🌟 2. ดึงข้อมูล IP และ รุ่นเครื่องของคนที่คีย์บิลออเดอร์นี้ 🌟
+        # 🌟 3. ข้อมูล IP ของคนคีย์บิล 🌟
         order_ip = getattr(t.order, 'client_ip', None) or 'ไม่ระบุ'
         order_device = getattr(t.order, 'device_info', None) or 'ไม่ระบุ'
 
@@ -518,8 +536,8 @@ def api_rider_locations(request):
             'duration': duration_str,
             'lat': d_lat,
             'lng': d_lng,
-            'order_ip': order_ip,          # ส่งค่า IP บิลไปที่ JavaScript
-            'order_device': order_device   # ส่งค่าเครื่องที่ใช้คีย์บิลไปที่ JavaScript
+            'order_ip': order_ip,
+            'order_device': order_device
         })
 
     current_hour = timezone.localtime().hour
@@ -529,6 +547,10 @@ def api_rider_locations(request):
     # 🧠 สมองกลจัดเรียงคิว (Dynamic Proximity + Rule Based)
     # =========================================================
     for r_id, data in riders_data.items():
+        # ลบค่า last_update ออกก่อนแปลงเป็น JSON เพื่อป้องกัน Error
+        if 'last_update' in data:
+            del data['last_update']
+            
         curr_lat, curr_lng = data['lat'], data['lng']
         all_orders = data['orders']
         if not all_orders: continue
