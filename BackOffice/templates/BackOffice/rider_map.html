@@ -31,7 +31,7 @@
         .popup-order-item { background: #0f172a; border-left: 3px solid #10b981; padding: 8px 10px; margin-bottom: 8px; border-radius: 6px; font-size: 13px;}
         .popup-time { color: #f59e0b; font-weight: bold; margin-top: 4px; display: block; font-size: 12px;}
 
-        .rider-icon { background: #8b5cf6; color: white; border-radius: 50%; width: 45px; height: 45px; display: flex; align-items: center; justify-content: center; font-size: 22px; border: 3px solid white; box-shadow: 0 4px 10px rgba(0,0,0,0.4); z-index: 1000;}
+        .rider-icon { background: #8b5cf6; color: white; border-radius: 50%; width: 45px; height: 45px; display: flex; align-items: center; justify-content: center; font-size: 22px; border: 3px solid white; box-shadow: 0 4px 10px rgba(0,0,0,0.4); z-index: 1000; transition: all 0.3s ease;}
         .dest-icon { background: #f59e0b; color: white; border-radius: 50%; width: 28px; height: 28px; display: flex; align-items: center; justify-content: center; font-weight: 900; font-size: 14px; border: 2px solid white; box-shadow: 0 2px 5px rgba(0,0,0,0.5); }
 
         .status-box { position: absolute; top: 15px; right: 15px; background: rgba(15, 23, 42, 0.9); padding: 10px 15px; border-radius: 8px; border: 1px solid #475569; z-index: 1000; font-size: 13px;}
@@ -65,6 +65,10 @@
         let routeLayerGroup = L.layerGroup().addTo(map);
         let routingControls = {};
 
+        // 🌟 ตัวแปรเก็บพิกัด GPS จริงแบบ Real-time
+        let liveLat = null;
+        let liveLng = null;
+
         const pathColors = ['#38bdf8', '#fbbf24', '#a3e635', '#f43f5e', '#a855f7'];
 
         const createRiderIcon = (name) => {
@@ -76,6 +80,35 @@
                 popupAnchor: [0, -20]
             });
         };
+
+        // 🌟 ฟังก์ชันบังคับรถมอเตอร์ไซค์ให้วิ่งตาม GPS เครื่องคุณทันที 🌟
+        function trackMyLocation() {
+            if (navigator.geolocation) {
+                navigator.geolocation.watchPosition(
+                    (pos) => {
+                        liveLat = pos.coords.latitude;
+                        liveLng = pos.coords.longitude;
+
+                        // เลื่อนรถมอเตอร์ไซค์บนหน้าจอไปหาพิกัด GPS จริงทันที (เนียนตา ไม่กระตุก)
+                        const riderKeys = Object.keys(riderMarkers);
+                        if(riderKeys.length > 0) {
+                            const firstRiderId = riderKeys[0];
+                            riderMarkers[firstRiderId].setLatLng([liveLat, liveLng]);
+                        }
+
+                        // แอบส่งพิกัดลง Database ให้ระบบรู้ว่ารถอยู่ไหน
+                        fetch("/riders/api/update-location/0/", {
+                            method: "POST",
+                            headers: { "Content-Type": "application/json" },
+                            body: JSON.stringify({ lat: liveLat, lng: liveLng })
+                        }).catch(e => console.warn(e));
+
+                    },
+                    (err) => { console.warn("ไม่สามารถดึง GPS ได้", err); },
+                    { enableHighAccuracy: true, maximumAge: 0, timeout: 10000 }
+                );
+            }
+        }
 
         async function fetchRiderLocations() {
             try {
@@ -93,8 +126,10 @@
                         const pathColor = pathColors[index % pathColors.length];
                         
                         let ordersHtml = '';
-                        let startLat = parseFloat(rider.lat);
-                        let startLng = parseFloat(rider.lng);
+                        
+                        // 🌟 ถ้าระบบจับ GPS สดๆ ได้แล้ว ให้ยึดพิกัดสดเป็นหลัก (ป้องกันรถเด้งกลับไปที่เดิม)
+                        let startLat = (liveLat && index === 0) ? liveLat : parseFloat(rider.lat);
+                        let startLng = (liveLng && index === 0) ? liveLng : parseFloat(rider.lng);
                         let waypoints = [L.latLng(startLat, startLng)];
 
                         rider.orders.forEach((order, orderIdx) => {
@@ -122,7 +157,6 @@
 
                             waypoints.push(L.latLng(oLat, oLng));
 
-                            // 🌟 ส่วนที่แสดง IP ของคนคีย์ออเดอร์ในแต่ละคิวบิล 🌟
                             ordersHtml += `
                                 <div class="popup-order-item">
                                     <div><span style="color:${pinColor}; font-weight:bold;">[คิวที่ ${orderNum}]</span> บิล: #${order.receipt} <span style="color:#94a3b8; font-size:11px;">(${order.shop})</span></div>
@@ -167,7 +201,6 @@
                             routingControls[rider.id] = control;
                         }
 
-                        // 🌟 ส่วนที่แสดงข้อมูลรุ่นมือถือและ IP ของไรเดอร์ 🌟
                         const popupContent = `
                             <div style="min-width: 220px;">
                                 <div class="popup-header">🛵 ไรเดอร์: ${rider.name}</div>
@@ -192,6 +225,11 @@
                                 .addTo(map)
                                 .bindPopup(popupContent);
                             riderMarkers[rider.id] = marker;
+                            
+                            // จัดกล้องให้โฟกัสที่รถมอเตอร์ไซค์เมื่อโหลดเสร็จครั้งแรก
+                            if(index === 0 && !liveLat) {
+                                map.setView([startLat, startLng], 15);
+                            }
                         }
                     });
 
@@ -212,7 +250,10 @@
             }
         }
 
+        // เริ่มโหลดข้อมูล และจับพิกัด GPS ทันทีที่เปิดหน้าเว็บ
         fetchRiderLocations();
+        trackMyLocation();
+        
         setInterval(fetchRiderLocations, 10000); 
         setTimeout(() => { map.invalidateSize(); }, 500);
 

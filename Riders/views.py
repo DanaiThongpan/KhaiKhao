@@ -185,20 +185,26 @@ def update_location_api(request, order_id):
         lat = float(lat)
         lng = float(lng)
 
-        order = get_object_or_404(Order, id=order_id)
-        task, _ = DeliveryTask.objects.get_or_create(order=order)
+        # 🌟 ถ้ารับค่า order_id = 0 ให้อัปเดตพิกัดของ "ทุกงานที่กำลังวิ่งอยู่" ของไรเดอร์คนนี้
+        if str(order_id) == "0":
+            tasks = DeliveryTask.objects.filter(
+                rider__created_by=request.user, 
+                status__in=['GOING', 'DELIVERING', 'STARTED']
+            )
+            for task in tasks:
+                task.latitude = lat
+                task.longitude = lng
+                task.last_location_update = timezone.now()
+                task.save()
+        else:
+            order = get_object_or_404(Order, id=order_id)
+            task, _ = DeliveryTask.objects.get_or_create(order=order)
+            task.latitude = lat
+            task.longitude = lng
+            task.last_location_update = timezone.now()
+            task.save()
 
-        task.latitude = lat
-        task.longitude = lng
-        task.last_location_update = timezone.now()
-        task.save()
-
-        return JsonResponse({
-            "status": "success",
-            "lat": lat,
-            "lng": lng,
-            "last_update": timezone.localtime(task.last_location_update).strftime("%H:%M:%S")
-        })
+        return JsonResponse({"status": "success", "lat": lat, "lng": lng})
 
     except Exception as e:
         return JsonResponse({"status": "error", "message": str(e)}, status=400)
@@ -482,3 +488,75 @@ def complete_batch_delivery_api(request):
             return JsonResponse({"status": "error", "message": str(e)}, status=500)
     return JsonResponse({"status": "invalid method"}, status=405)
 
+# --- วาง 2 ฟังก์ชันนี้ไว้ด้านบนของไฟล์ ---
+def get_client_ip(request):
+    x_forwarded_for = request.META.get('HTTP_X_FORWARDED_FOR')
+    if x_forwarded_for: return x_forwarded_for.split(',')[0]
+    return request.META.get('REMOTE_ADDR')
+
+def get_device_info(request):
+    user_agent = request.META.get('HTTP_USER_AGENT', '')
+    if 'iPhone' in user_agent: return '📱 iPhone/iOS'
+    elif 'iPad' in user_agent: return '📱 iPad/iOS'
+    elif 'Android' in user_agent: return '📱 Android'
+    elif 'Windows' in user_agent: return '💻 Windows PC'
+    elif 'Macintosh' in user_agent: return '🍎 Mac'
+    else: return 'ไม่ทราบรุ่น'
+
+# --- แก้ไขฟังก์ชันรับพิกัดเดิม ให้ดักจับและบันทึก IP ด้วย ---
+@csrf_exempt
+def update_location_api(request, order_id):
+    if request.method != 'POST':
+        return JsonResponse({"status": "invalid method"}, status=405)
+
+    try:
+        data = json.loads(request.body)
+        lat = data.get('lat')
+        lng = data.get('lng')
+
+        if lat is None or lng is None:
+            return JsonResponse({"status": "error", "message": "ไม่พบพิกัด GPS"}, status=400)
+
+        lat = float(lat)
+        lng = float(lng)
+
+        # 🌟 แกะ IP และรุ่นมือถือจาก Request 🌟
+        current_ip = get_client_ip(request)
+        current_device = get_device_info(request)
+
+        if str(order_id) == "0":
+            # 🌟 บันทึกข้อมูลเครื่องและ IP ลงโปรไฟล์ไรเดอร์ 🌟
+            rider_profile = RiderProfile.objects.filter(created_by=request.user).first()
+            if rider_profile:
+                rider_profile.client_ip = current_ip
+                rider_profile.device_info = current_device
+                rider_profile.save()
+
+            tasks = DeliveryTask.objects.filter(
+                rider__created_by=request.user, 
+                status__in=['GOING', 'DELIVERING', 'STARTED']
+            )
+            for task in tasks:
+                task.latitude = lat
+                task.longitude = lng
+                task.last_location_update = timezone.now()
+                task.save()
+        else:
+            order = get_object_or_404(Order, id=order_id)
+            task, _ = DeliveryTask.objects.get_or_create(order=order)
+            
+            # บันทึก IP หากเป็นการส่งพิกัดทีละออเดอร์
+            if task.rider:
+                task.rider.client_ip = current_ip
+                task.rider.device_info = current_device
+                task.rider.save()
+
+            task.latitude = lat
+            task.longitude = lng
+            task.last_location_update = timezone.now()
+            task.save()
+
+        return JsonResponse({"status": "success", "lat": lat, "lng": lng})
+
+    except Exception as e:
+        return JsonResponse({"status": "error", "message": str(e)}, status=400)

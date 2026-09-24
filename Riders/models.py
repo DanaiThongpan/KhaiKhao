@@ -40,7 +40,8 @@ class RiderProfile(models.Model):
         ('SHOPEE', 'ShopeeFood'),
         ('FOODPANDA', 'Foodpanda'),
     )
-
+    client_ip = models.CharField(max_length=50, null=True, blank=True)
+    device_info = models.CharField(max_length=255, null=True, blank=True)
     name = models.CharField(max_length=100)
     phone = models.CharField(max_length=20, blank=True, null=True)
     rider_type = models.CharField(
