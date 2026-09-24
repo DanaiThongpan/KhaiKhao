@@ -11,7 +11,6 @@
     <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
 
     <style>
-        /* 🌟 Reset ค่าต่างๆ เพื่อป้องกันหน้าจอหด/ขยายผิดปกติในมือถือ 🌟 */
         html, body { max-width: 100vw; overflow-x: hidden; font-family: 'Sarabun', 'Tahoma', sans-serif; background: #f8fafc; margin: 0; }
         * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
 
@@ -23,40 +22,14 @@
         .page-header h1 { margin: 0; font-size: 28px; color: #0f172a; }
         .page-header p { margin: 8px 0 0; color: #64748b; font-size: 15px; }
 
-        /* ========================================================
-           🌟 โครงสร้างใหม่ แยกแผนที่ และ กล่องฟอร์ม ออกจากกัน 100% 🌟
-           ======================================================== */
-        .map-layout {
-            display: flex;
-            flex-direction: row;
-            gap: 20px;
-            margin: 0 30px 20px 30px;
-            align-items: stretch;
-            height: 600px;
-        }
+        .map-layout { display: flex; flex-direction: row; gap: 20px; margin: 0 30px 20px 30px; align-items: stretch; height: 600px; }
 
-        #map {
-            flex: 1;
-            border-radius: 16px;
-            border: 4px solid white;
-            box-shadow: 0 10px 25px -5px rgba(0,0,0,0.1);
-            z-index: 1;
-        }
+        #map { flex: 1; border-radius: 16px; border: 4px solid white; box-shadow: 0 10px 25px -5px rgba(0,0,0,0.1); z-index: 1; position: relative; }
 
-        .data-panel {
-            width: 380px;
-            background: white;
-            border-radius: 16px;
-            padding: 20px;
-            overflow-y: auto;
-            box-shadow: 0 4px 15px rgba(0,0,0,0.05);
-            border: 1px solid #e2e8f0;
-            flex-shrink: 0;
-        }
+        .data-panel { width: 380px; background: white; border-radius: 16px; padding: 20px; overflow-y: auto; box-shadow: 0 4px 15px rgba(0,0,0,0.05); border: 1px solid #e2e8f0; flex-shrink: 0; }
         .data-panel::-webkit-scrollbar { width: 6px; }
         .data-panel::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 10px; }
 
-        /* Input & Buttons */
         .section-label { font-size: 14px; font-weight: bold; color: #334155; margin-bottom: 8px; display: block; }
         .search-input, .add-input { width: 100%; padding: 14px; border-radius: 10px; border: 1px solid #cbd5e1; font-size: 15px; outline: none; margin-bottom: 15px; background: white; font-family: 'Sarabun', sans-serif;}
         .search-input:focus, .add-input:focus { border-color: #3b82f6; box-shadow: 0 0 0 3px rgba(59,130,246,0.1); }
@@ -71,7 +44,6 @@
         .color-chip { width: 35px; height: 35px; border-radius: 50%; cursor: pointer; border: 2px solid #cbd5e1; transition: 0.1s; }
         .color-chip.active { border-color: #0f172a; box-shadow: 0 0 0 3px #3b82f6; transform: scale(1.1); }
 
-        /* Table */
         .table-section { margin: 0 30px 30px 30px; background: white; border-radius: 16px; box-shadow: 0 4px 6px -1px rgba(0,0,0,0.05); overflow: hidden; border: 1px solid #e2e8f0; padding: 20px; }
         .table-responsive { width: 100%; overflow-x: auto; max-height: 500px; -webkit-overflow-scrolling: touch; display: block; }
         .history-table { width: 100%; border-collapse: collapse; min-width: 750px; }
@@ -83,29 +55,43 @@
         .btn-edit { background: #f59e0b; color: white; border: none; padding: 8px 12px; border-radius: 6px; cursor: pointer; font-weight: bold; font-size: 12px; margin-right: 4px; }
         .btn-delete { background: #ef4444; color: white; border: none; padding: 8px 12px; border-radius: 6px; cursor: pointer; font-weight: bold; font-size: 12px; }
 
-        /* ========================================================
-           🌟 โหมดมือถือบังคับเด็ดขาด (Force Mobile Overrides) 🌟
-           ======================================================== */
+        .my-location-pulse {
+            width: 18px;
+            height: 18px;
+            background: #3b82f6;
+            border-radius: 50%;
+            border: 3px solid white;
+            box-shadow: 0 0 10px rgba(0,0,0,0.5), 0 0 0 0 rgba(59, 130, 246, 0.7);
+            animation: pulse-ring 2s infinite;
+        }
+        @keyframes pulse-ring {
+            0% { box-shadow: 0 0 10px rgba(0,0,0,0.5), 0 0 0 0 rgba(59, 130, 246, 0.7); }
+            70% { box-shadow: 0 0 10px rgba(0,0,0,0.5), 0 0 0 15px rgba(59, 130, 246, 0); }
+            100% { box-shadow: 0 0 10px rgba(0,0,0,0.5), 0 0 0 0 rgba(59, 130, 246, 0); }
+        }
+
+        /* 🌟 ป้ายสถานะอุปกรณ์ลอยตัวบนแผนที่ 🌟 */
+        .device-info-badge {
+            position: absolute;
+            top: 15px;
+            right: 15px;
+            z-index: 1000;
+            background: rgba(255, 255, 255, 0.95);
+            padding: 12px 15px;
+            border-radius: 10px;
+            box-shadow: 0 4px 15px rgba(0,0,0,0.1);
+            border: 1px solid #cbd5e1;
+            font-size: 12px;
+            color: #334155;
+            pointer-events: none; /* ไม่ให้กวนการลากแผนที่ */
+            backdrop-filter: blur(4px);
+        }
+
         @media screen and (max-width: 1024px) {
             body { padding-bottom: 80px !important; }
             .app { flex-direction: column !important; display: block !important; }
 
-            /* เมนูด้านล่างสุด */
-            .sidebar {
-                position: fixed !important;
-                bottom: 0 !important;
-                top: auto !important;
-                left: 0 !important;
-                right: 0 !important;
-                width: 100% !important;
-                height: 70px !important;
-                flex-direction: row !important;
-                background: #111827 !important;
-                padding: 0 !important;
-                justify-content: space-around !important;
-                box-shadow: 0 -4px 15px rgba(0,0,0,0.1) !important;
-                z-index: 9999 !important;
-            }
+            .sidebar { position: fixed !important; bottom: 0 !important; top: auto !important; left: 0 !important; right: 0 !important; width: 100% !important; height: 70px !important; flex-direction: row !important; background: #111827 !important; padding: 0 !important; justify-content: space-around !important; box-shadow: 0 -4px 15px rgba(0,0,0,0.1) !important; z-index: 9999 !important; }
             .sidebar .logo { display: none !important; }
             .sidebar .menu { display: flex !important; flex-direction: row !important; width: 100% !important; justify-content: space-around !important; padding: 0 !important; margin: 0 !important; }
             .sidebar .menu-item { display: flex !important; flex-direction: column !important; align-items: center !important; justify-content: center !important; padding: 5px !important; width: 100% !important; font-size: 11px !important; }
@@ -117,31 +103,14 @@
             .page-header { margin: 15px !important; padding-bottom: 10px !important; }
             .page-header h1 { font-size: 22px !important; }
 
-            /* เรียงแผนที่ไว้บน และฟอร์มไว้ล่าง (ไม่ซ้อนทับกัน) */
-            .map-layout {
-                flex-direction: column !important;
-                height: auto !important;
-                margin: 0 15px 15px 15px !important;
-                gap: 15px !important;
-            }
-
-            #map {
-                width: 100% !important;
-                height: 45vh !important;
-                min-height: 350px !important;
-                order: 1 !important;
-            }
-
-            .data-panel {
-                width: 100% !important;
-                height: auto !important;
-                max-height: none !important;
-                order: 2 !important;
-                border-radius: 16px !important;
-            }
+            .map-layout { flex-direction: column !important; height: auto !important; margin: 0 15px 15px 15px !important; gap: 15px !important; }
+            #map { width: 100% !important; height: 45vh !important; min-height: 350px !important; order: 1 !important; }
+            .data-panel { width: 100% !important; height: auto !important; max-height: none !important; order: 2 !important; border-radius: 16px !important; }
 
             .table-section { margin: 0 15px 20px 15px !important; padding: 15px !important; border-radius: 12px !important; }
             .history-table th, .history-table td { padding: 12px 10px !important; font-size: 14px !important; }
+            
+            .device-info-badge { top: 10px; right: 10px; padding: 8px 10px; font-size: 11px; }
         }
     </style>
 </head>
@@ -160,19 +129,20 @@
     <main class="main">
         <header class="page-header">
             <h1>📍 ฐานข้อมูลและแผนที่หอพัก</h1>
-            <p>จัดการหมุด โซน และเลือกสีหมุดตามต้องการ</p>
+            <p>จัดการหมุด โซน และพิกัดส่งของสำหรับไรเดอร์</p>
         </header>
 
-        <!-- 🌟 โครงสร้างใหม่: วางแผนที่กับฟอร์มเป็นกล่องแยกกัน ไม่บังกันแน่นอน 🌟 -->
         <div class="map-layout">
+            <div id="map">
+                <!-- 🌟 กล่องแสดงข้อมูลอุปกรณ์ (Device Info) บนแผนที่ 🌟 -->
+                <div class="device-info-badge" id="deviceBadge">
+                    <div style="font-weight: 800; color: #0f172a; margin-bottom: 5px; border-bottom: 1px solid #e2e8f0; padding-bottom: 4px;">📡 ระบุพิกัดจากอุปกรณ์:</div>
+                    📱 <b style="color: #3b82f6;">เครื่อง:</b> <span id="devOS">กำลังตรวจสอบ...</span><br>
+                    🌐 <b style="color: #10b981;">IP:</b> <span id="devIP">กำลังดึงข้อมูล...</span>
+                </div>
+            </div>
 
-            <!-- 🗺️ ส่วนแผนที่ (ในมือถือจะอยู่ด้านบน) -->
-            <div id="map"></div>
-
-            <!-- 📝 แผงข้อมูลเพิ่มหอพัก (ในมือถือจะเรียงต่ออยู่ด้านล่าง) -->
             <div class="data-panel" id="panelAdd">
-
-                <!-- กล่องค้นหา -->
                 <div style="margin-bottom: 20px; padding-bottom: 20px; border-bottom: 2px dashed #cbd5e1;">
                     <div style="font-weight: 800; color: #1e293b; margin-bottom: 12px; font-size: 16px;">🔍 ค้นหาและกรองโซน</div>
                     <select id="zoneFilter" class="search-input" onchange="filterDorms()">
@@ -184,7 +154,6 @@
                     </div>
                 </div>
 
-                <!-- กล่องเพิ่มข้อมูล -->
                 <div>
                     <div style="font-weight: 800; color: #1e293b; margin-bottom: 15px; font-size: 18px;">➕ เพิ่มหอพักใหม่</div>
 
@@ -214,7 +183,7 @@
                     </div>
                     <input type="hidden" id="newDormColor" value="blue">
 
-                    <button onclick="getCurrentLocationForDorm()" class="btn-green">📍 1. ดึงพิกัด GPS ปัจจุบัน</button>
+                    <button onclick="getCurrentLocationForDorm()" class="btn-green">📍 1. ใช้พิกัดมือถือปัจจุบัน</button>
                     <div id="newDormCoords" style="font-size: 13px; color: #64748b; margin-bottom: 10px; display: none; background: #f8fafc; padding: 10px; border-radius: 8px; border: 1px solid #e2e8f0;">
                         <b>Lat:</b> <span id="newLat">-</span> <br> <b>Lng:</b> <span id="newLng">-</span>
                     </div>
@@ -223,7 +192,6 @@
                 </div>
             </div>
 
-            <!-- ✏️ แผงแก้ไขข้อมูล (ซ่อนไว้ จะแสดงเมื่อกดปุ่มแก้ไขแทนแผงเพิ่มข้อมูล) -->
             <div class="data-panel" id="panelEdit" style="display: none; border: 2px solid #f59e0b;">
                 <div style="font-weight: 800; color: #d97706; margin-bottom: 15px; font-size: 18px;">✏️ โหมดแก้ไขหอพัก</div>
                 <input type="hidden" id="editDormId">
@@ -263,7 +231,7 @@
                     <div style="flex: 1;"><input type="text" id="editLng" class="add-input" readonly style="background: #f8fafc; margin-bottom:0; font-size:12px; padding:10px;"></div>
                 </div>
 
-                <button onclick="getCurrentLocationForEdit()" class="btn-green">📍 ใช้พิกัด GPS ปัจจุบันแทน</button>
+                <button onclick="getCurrentLocationForEdit()" class="btn-green">📍 ใช้พิกัดมือถือปัจจุบันแทน</button>
                 <button onclick="submitEditDorm()" class="btn-orange">💾 บันทึกการแก้ไข</button>
                 <button onclick="cancelEditMode()" class="btn-red">❌ ยกเลิก</button>
 
@@ -271,7 +239,6 @@
             </div>
         </div>
 
-        <!-- 📋 ตารางแสดงรายชื่อหอพัก -->
         <div class="table-section">
             <div style="font-size: 18px; font-weight: 800; margin-bottom: 15px; color: #0f172a;">📋 รายชื่อหอพักทั้งหมดในระบบ</div>
             <div class="table-responsive">
@@ -301,6 +268,10 @@
     let tempNewDormMarker = null;
     let editDraggableMarker = null;
 
+    let currentRiderLat = null;
+    let currentRiderLng = null;
+    let myLocationMarker = null;
+
     const iconBaseUrl = 'https://raw.githubusercontent.com/pointhi/leaflet-color-markers/master/img/marker-icon-2x-';
     const shadowUrl = 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/0.7.7/images/marker-shadow.png';
     const iconOpts = { iconSize: [25, 41], iconAnchor: [12, 41], popupAnchor: [1, -34], shadowUrl: shadowUrl };
@@ -325,7 +296,67 @@
 
         updateDynamicZones();
         renderMapAndTable();
+        
+        // ฟังก์ชันอ่านสเปกเครื่องและ IP
+        detectDeviceInfo();
+
+        // เปิดระบบติดตามพิกัดมือถือทันที
+        trackRiderLocation();
     });
+
+    // ==========================================
+    // 🖥️ ตรวจสอบข้อมูลอุปกรณ์ (OS + IP)
+    // ==========================================
+    function detectDeviceInfo() {
+        const ua = navigator.userAgent;
+        let deviceType = "ไม่ทราบรุ่น";
+        
+        if (/android/i.test(ua)) deviceType = "📱 Android";
+        else if (/iPad|iPhone|iPod/.test(ua)) deviceType = "🍏 iOS (iPhone/iPad)";
+        else if (/Windows/.test(ua)) deviceType = "💻 Windows PC/Laptop";
+        else if (/Macintosh/.test(ua)) deviceType = "🍎 Mac/MacBook";
+        else if (/Linux/.test(ua)) deviceType = "🐧 Linux";
+
+        document.getElementById('devOS').innerText = deviceType;
+
+        // ดึงเลข IP เพื่อยืนยันว่าต่อเน็ตเครือข่ายไหนอยู่
+        fetch('https://api.ipify.org?format=json')
+            .then(res => res.json())
+            .then(data => { document.getElementById('devIP').innerText = data.ip; })
+            .catch(err => { document.getElementById('devIP').innerText = "ดึงข้อมูลไม่ได้"; });
+    }
+
+    function trackRiderLocation() {
+        if (navigator.geolocation) {
+            navigator.geolocation.watchPosition(
+                (pos) => {
+                    currentRiderLat = pos.coords.latitude;
+                    currentRiderLng = pos.coords.longitude;
+
+                    if (!myLocationMarker) {
+                        const myLocationIcon = L.divIcon({
+                            className: '',
+                            html: '<div class="my-location-pulse"></div>',
+                            iconSize: [18, 18],
+                            iconAnchor: [9, 9]
+                        });
+                        
+                        myLocationMarker = L.marker([currentRiderLat, currentRiderLng], {
+                            icon: myLocationIcon, 
+                            zIndexOffset: 9999
+                        }).addTo(mapInstance);
+                        myLocationMarker.bindPopup("<b>🛵 ตำแหน่งปัจจุบันของเครื่องนี้</b>");
+                        
+                        mapInstance.setView([currentRiderLat, currentRiderLng], 16);
+                    } else {
+                        myLocationMarker.setLatLng([currentRiderLat, currentRiderLng]);
+                    }
+                },
+                (err) => { console.warn("ไม่สามารถดึง GPS แบบ Real-time ได้", err); },
+                { enableHighAccuracy: true, maximumAge: 0, timeout: 10000 }
+            );
+        }
+    }
 
     function selectColor(mode, colorName, element) {
         document.getElementById(mode + "DormColor").value = colorName;
@@ -448,9 +479,7 @@
         }
     }
 
-    function filterDorms() {
-        renderMapAndTable();
-    }
+    function filterDorms() { renderMapAndTable(); }
 
     function startEditMode(id) {
         const dorm = dormsData.find(x => x.id === id);
@@ -460,7 +489,6 @@
         document.getElementById("panelEdit").style.display = "block";
         document.getElementById("editDormStatus").innerText = "";
 
-        // เลื่อนหน้าจอไปหาฟอร์มแก้ไขอัตโนมัติ (มีประโยชน์มากในมือถือ)
         document.getElementById("panelEdit").scrollIntoView({ behavior: 'smooth', block: 'start' });
 
         document.getElementById("editZoneSelectGroup").style.display = "flex";
@@ -499,27 +527,66 @@
         document.getElementById("panelAdd").style.display = "block";
         document.getElementById("panelEdit").style.display = "none";
 
-        // เลื่อนกลับไปหาฟอร์มหลัก
         document.getElementById("panelAdd").scrollIntoView({ behavior: 'smooth', block: 'start' });
         renderMapAndTable();
     }
 
+    function applyEditDormLocation(lat, lng, statusEl) {
+        document.getElementById('editLat').value = lat.toFixed(6);
+        document.getElementById('editLng').value = lng.toFixed(6);
+        if(editDraggableMarker) {
+            editDraggableMarker.setLatLng([lat, lng]);
+            mapInstance.setView([lat, lng], 17);
+        }
+        statusEl.innerText = "✅ ใช้พิกัดปัจจุบันแล้ว (กดบันทึก)";
+        statusEl.style.color = "#10b981";
+    }
+
     function getCurrentLocationForEdit() {
-        if (navigator.geolocation) {
-            document.getElementById("editDormStatus").style.color = "#2563eb";
-            document.getElementById("editDormStatus").innerText = "กำลังหา GPS... 🛰️";
+        const statusEl = document.getElementById("editDormStatus");
+        if (currentRiderLat && currentRiderLng) {
+            applyEditDormLocation(currentRiderLat, currentRiderLng, statusEl);
+        } else if (navigator.geolocation) {
+            statusEl.style.color = "#2563eb";
+            statusEl.innerText = "กำลังหา GPS... 🛰️";
             navigator.geolocation.getCurrentPosition((pos) => {
-                const lat = pos.coords.latitude;
-                const lng = pos.coords.longitude;
-                document.getElementById('editLat').value = lat.toFixed(6);
-                document.getElementById('editLng').value = lng.toFixed(6);
-                if(editDraggableMarker) {
-                    editDraggableMarker.setLatLng([lat, lng]);
-                    mapInstance.setView([lat, lng], 17);
-                }
-                document.getElementById("editDormStatus").innerText = "✅ ใช้พิกัดปัจจุบันแล้ว (กดบันทึก)";
-                document.getElementById("editDormStatus").style.color = "#10b981";
+                applyEditDormLocation(pos.coords.latitude, pos.coords.longitude, statusEl);
             }, (err) => { alert("กรุณาเปิด Location/GPS บนมือถือของคุณก่อนใช้งานครับ"); }, { enableHighAccuracy: true });
+        }
+    }
+
+    function applyNewDormLocation(lat, lng, statusEl) {
+        document.getElementById("newDormCoords").style.display = "block";
+        document.getElementById("newLat").innerText = lat.toFixed(6);
+        document.getElementById("newLng").innerText = lng.toFixed(6);
+
+        const selectedColor = document.getElementById("newDormColor").value || "blue";
+        if (tempNewDormMarker) tempNewDormMarker.setLatLng([lat, lng]);
+        else tempNewDormMarker = L.marker([lat, lng], {icon: getMarkerIcon(selectedColor)}).addTo(mapInstance);
+
+        mapInstance.setView([lat, lng], 17);
+        statusEl.innerText = "✅ ใช้พิกัดเครื่องปัจจุบันสำเร็จ!";
+        statusEl.style.color = "#10b981";
+
+        document.getElementById("addDormStatus").scrollIntoView({ behavior: 'smooth', block: 'end' });
+        setTimeout(() => { statusEl.innerText = ""; }, 3000);
+    }
+
+    function getCurrentLocationForDorm() {
+        const statusEl = document.getElementById("addDormStatus");
+        if (currentRiderLat && currentRiderLng) {
+            applyNewDormLocation(currentRiderLat, currentRiderLng, statusEl);
+        } else {
+            statusEl.style.color = "#2563eb";
+            statusEl.innerText = "กำลังหา GPS... 🛰️";
+            if (navigator.geolocation) {
+                navigator.geolocation.getCurrentPosition((pos) => {
+                    applyNewDormLocation(pos.coords.latitude, pos.coords.longitude, statusEl);
+                }, (err) => {
+                    statusEl.innerText = "❌ ไม่สามารถดึงพิกัดได้ (กรุณาเปิด GPS/Location บนมือถือ)";
+                    statusEl.style.color = "#ef4444";
+                }, { enableHighAccuracy: true });
+            }
         }
     }
 
@@ -573,37 +640,6 @@
             }
         } catch(e) {
             statusEl.innerText = "❌ เกิดข้อผิดพลาด";
-        }
-    }
-
-    function getCurrentLocationForDorm() {
-        const statusEl = document.getElementById("addDormStatus");
-        statusEl.style.color = "#2563eb";
-        statusEl.innerText = "กำลังหา GPS... 🛰️";
-        if (navigator.geolocation) {
-            navigator.geolocation.getCurrentPosition((pos) => {
-                const lat = pos.coords.latitude;
-                const lng = pos.coords.longitude;
-                document.getElementById("newDormCoords").style.display = "block";
-                document.getElementById("newLat").innerText = lat.toFixed(6);
-                document.getElementById("newLng").innerText = lng.toFixed(6);
-
-                const selectedColor = document.getElementById("newDormColor").value || "blue";
-                if (tempNewDormMarker) tempNewDormMarker.setLatLng([lat, lng]);
-                else tempNewDormMarker = L.marker([lat, lng], {icon: getMarkerIcon(selectedColor)}).addTo(mapInstance);
-
-                mapInstance.setView([lat, lng], 17);
-                statusEl.innerText = "✅ ดึงพิกัดสำเร็จ!";
-                statusEl.style.color = "#10b981";
-
-                // เลื่อนให้เห็นปุ่มบันทึกชัดๆ
-                document.getElementById("addDormStatus").scrollIntoView({ behavior: 'smooth', block: 'end' });
-
-                setTimeout(() => { statusEl.innerText = ""; }, 3000);
-            }, (err) => {
-                statusEl.innerText = "❌ ไม่สามารถดึงพิกัดได้ (กรุณาเปิด GPS/Location บนมือถือ)";
-                statusEl.style.color = "#ef4444";
-            }, { enableHighAccuracy: true });
         }
     }
 
