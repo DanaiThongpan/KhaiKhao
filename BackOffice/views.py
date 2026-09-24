@@ -409,54 +409,6 @@ def rider_map(request):
     """ แสดงผลหน้าจอแผนที่ติดตามไรเดอร์ """
     return render(request, 'BackOffice/rider_map.html')
 
-@user_passes_test(is_admin, login_url='/login/')
-def api_rider_locations(request):
-    """ API ส่งข้อมูลพิกัดและออเดอร์ที่ไรเดอร์แต่ละคนกำลังถืออยู่ """
-    # ดึงเฉพาะงานที่กำลังวิ่งอยู่ (DELIVERING/GOING)
-    tasks = DeliveryTask.objects.filter(status__in=['GOING', 'DELIVERING', 'STARTED']).select_related('rider', 'order', 'destination')
-    
-    riders_data = {}
-    for t in tasks:
-        if not t.rider: continue
-        
-        r_id = t.rider.id
-        r_name = getattr(t.rider, 'name', getattr(t.rider, 'username', f"ไรเดอร์ #{r_id}"))
-        
-        if r_id not in riders_data:
-            # 📍 ค้นหาพิกัด (ถ้าไม่มีใน DB ให้จำลองพิกัด ม.อุบล ก่อน)
-            lat = getattr(t.rider, 'latitude', getattr(t.rider, 'lat', 15.1186 + (r_id * 0.0005)))
-            lng = getattr(t.rider, 'longitude', getattr(t.rider, 'lng', 104.9046 + (r_id * 0.0005)))
-            
-            riders_data[r_id] = {
-                'id': r_id,
-                'name': r_name,
-                'lat': lat,
-                'lng': lng,
-                'orders': [],
-            }
-        
-        # ⏱️ คำนวณเวลาว่าหิ้วออกไปกี่นาทีแล้ว
-        duration_str = "เพิ่งเริ่ม"
-        if t.started_at:
-            diff = (timezone.now() - t.started_at).total_seconds()
-            mins = int(diff // 60)
-            if mins >= 60:
-                h = mins // 60
-                m = mins % 60
-                duration_str = f"{h} ชม. {m} นาที"
-            else:
-                duration_str = f"{mins} นาที"
-
-        dorm_name = t.destination.name if t.destination else "ไม่ได้ระบุหอพัก"
-        
-        riders_data[r_id]['orders'].append({
-            'receipt': t.order.receipt_number,
-            'dorm': dorm_name,
-            'duration': duration_str
-        })
-        
-    return JsonResponse({"status": "success", "riders": list(riders_data.values())})
-
 import math # 🌟 เพิ่มบรรทัดนี้เพื่อใช้คำนวณระยะทาง
 
 @user_passes_test(is_admin, login_url='/login/')
@@ -477,8 +429,14 @@ def api_rider_locations(request):
             try: lat, lng = float(lat), float(lng)
             except: lat, lng = 15.1186, 104.9046
             
+            # 🌟 ดึงข้อมูล IP และ รุ่นมือถือของไรเดอร์ 🌟
+            rider_ip = getattr(t.rider, 'client_ip', getattr(t.rider, 'ip_address', 'ไม่ทราบ IP'))
+            rider_device = getattr(t.rider, 'device_info', getattr(t.rider, 'device_model', 'ไม่ทราบรุ่นมือถือ'))
+
             riders_data[r_id] = {
-                'id': r_id, 'name': r_name, 'lat': lat, 'lng': lng, 'orders': []
+                'id': r_id, 'name': r_name, 'lat': lat, 'lng': lng, 'orders': [],
+                'rider_ip': rider_ip,
+                'rider_device': rider_device
             }
         
         duration_str = "เพิ่งเริ่ม"
@@ -491,7 +449,6 @@ def api_rider_locations(request):
         dorm_name = t.destination.name if t.destination else "ไม่ได้ระบุหอพัก"
         dorm_zone = getattr(t.destination, 'zone', 'อื่นๆ') if t.destination else 'อื่นๆ'
         
-        # 🌟 ดึงชื่อร้านค้าเจ้าของออเดอร์ 🌟
         shop_name = t.order.created_by.username if t.order.created_by else "ไม่ระบุร้าน"
         
         d_lat, d_lng = riders_data[r_id]['lat'], riders_data[r_id]['lng']
@@ -503,20 +460,20 @@ def api_rider_locations(request):
 
         riders_data[r_id]['orders'].append({
             'receipt': t.order.receipt_number,
-            'shop': shop_name, # 🌟 แนบชื่อร้านไปด้วย
+            'shop': shop_name,
             'dorm': dorm_name,
             'zone': dorm_zone,
             'duration': duration_str,
             'lat': d_lat,
-            'lng': d_lng
+            'lng': d_lng,
+            # 🌟 ดึงข้อมูล IP และ รุ่นเครื่องของคนคีย์บิลออเดอร์ 🌟
+            'order_ip': getattr(t.order, 'client_ip', 'ไม่ระบุ'),
+            'order_device': getattr(t.order, 'device_info', 'ไม่ระบุ')
         })
 
     current_hour = timezone.localtime().hour
     SEQ_CHAIN = ['ประตู 3', 'หวานเย็น', 'หน้า มอ', 'อ.10']
 
-    # =========================================================
-    # 🧠 สมองกลจัดเรียงคิว (Dynamic Proximity + Rule Based)
-    # =========================================================
     for r_id, data in riders_data.items():
         curr_lat, curr_lng = data['lat'], data['lng']
         all_orders = data['orders']

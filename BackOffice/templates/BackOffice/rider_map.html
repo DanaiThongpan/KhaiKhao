@@ -27,7 +27,7 @@
         .leaflet-popup-content-wrapper { background: #1e293b; color: #f8fafc; border: 1px solid #3b82f6; border-radius: 12px; }
         .leaflet-popup-tip { background: #1e293b; border: 1px solid #3b82f6; }
         .popup-header { font-size: 16px; font-weight: bold; color: #38bdf8; border-bottom: 1px dashed #475569; padding-bottom: 8px; margin-bottom: 10px; display: flex; align-items: center; gap: 6px;}
-        .popup-order-list { max-height: 200px; overflow-y: auto; padding-right: 5px;}
+        .popup-order-list { max-height: 250px; overflow-y: auto; padding-right: 5px;}
         .popup-order-item { background: #0f172a; border-left: 3px solid #10b981; padding: 8px 10px; margin-bottom: 8px; border-radius: 6px; font-size: 13px;}
         .popup-time { color: #f59e0b; font-weight: bold; margin-top: 4px; display: block; font-size: 12px;}
 
@@ -36,7 +36,6 @@
 
         .status-box { position: absolute; top: 15px; right: 15px; background: rgba(15, 23, 42, 0.9); padding: 10px 15px; border-radius: 8px; border: 1px solid #475569; z-index: 1000; font-size: 13px;}
 
-        /* ซ่อนกรอบข้อความนำทาง */
         .leaflet-routing-container { display: none !important; }
     </style>
 </head>
@@ -94,7 +93,6 @@
                         const pathColor = pathColors[index % pathColors.length];
                         
                         let ordersHtml = '';
-                        // 🌟 ดึงพิกัดให้เป็น Float แน่ๆ ป้องกัน Error 🌟
                         let startLat = parseFloat(rider.lat);
                         let startLng = parseFloat(rider.lng);
                         let waypoints = [L.latLng(startLat, startLng)];
@@ -104,15 +102,13 @@
                             let oLat = parseFloat(order.lat);
                             let oLng = parseFloat(order.lng);
                             
-                            // 🌟 ตั้งค่าสีตามร้านค้า
-                            let pinColor = '#3b82f6'; // สีฟ้า (ค่าเริ่มต้น)
+                            let pinColor = '#3b82f6';
                             if (order.shop.includes('P184')) {
-                                pinColor = '#f59e0b'; // สีส้ม 🟠
+                                pinColor = '#f59e0b';
                             } else if (order.shop.includes('M053') || order.shop.includes('เรื่องของหมู')) {
-                                pinColor = '#ec4899'; // สีชมพู 🌸
+                                pinColor = '#ec4899';
                             }
 
-                            // 🌟 ใช้สีกับหมุดบนแผนที่
                             let destIcon = L.divIcon({
                                 className: 'custom-div-icon',
                                 html: `<div class="dest-icon" style="background-color: ${pinColor};">${orderNum}</div>`,
@@ -126,24 +122,27 @@
 
                             waypoints.push(L.latLng(oLat, oLng));
 
-                            // 🌟 ใช้สีกับข้อความ [คิวที่ X] ใน Popup มอเตอร์ไซค์
+                            // 🌟 ส่วนที่แสดง IP ของคนคีย์ออเดอร์ในแต่ละคิวบิล 🌟
                             ordersHtml += `
                                 <div class="popup-order-item">
                                     <div><span style="color:${pinColor}; font-weight:bold;">[คิวที่ ${orderNum}]</span> บิล: #${order.receipt} <span style="color:#94a3b8; font-size:11px;">(${order.shop})</span></div>
                                     <div style="color:#e2e8f0; font-size:12px;">ส่งที่: ${order.dorm}</div>
                                     <div class="popup-time">⏱️ หิ้วออกมาแล้ว: ${order.duration}</div>
+                                    <div style="font-size: 10px; color: #64748b; border-top: 1px dashed #334155; margin-top: 5px; padding-top: 5px;">
+                                        💻 คนคีย์ออเดอร์: ${order.order_device}<br>
+                                        🌐 IP: ${order.order_ip}
+                                    </div>
                                 </div>
                             `;
                         });
 
-                        // 🌟 ระบบวาดเส้นถนน 🌟
                         if (routingControls[rider.id]) {
                             routingControls[rider.id].setWaypoints(waypoints);
                         } else {
                             const control = L.Routing.control({
                                 waypoints: waypoints,
                                 router: L.Routing.osrmv1({
-                                    serviceUrl: 'https://router.project-osrm.org/route/v1', // ใช้เซิร์ฟเวอร์นี้
+                                    serviceUrl: 'https://router.project-osrm.org/route/v1',
                                     language: 'th',
                                     profile: 'driving'
                                 }),
@@ -156,9 +155,7 @@
                                 addWaypoints: false
                             }).addTo(map);
 
-                            // 🚨 แผนสำรอง: ถ้า OSRM โดนบล็อค หรือพัง ให้วาดเส้นประตรงๆ แทน 🚨
                             control.on('routingerror', function(e) {
-                                console.warn("เซิร์ฟเวอร์ถนนจริงไม่ตอบสนอง กำลังตีเส้นประสำรอง...");
                                 L.polyline(waypoints, {
                                     color: pathColor,
                                     weight: 4,
@@ -170,9 +167,16 @@
                             routingControls[rider.id] = control;
                         }
 
+                        // 🌟 ส่วนที่แสดงข้อมูลรุ่นมือถือและ IP ของไรเดอร์ 🌟
                         const popupContent = `
-                            <div style="min-width: 200px;">
+                            <div style="min-width: 220px;">
                                 <div class="popup-header">🛵 ไรเดอร์: ${rider.name}</div>
+                                
+                                <div style="background: rgba(56, 189, 248, 0.1); padding: 8px; border-radius: 6px; margin-bottom: 10px; border: 1px solid #0369a1; font-size: 11px; color: #7dd3fc;">
+                                    📱 <b>มือถือไรเดอร์:</b> ${rider.rider_device}<br>
+                                    📡 <b>IP ไรเดอร์:</b> ${rider.rider_ip}
+                                </div>
+
                                 <div style="font-size: 12px; color: #94a3b8; margin-bottom: 8px;">ลำดับจัดส่ง ${rider.orders.length} ออเดอร์</div>
                                 <div class="popup-order-list">
                                     ${ordersHtml}
@@ -191,7 +195,6 @@
                         }
                     });
 
-                    // ลบไรเดอร์ที่เลิกวิ่งแล้วออกจากจอ
                     for (const id in riderMarkers) {
                         if (!currentRiderIds.includes(parseInt(id))) {
                             map.removeLayer(riderMarkers[id]);
@@ -210,7 +213,7 @@
         }
 
         fetchRiderLocations();
-        setInterval(fetchRiderLocations, 10000); // อัปเดตทุก 10 วิ เพื่อไม่ให้เซิร์ฟเวอร์ถนนบล็อค
+        setInterval(fetchRiderLocations, 10000); 
         setTimeout(() => { map.invalidateSize(); }, 500);
 
     </script>
