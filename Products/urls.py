@@ -11,4 +11,5 @@ urlpatterns = [
     path("<int:pk>/delete/", views.product_delete, name="delete"),
     path("categories/", views.category_manage, name="category_manage"),
     path('webhook-test/', views.webhook_test_page, name='webhook_test_page'),
+    path('api/facebook-webhook/', views.facebook_webhook, name='facebook_webhook'),
 ]

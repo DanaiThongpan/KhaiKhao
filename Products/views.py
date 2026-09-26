@@ -93,54 +93,86 @@ from django.utils import timezone
 from django.shortcuts import render
 from .models import WebhookLog # อย่าลืม Import Model ที่เพิ่งสร้าง
 
+# 🌟 ฟังก์ชันสำหรับรับ Webhook จาก Facebook (รวมเวอร์ชั่นสมบูรณ์ไว้ตัวเดียว)
+# 🌟 ฟังก์ชันสำหรับรับ Webhook จาก Facebook
 @csrf_exempt
 def facebook_webhook(request):
-    VERIFY_TOKEN = "KhaiKhao_Secret_Token_2026" 
-    
+    VERIFY_TOKEN = "KhaiKhao_Secret_Token_2026"
+
+    # 1. ส่วนของการรับการยืนยันตัวตน (เชื่อมต่อ)
     if request.method == 'GET':
         mode = request.GET.get('hub.mode')
         token = request.GET.get('hub.verify_token')
         challenge = request.GET.get('hub.challenge')
-        
+
         if mode == 'subscribe' and token == VERIFY_TOKEN:
             return HttpResponse(challenge, status=200)
         else:
             return HttpResponseForbidden('รหัสลับไม่ถูกต้อง', status=403)
-            
+
+    # 2. ส่วนของการรับข้อมูล และดึงแชทลูกค้า
     elif request.method == 'POST':
         try:
             body_unicode = request.body.decode('utf-8')
             body_data = json.loads(body_unicode)
-            
-            # หาชื่อ Event คร่าวๆ ว่า Facebook ส่งอะไรมา
+
+            # --- A. บันทึกข้อมูลดิบลง Database เพื่อโชว์ในหน้า Monitor ---
             event_type = "UNKNOWN EVENT"
             if 'object' in body_data:
                 event_type = body_data['object']
-            elif 'field' in body_data.get('sample', {}): # กรณีปุ่ม Test จากหน้าเว็บ
-                event_type = body_data['sample']['field']
-                
-            # 🌟 บันทึกข้อมูลดิบลง Database เลยเพื่อเอาไปโชว์ในหน้าทดสอบ
+            elif 'field' in body_data.get('sample', {}): 
+                event_type = f"TEST_{body_data['sample']['field']}"
+
             WebhookLog.objects.create(
                 event_type=event_type,
                 payload=json.dumps(body_data, indent=4, ensure_ascii=False)
             )
+
+            # --- B. แกะข้อมูลแชทมาใช้งาน (รองรับทั้งแบบปุ่มเทส และแชทจริง) ---
             
+            # เคสที่ 1: มาจากการกดปุ่ม "ส่งไปยังเซิร์ฟเวอร์" ในเว็บ Facebook
+            if 'sample' in body_data and body_data['sample']['field'] == 'messages':
+                msg_value = body_data['sample']['value']
+                sender_id = msg_value.get('sender', {}).get('id')
+                text = msg_value.get('message', {}).get('text', 'ไม่มีข้อความ')
+                print(f"🛠️ [ระบบจำลอง] ลูกค้ารหัส {sender_id} ทดสอบส่งข้อความว่า: {text}")
+
+            # เคสที่ 2: มาจาก "การแชทจริงๆ" ผ่าน Messenger ของเพจ
+            elif body_data.get('object') == 'page':
+                for entry in body_data.get('entry', []):
+                    for messaging_event in entry.get('messaging', []):
+                        
+                        sender_id = messaging_event.get('sender', {}).get('id')
+                        
+                        if 'message' in messaging_event:
+                            message_data = messaging_event['message']
+                            
+                            # 💬 กรณีลูกค้าพิมพ์ข้อความปกติ
+                            if 'text' in message_data:
+                                text = message_data['text']
+                                print(f"💬 [แชทจริง] ลูกค้า {sender_id} พิมพ์ว่า: {text}")
+                            
+                            # 🖼️ กรณีลูกค้าส่งรูปภาพ (เช่น สลิปโอนเงิน)
+                            if 'attachments' in message_data:
+                                for attachment in message_data['attachments']:
+                                    if attachment['type'] == 'image':
+                                        image_url = attachment['payload']['url']
+                                        print(f"💰 [สลิป/รูปภาพ] ลิงก์รูปภาพ: {image_url}")
+                                        # TODO: ในอนาคตคุณสามารถเขียนโค้ดดาวน์โหลดรูปนี้ไปแนบในบิล POS ได้
+
             return HttpResponse('EVENT_RECEIVED', status=200)
 
         except Exception as e:
             print("❌ Webhook Error:", e)
             return HttpResponse('ERROR', status=400)
 
+
 # ==========================================
-# 🌟 เพิ่มฟังก์ชันสำหรับหน้าจอแสดงผล Webhook Test 🌟
+# 🌟 หน้าจอแสดงผล Webhook Test (ใช้โค้ดเดิมได้เลยครับ)
 # ==========================================
 def webhook_test_page(request):
-    """ ดึงประวัติ Webhook 50 รายการล่าสุดมาแสดง """
     logs = WebhookLog.objects.all().order_by('-received_at')[:50]
-    
-    # ถ้ารับค่า action=clear ให้ล้างข้อมูลทั้งหมด (ปุ่มล้างจอ)
     if request.GET.get('action') == 'clear':
         WebhookLog.objects.all().delete()
         logs = []
-        
     return render(request, 'Products/webhook_test.html', {'logs': logs})
