@@ -10,6 +10,7 @@ urlpatterns = [
     path("<int:pk>/edit/", views.product_edit, name="edit"),
     path("<int:pk>/delete/", views.product_delete, name="delete"),
     path("categories/", views.category_manage, name="category_manage"),
-    path('webhook-test/', views.webhook_test_page, name='webhook_test_page'),
+# 🌟 ต้องมี 2 บรรทัดนี้
     path('api/facebook-webhook/', views.facebook_webhook, name='facebook_webhook'),
+    path('webhook-test/', views.webhook_test_page, name='webhook_test_page'),
 ]
