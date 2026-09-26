@@ -116,25 +116,31 @@ def facebook_webhook(request):
             body_unicode = request.body.decode('utf-8')
             body_data = json.loads(body_unicode)
 
-            # 🌟 วิธีแก้: บันทึกข้อมูลดิบทิ้งลง Database ทันทีแบบไม่ต้องลุ้น!
-            # ไม่ว่า Facebook จะส่งอะไรมา จะปุ่มเทส หรือแชทจริง เซฟเก็บไว้ก่อนทั้งหมด
-            event_type = "FACEBOOK_WEBHOOK_EVENT"
-            
-            # พยายามแกะหาประเภท Event แบบยืดหยุ่นที่สุด
-            if 'object' in body_data:
+            # 🌟 ดักจับประเภท Event ให้ยืดหยุ่นที่สุด รองรับทั้งแบบ Sample และของจริง
+            if 'sample' in body_data:
+                field_name = body_data['sample'].get('field', 'messages')
+                event_type = f"TEST_{field_name.upper()}"
+            elif 'object' in body_data:
                 event_type = body_data['object']
-            elif 'sample' in body_data:
-                event_type = f"TEST_{body_data.get('sample', {}).get('field', 'unknown')}"
-            elif 'entry' in body_data:
-                event_type = "page_message_event"
+            else:
+                event_type = "CUSTOM_WEBHOOK"
 
-            # 🌟 บันทึกกล่องข้อมูลลง Database 100%
+            # 🌟 บันทึกข้อมูลลง Database ทันที
             WebhookLog.objects.create(
                 event_type=event_type,
                 payload=json.dumps(body_data, indent=4, ensure_ascii=False)
             )
             
-            print("📨 บันทึกข้อมูล Webhook สำเร็จแล้ว!")
+            print("📨 บันทึกข้อมูล Webhook สำเร็จ!")
+            return HttpResponse('EVENT_RECEIVED', status=200)
+
+        except Exception as e:
+            print("❌ Webhook Error:", e)
+            # กรณีอ่าน JSON ไม่สำเร็จ เซฟข้อความดิบลงไปดูเลย
+            WebhookLog.objects.create(
+                event_type="ERROR_RAW",
+                payload=request.body.decode('utf-8')
+            )
             return HttpResponse('EVENT_RECEIVED', status=200)
 
         except Exception as e:
