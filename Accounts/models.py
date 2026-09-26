@@ -1,5 +1,7 @@
-from django.contrib.auth.models import AbstractBaseUser, BaseUserManager, PermissionsMixin
+from django.contrib.auth.models import (AbstractBaseUser, BaseUserManager,
+                                        PermissionsMixin)
 from django.db import models
+
 
 class UserManager(BaseUserManager):
     def create_user(self, username, password=None, role="owner", **extra_fields):
@@ -12,7 +14,9 @@ class UserManager(BaseUserManager):
         return user
 
     def create_superuser(self, username, password=None, **extra_fields):
-        user = self.create_user(username=username, password=password, role="admin", **extra_fields)
+        user = self.create_user(
+            username=username, password=password, role="admin", **extra_fields
+        )
         user.is_staff = True
         user.is_superuser = True
         user.is_active = True
@@ -29,15 +33,28 @@ class User(AbstractBaseUser, PermissionsMixin):
 
     # ข้อมูลผู้ใช้งาน
     username = models.CharField(max_length=150, unique=True, verbose_name="ชื่อผู้ใช้")
-    role = models.CharField(max_length=20, choices=ROLE_CHOICES, default="owner", verbose_name="บทบาท")
+    role = models.CharField(
+        max_length=20, choices=ROLE_CHOICES, default="owner", verbose_name="บทบาท"
+    )
 
     # [เพิ่มใหม่] ข้อมูลบัญชีธนาคารและพร้อมเพย์ของแต่ละร้าน
-    bank_name = models.CharField(max_length=100, blank=True, null=True, verbose_name="ชื่อธนาคาร")
-    bank_account_number = models.CharField(max_length=50, blank=True, null=True, verbose_name="เลขที่บัญชีธนาคาร")
-    bank_account_name = models.CharField(max_length=150, blank=True, null=True, verbose_name="ชื่อบัญชี (เจ้าของบัญชี)")
-    
+    bank_name = models.CharField(
+        max_length=100, blank=True, null=True, verbose_name="ชื่อธนาคาร"
+    )
+    bank_account_number = models.CharField(
+        max_length=50, blank=True, null=True, verbose_name="เลขที่บัญชีธนาคาร"
+    )
+    bank_account_name = models.CharField(
+        max_length=150, blank=True, null=True, verbose_name="ชื่อบัญชี (เจ้าของบัญชี)"
+    )
+
     # รองรับพร้อมเพย์ / แม่มณี (ใช้เบอร์มือถือ หรือ เลขประจำตัวผู้เสียภาษี)
-    promptpay_number = models.CharField(max_length=50, blank=True, null=True, verbose_name="หมายเลขพร้อมเพย์ (เบอร์โทร / เลขผู้เสียภาษี)")
+    promptpay_number = models.CharField(
+        max_length=50,
+        blank=True,
+        null=True,
+        verbose_name="หมายเลขพร้อมเพย์ (เบอร์โทร / เลขผู้เสียภาษี)",
+    )
 
     # สถานะและสิทธิ์การเข้าถึง (Django Admin)
     is_active = models.BooleanField(default=True, verbose_name="เปิดใช้งาน")

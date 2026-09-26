@@ -14,25 +14,26 @@ Including another URLconf
     1. Import the include() function: from django.urls import include, path
     2. Add a URL to urlpatterns:  path('blog/', include('blog.urls'))
 """
+
+from django.conf import settings  # 🌟 1. เพิ่มบรรทัดนี้
+from django.conf.urls.static import static  # 🌟 2. เพิ่มบรรทัดนี้
 from django.contrib import admin
 from django.urls import include, path
-from django.conf import settings # 🌟 1. เพิ่มบรรทัดนี้
-from django.conf.urls.static import static # 🌟 2. เพิ่มบรรทัดนี้
 
 urlpatterns = [
-    path('admin/', admin.site.urls),
-    path('', include('Pos.urls')),
-    path('accounts/', include('Accounts.urls')),
-    path('products/', include('Products.urls')),
-    path('expenses/', include('Expenses.urls')),
-    path('reports/', include('Reports.urls')),
-    path('taxs/', include('Taxs.urls')),
-    path('history/', include('History.urls')),
-    path('stocks/', include('Stocks.urls')),
-    path('riders/', include('Riders.urls')),
-    path('shophistory/', include('ShopHistory.urls')),
-    path('heatmap/', include('Heatmap.urls')),
-    path('backoffice/', include('BackOffice.urls')), 
+    path("admin/", admin.site.urls),
+    path("", include("Pos.urls")),
+    path("accounts/", include("Accounts.urls")),
+    path("products/", include("Products.urls")),
+    path("expenses/", include("Expenses.urls")),
+    path("reports/", include("Reports.urls")),
+    path("taxes/", include("Taxes.urls")),
+    path("history/", include("History.urls")),
+    path("stocks/", include("Stocks.urls")),
+    path("riders/", include("Riders.urls")),
+    path("shophistory/", include("ShopHistory.urls")),
+    path("heatmap/", include("Heatmap.urls")),
+    path("backoffice/", include("BackOffice.urls")),
 ]
 
 # 🌟 3. เพิ่มบรรทัดนี้ต่อท้ายสุด

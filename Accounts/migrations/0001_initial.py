@@ -7,21 +7,46 @@ class Migration(migrations.Migration):
 
     initial = True
 
-    dependencies = [
-    ]
+    dependencies = []
 
     operations = [
         migrations.CreateModel(
-            name='User',
+            name="User",
             fields=[
-                ('id', models.BigAutoField(auto_created=True, primary_key=True, serialize=False, verbose_name='ID')),
-                ('password', models.CharField(max_length=128, verbose_name='password')),
-                ('last_login', models.DateTimeField(blank=True, null=True, verbose_name='last login')),
-                ('username', models.CharField(max_length=150, unique=True, verbose_name='ชื่อผู้ใช้')),
-                ('role', models.CharField(choices=[('owner', 'เจ้าของร้าน')], default='owner', max_length=20, verbose_name='บทบาท')),
+                (
+                    "id",
+                    models.BigAutoField(
+                        auto_created=True,
+                        primary_key=True,
+                        serialize=False,
+                        verbose_name="ID",
+                    ),
+                ),
+                ("password", models.CharField(max_length=128, verbose_name="password")),
+                (
+                    "last_login",
+                    models.DateTimeField(
+                        blank=True, null=True, verbose_name="last login"
+                    ),
+                ),
+                (
+                    "username",
+                    models.CharField(
+                        max_length=150, unique=True, verbose_name="ชื่อผู้ใช้"
+                    ),
+                ),
+                (
+                    "role",
+                    models.CharField(
+                        choices=[("owner", "เจ้าของร้าน")],
+                        default="owner",
+                        max_length=20,
+                        verbose_name="บทบาท",
+                    ),
+                ),
             ],
             options={
-                'abstract': False,
+                "abstract": False,
             },
         ),
     ]

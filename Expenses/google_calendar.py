@@ -1,13 +1,15 @@
 import os
-import httplib2
 from datetime import timedelta
+
+import httplib2
 from django.conf import settings
 from google.oauth2 import service_account
-from googleapiclient.discovery import build
 from google_auth_httplib2 import AuthorizedHttp
+from googleapiclient.discovery import build
 
 SCOPES = ["https://www.googleapis.com/auth/calendar.events"]
 TARGET_CALENDAR_ID = "teew8888@gmail.com"  # อีเมลที่จะรับข้อมูล
+
 
 def get_calendar_service():
     credentials_file = os.path.join(settings.BASE_DIR, "service_account.json")
@@ -23,11 +25,11 @@ def get_calendar_service():
     # แก้ไขปัญหา Network is unreachable สำหรับบัญชีฟรี PythonAnywhere
     # -------------------------------------------------------------
     # ตรวจสอบว่าเซิร์ฟเวอร์บังคับใช้ Proxy หรือไม่
-    if os.environ.get('http_proxy') or os.environ.get('HTTP_PROXY'):
+    if os.environ.get("http_proxy") or os.environ.get("HTTP_PROXY"):
         proxy_info = httplib2.ProxyInfo(
             proxy_type=httplib2.socks.PROXY_TYPE_HTTP,
-            proxy_host='proxy.server',
-            proxy_port=3128
+            proxy_host="proxy.server",
+            proxy_port=3128,
         )
         http = httplib2.Http(proxy_info=proxy_info)
     else:
@@ -62,6 +64,7 @@ def create_expense_event(expense):
 
     return service.events().insert(calendarId=TARGET_CALENDAR_ID, body=event).execute()
 
+
 def update_expense_event(expense):
     """ฟังก์ชันสำหรับอัปเดตกิจกรรมใน Google Calendar"""
     if not expense.google_event_id:
@@ -87,14 +90,19 @@ def update_expense_event(expense):
 
     try:
         # สั่งอัปเดตโดยอ้างอิงจาก google_event_id เดิม
-        return service.events().update(
-            calendarId=TARGET_CALENDAR_ID,
-            eventId=expense.google_event_id,
-            body=event
-        ).execute()
+        return (
+            service.events()
+            .update(
+                calendarId=TARGET_CALENDAR_ID,
+                eventId=expense.google_event_id,
+                body=event,
+            )
+            .execute()
+        )
     except Exception as e:
         print(f"ไม่สามารถอัปเดต Calendar ได้: {e}")
         return None
+
 
 def delete_expense_event(event_id):
     """ฟังก์ชันสำหรับลบกิจกรรมใน Google Calendar"""
@@ -105,8 +113,7 @@ def delete_expense_event(event_id):
     try:
         # สั่งลบโดยใช้ event_id
         service.events().delete(
-            calendarId=TARGET_CALENDAR_ID,
-            eventId=event_id
+            calendarId=TARGET_CALENDAR_ID, eventId=event_id
         ).execute()
     except Exception as e:
         print(f"ไม่สามารถลบ Calendar ได้ (อาจถูกลบไปแล้ว): {e}")

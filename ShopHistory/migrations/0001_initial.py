@@ -16,16 +16,44 @@ class Migration(migrations.Migration):
 
     operations = [
         migrations.CreateModel(
-            name='ShopSession',
+            name="ShopSession",
             fields=[
-                ('id', models.BigAutoField(auto_created=True, primary_key=True, serialize=False, verbose_name='ID')),
-                ('open_time', models.DateTimeField(default=django.utils.timezone.now, verbose_name='เวลาเปิดร้าน')),
-                ('close_time', models.DateTimeField(blank=True, null=True, verbose_name='เวลาปิดร้าน')),
-                ('is_open', models.BooleanField(default=True, verbose_name='สถานะ (เปิด/ปิด)')),
-                ('user', models.ForeignKey(on_delete=django.db.models.deletion.CASCADE, to=settings.AUTH_USER_MODEL, verbose_name='พนักงาน/ร้านค้า')),
+                (
+                    "id",
+                    models.BigAutoField(
+                        auto_created=True,
+                        primary_key=True,
+                        serialize=False,
+                        verbose_name="ID",
+                    ),
+                ),
+                (
+                    "open_time",
+                    models.DateTimeField(
+                        default=django.utils.timezone.now, verbose_name="เวลาเปิดร้าน"
+                    ),
+                ),
+                (
+                    "close_time",
+                    models.DateTimeField(
+                        blank=True, null=True, verbose_name="เวลาปิดร้าน"
+                    ),
+                ),
+                (
+                    "is_open",
+                    models.BooleanField(default=True, verbose_name="สถานะ (เปิด/ปิด)"),
+                ),
+                (
+                    "user",
+                    models.ForeignKey(
+                        on_delete=django.db.models.deletion.CASCADE,
+                        to=settings.AUTH_USER_MODEL,
+                        verbose_name="พนักงาน/ร้านค้า",
+                    ),
+                ),
             ],
             options={
-                'ordering': ['-open_time'],
+                "ordering": ["-open_time"],
             },
         ),
     ]

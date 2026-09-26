@@ -1,6 +1,8 @@
-from django.core.management.base import BaseCommand, CommandError
 from django.contrib.auth import get_user_model
+from django.core.management.base import BaseCommand, CommandError
+
 from Products.models import Product, ProductCategory
+
 
 class Command(BaseCommand):
     help = "Import all products for User P184"
@@ -16,7 +18,6 @@ class Command(BaseCommand):
             ("P184-006", "ข้าวหมูทอดราดซอสซาวครีม", 55),
             ("P184-007", "ข้าวหมูทอดราดซอสซาวครีมหัวหอม", 55),
         ],
-
         # --- เมนูไก่ทอด ---
         "เมนูไก่ทอด": [
             ("P184-008", "ข้าวไก่ทอดกระเทียม", 50),
@@ -26,7 +27,6 @@ class Command(BaseCommand):
             ("P184-012", "ข้าวไก่ทอดราดซอสซาวครีม", 50),
             ("P184-013", "ข้าวไก่ทอดราดซอสซาวครีมหัวหอม", 55),
         ],
-
         # --- เมนูสามชั้นทอด ---
         "เมนูสามชั้นทอด": [
             ("P184-014", "ข้าวสามชั้นทอด", 55),
@@ -34,18 +34,15 @@ class Command(BaseCommand):
             ("P184-016", "ข้าวสามชั้นทอดกระเทียมพริก", 55),
             ("P184-017", "ข้าวยำสามชั้นทอดแซ่บ", 55),
         ],
-
         # --- Topping ---
         "Topping": [
             ("P184-T01", "ไข่ดาว", 10),
             ("P184-T02", "ไข่เจียว", 10),
         ],
-
         # --- เครื่องดื่ม ---
         "เครื่องดื่ม": [
             ("P184-D01", "น้ำเปล่า", 10),
         ],
-
         # --- เพิ่มเติม ---
         "เพิ่มเติม": [
             ("P184-E01", "พิเศษ", 10),
@@ -57,7 +54,9 @@ class Command(BaseCommand):
         try:
             creator = User.objects.get(username="P184")
         except User.DoesNotExist:
-            raise CommandError('ไม่พบผู้ใช้งานชื่อ "P184" ในระบบ กรุณาสร้าง User นี้ผ่านหน้า Admin ก่อน')
+            raise CommandError(
+                'ไม่พบผู้ใช้งานชื่อ "P184" ในระบบ กรุณาสร้าง User นี้ผ่านหน้า Admin ก่อน'
+            )
 
         total = 0
 
@@ -68,7 +67,7 @@ class Command(BaseCommand):
                 defaults={
                     "is_active": True,
                     "created_by": creator,
-                }
+                },
             )
             # เผื่อหมวดหมู่มีอยู่แล้วแต่เป็นของคนอื่น ให้บังคับเปลี่ยนเจ้าของเป็น P184
             if category.created_by != creator:
@@ -89,13 +88,19 @@ class Command(BaseCommand):
                         "unit": "จาน",
                         "is_active": True,
                         "created_by": creator,
-                    }
+                    },
                 )
                 total += 1
                 if created:
                     self.stdout.write(self.style.SUCCESS(f"  + เพิ่ม: {code} | {name}"))
                 else:
-                    self.stdout.write(self.style.WARNING(f"  ↻ อัปเดต: {code} | {name}"))
+                    self.stdout.write(
+                        self.style.WARNING(f"  ↻ อัปเดต: {code} | {name}")
+                    )
 
         self.stdout.write("")
-        self.stdout.write(self.style.SUCCESS(f"นำเข้าข้อมูลทั้งหมด {total} รายการ ให้กับผู้ใช้ P184 สำเร็จ!"))
+        self.stdout.write(
+            self.style.SUCCESS(
+                f"นำเข้าข้อมูลทั้งหมด {total} รายการ ให้กับผู้ใช้ P184 สำเร็จ!"
+            )
+        )

@@ -36,9 +36,7 @@ class CustomUserAdmin(UserAdmin):
         "promptpay_number",
     )
 
-    ordering = (
-        "username",
-    )
+    ordering = ("username",)
 
     fieldsets = (
         (
@@ -48,16 +46,9 @@ class CustomUserAdmin(UserAdmin):
                     "username",
                     "password",
                 )
-            }
+            },
         ),
-        (
-            "ข้อมูลผู้ใช้",
-            {
-                "fields": (
-                    "role",
-                )
-            }
-        ),
+        ("ข้อมูลผู้ใช้", {"fields": ("role",)}),
         (
             "ข้อมูลบัญชีธนาคารและพร้อมเพย์",
             {
@@ -67,7 +58,7 @@ class CustomUserAdmin(UserAdmin):
                     "bank_account_name",
                     "promptpay_number",
                 )
-            }
+            },
         ),
         (
             "สิทธิ์ระบบ",
@@ -77,25 +68,16 @@ class CustomUserAdmin(UserAdmin):
                     "is_staff",
                     "is_superuser",
                 )
-            }
+            },
         ),
-        (
-            "ข้อมูลการเข้าสู่ระบบ",
-            {
-                "fields": (
-                    "last_login",
-                )
-            }
-        ),
+        ("ข้อมูลการเข้าสู่ระบบ", {"fields": ("last_login",)}),
     )
 
     add_fieldsets = (
         (
             None,
             {
-                "classes": (
-                    "wide",
-                ),
+                "classes": ("wide",),
                 "fields": (
                     "username",
                     "password1",

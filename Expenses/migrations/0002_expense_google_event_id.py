@@ -6,13 +6,18 @@ from django.db import migrations, models
 class Migration(migrations.Migration):
 
     dependencies = [
-        ('Expenses', '0001_initial'),
+        ("Expenses", "0001_initial"),
     ]
 
     operations = [
         migrations.AddField(
-            model_name='expense',
-            name='google_event_id',
-            field=models.CharField(blank=True, max_length=255, null=True, verbose_name='Google Calendar Event ID'),
+            model_name="expense",
+            name="google_event_id",
+            field=models.CharField(
+                blank=True,
+                max_length=255,
+                null=True,
+                verbose_name="Google Calendar Event ID",
+            ),
         ),
     ]

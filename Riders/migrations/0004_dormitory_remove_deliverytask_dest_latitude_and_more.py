@@ -7,35 +7,48 @@ from django.db import migrations, models
 class Migration(migrations.Migration):
 
     dependencies = [
-        ('Riders', '0003_deliverytask_dest_latitude_and_more'),
+        ("Riders", "0003_deliverytask_dest_latitude_and_more"),
     ]
 
     operations = [
         migrations.CreateModel(
-            name='Dormitory',
+            name="Dormitory",
             fields=[
-                ('id', models.BigAutoField(auto_created=True, primary_key=True, serialize=False, verbose_name='ID')),
-                ('name', models.CharField(max_length=255, unique=True)),
-                ('latitude', models.FloatField()),
-                ('longitude', models.FloatField()),
-                ('created_at', models.DateTimeField(auto_now_add=True)),
+                (
+                    "id",
+                    models.BigAutoField(
+                        auto_created=True,
+                        primary_key=True,
+                        serialize=False,
+                        verbose_name="ID",
+                    ),
+                ),
+                ("name", models.CharField(max_length=255, unique=True)),
+                ("latitude", models.FloatField()),
+                ("longitude", models.FloatField()),
+                ("created_at", models.DateTimeField(auto_now_add=True)),
             ],
         ),
         migrations.RemoveField(
-            model_name='deliverytask',
-            name='dest_latitude',
+            model_name="deliverytask",
+            name="dest_latitude",
         ),
         migrations.RemoveField(
-            model_name='deliverytask',
-            name='dest_longitude',
+            model_name="deliverytask",
+            name="dest_longitude",
         ),
         migrations.RemoveField(
-            model_name='deliverytask',
-            name='dormitory_name',
+            model_name="deliverytask",
+            name="dormitory_name",
         ),
         migrations.AddField(
-            model_name='deliverytask',
-            name='destination',
-            field=models.ForeignKey(blank=True, null=True, on_delete=django.db.models.deletion.SET_NULL, to='Riders.dormitory'),
+            model_name="deliverytask",
+            name="destination",
+            field=models.ForeignKey(
+                blank=True,
+                null=True,
+                on_delete=django.db.models.deletion.SET_NULL,
+                to="Riders.dormitory",
+            ),
         ),
     ]

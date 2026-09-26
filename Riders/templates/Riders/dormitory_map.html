@@ -294,7 +294,7 @@
 </div>
 
 <script>
-    let dormsData = {{ dorms_json|safe }};
+    let dormsData = JSON.parse('{{ dorms_json|escapejs }}');
     let mapInstance = null;
     let markerLayer = L.layerGroup();
     let markersDict = {};

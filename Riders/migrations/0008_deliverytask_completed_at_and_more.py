@@ -6,23 +6,29 @@ from django.db import migrations, models
 class Migration(migrations.Migration):
 
     dependencies = [
-        ('Riders', '0007_dormitory_color'),
+        ("Riders", "0007_dormitory_color"),
     ]
 
     operations = [
         migrations.AddField(
-            model_name='deliverytask',
-            name='completed_at',
-            field=models.DateTimeField(blank=True, null=True, verbose_name='เวลาส่งสำเร็จ'),
+            model_name="deliverytask",
+            name="completed_at",
+            field=models.DateTimeField(
+                blank=True, null=True, verbose_name="เวลาส่งสำเร็จ"
+            ),
         ),
         migrations.AddField(
-            model_name='deliverytask',
-            name='duration_minutes',
-            field=models.IntegerField(blank=True, null=True, verbose_name='ใช้เวลาไป (นาที)'),
+            model_name="deliverytask",
+            name="duration_minutes",
+            field=models.IntegerField(
+                blank=True, null=True, verbose_name="ใช้เวลาไป (นาที)"
+            ),
         ),
         migrations.AddField(
-            model_name='deliverytask',
-            name='started_at',
-            field=models.DateTimeField(blank=True, null=True, verbose_name='เวลาเริ่มจัดส่ง'),
+            model_name="deliverytask",
+            name="started_at",
+            field=models.DateTimeField(
+                blank=True, null=True, verbose_name="เวลาเริ่มจัดส่ง"
+            ),
         ),
     ]

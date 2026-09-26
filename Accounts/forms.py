@@ -13,7 +13,7 @@ class RegisterForm(forms.ModelForm):
                 "placeholder": "กรอกรหัสผ่าน",
                 "autocomplete": "new-password",
             }
-        )
+        ),
     )
 
     password_confirm = forms.CharField(
@@ -24,7 +24,7 @@ class RegisterForm(forms.ModelForm):
                 "placeholder": "กรอกรหัสผ่านอีกครั้ง",
                 "autocomplete": "new-password",
             }
-        )
+        ),
     )
 
     role = forms.ChoiceField(
@@ -37,7 +37,7 @@ class RegisterForm(forms.ModelForm):
             attrs={
                 "class": "form-input",
             }
-        )
+        ),
     )
 
     class Meta:
@@ -99,19 +99,17 @@ class RegisterForm(forms.ModelForm):
     # Username
     # ========================================================
 
-    fn = clean_username = lambda self: self.cleaned_data.get("username") # (ย่อเพื่อความสะอาด)
+    fn = clean_username = lambda self: self.cleaned_data.get(
+        "username"
+    )  # (ย่อเพื่อความสะอาด)
 
     def clean_username(self):
 
         username = self.cleaned_data["username"].strip()
 
-        if User.objects.filter(
-            username=username
-        ).exists():
+        if User.objects.filter(username=username).exists():
 
-            raise forms.ValidationError(
-                "ชื่อผู้ใช้นี้มีอยู่ในระบบแล้ว"
-            )
+            raise forms.ValidationError("ชื่อผู้ใช้นี้มีอยู่ในระบบแล้ว")
 
         return username
 
@@ -124,17 +122,13 @@ class RegisterForm(forms.ModelForm):
         cleaned_data = super().clean()
 
         password = cleaned_data.get("password")
-        password_confirm = cleaned_data.get(
-            "password_confirm"
-        )
+        password_confirm = cleaned_data.get("password_confirm")
 
         if password and password_confirm:
 
             if password != password_confirm:
 
-                raise forms.ValidationError(
-                    "รหัสผ่านไม่ตรงกัน"
-                )
+                raise forms.ValidationError("รหัสผ่านไม่ตรงกัน")
 
         return cleaned_data
 
@@ -158,9 +152,7 @@ class RegisterForm(forms.ModelForm):
         user.role = role
 
         # เข้ารหัส Password
-        user.set_password(
-            self.cleaned_data["password"]
-        )
+        user.set_password(self.cleaned_data["password"])
 
         # ผู้สมัครทั่วไปไม่มีสิทธิ์ Admin
         user.is_active = True

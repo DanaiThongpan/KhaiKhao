@@ -6,28 +6,37 @@ from django.db import migrations, models
 class Migration(migrations.Migration):
 
     dependencies = [
-        ('Accounts', '0002_user_is_active_user_is_staff_user_is_superuser'),
+        ("Accounts", "0002_user_is_active_user_is_staff_user_is_superuser"),
     ]
 
     operations = [
         migrations.AlterField(
-            model_name='user',
-            name='is_active',
-            field=models.BooleanField(default=True, verbose_name='เปิดใช้งาน'),
+            model_name="user",
+            name="is_active",
+            field=models.BooleanField(default=True, verbose_name="เปิดใช้งาน"),
         ),
         migrations.AlterField(
-            model_name='user',
-            name='is_staff',
-            field=models.BooleanField(default=False, verbose_name='เจ้าหน้าที่ระบบ'),
+            model_name="user",
+            name="is_staff",
+            field=models.BooleanField(default=False, verbose_name="เจ้าหน้าที่ระบบ"),
         ),
         migrations.AlterField(
-            model_name='user',
-            name='is_superuser',
-            field=models.BooleanField(default=False, verbose_name='ผู้ดูแลสูงสุด'),
+            model_name="user",
+            name="is_superuser",
+            field=models.BooleanField(default=False, verbose_name="ผู้ดูแลสูงสุด"),
         ),
         migrations.AlterField(
-            model_name='user',
-            name='role',
-            field=models.CharField(choices=[('admin', 'ผู้ดูแลระบบ'), ('owner', 'เจ้าของร้าน'), ('employee', 'พนักงาน')], default='owner', max_length=20, verbose_name='บทบาท'),
+            model_name="user",
+            name="role",
+            field=models.CharField(
+                choices=[
+                    ("admin", "ผู้ดูแลระบบ"),
+                    ("owner", "เจ้าของร้าน"),
+                    ("employee", "พนักงาน"),
+                ],
+                default="owner",
+                max_length=20,
+                verbose_name="บทบาท",
+            ),
         ),
     ]

@@ -6,18 +6,18 @@ from django.db import migrations, models
 class Migration(migrations.Migration):
 
     dependencies = [
-        ('Pos', '0001_initial'),
+        ("Pos", "0001_initial"),
     ]
 
     operations = [
         migrations.AddField(
-            model_name='order',
-            name='payment_status',
-            field=models.CharField(default='PENDING', max_length=20),
+            model_name="order",
+            name="payment_status",
+            field=models.CharField(default="PENDING", max_length=20),
         ),
         migrations.AddField(
-            model_name='order',
-            name='transaction_ref',
+            model_name="order",
+            name="transaction_ref",
             field=models.CharField(blank=True, max_length=50, null=True),
         ),
     ]

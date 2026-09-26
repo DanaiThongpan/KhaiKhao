@@ -2,4 +2,4 @@ from django.apps import AppConfig
 
 
 class HeatmapConfig(AppConfig):
-    name = 'Heatmap'
+    name = "Heatmap"

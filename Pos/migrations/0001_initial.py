@@ -10,33 +10,93 @@ class Migration(migrations.Migration):
     initial = True
 
     dependencies = [
-        ('Products', '0001_initial'),
+        ("Products", "0001_initial"),
         migrations.swappable_dependency(settings.AUTH_USER_MODEL),
     ]
 
     operations = [
         migrations.CreateModel(
-            name='Order',
+            name="Order",
             fields=[
-                ('id', models.BigAutoField(auto_created=True, primary_key=True, serialize=False, verbose_name='ID')),
-                ('receipt_number', models.CharField(max_length=20, unique=True, verbose_name='เลขที่บิล')),
-                ('total_amount', models.DecimalField(decimal_places=2, max_digits=10, verbose_name='ยอดรวม')),
-                ('created_at', models.DateTimeField(auto_now_add=True, verbose_name='วันที่ขาย')),
-                ('created_by', models.ForeignKey(null=True, on_delete=django.db.models.deletion.SET_NULL, to=settings.AUTH_USER_MODEL, verbose_name='พนักงาน')),
+                (
+                    "id",
+                    models.BigAutoField(
+                        auto_created=True,
+                        primary_key=True,
+                        serialize=False,
+                        verbose_name="ID",
+                    ),
+                ),
+                (
+                    "receipt_number",
+                    models.CharField(
+                        max_length=20, unique=True, verbose_name="เลขที่บิล"
+                    ),
+                ),
+                (
+                    "total_amount",
+                    models.DecimalField(
+                        decimal_places=2, max_digits=10, verbose_name="ยอดรวม"
+                    ),
+                ),
+                (
+                    "created_at",
+                    models.DateTimeField(auto_now_add=True, verbose_name="วันที่ขาย"),
+                ),
+                (
+                    "created_by",
+                    models.ForeignKey(
+                        null=True,
+                        on_delete=django.db.models.deletion.SET_NULL,
+                        to=settings.AUTH_USER_MODEL,
+                        verbose_name="พนักงาน",
+                    ),
+                ),
             ],
             options={
-                'ordering': ['-created_at'],
+                "ordering": ["-created_at"],
             },
         ),
         migrations.CreateModel(
-            name='OrderItem',
+            name="OrderItem",
             fields=[
-                ('id', models.BigAutoField(auto_created=True, primary_key=True, serialize=False, verbose_name='ID')),
-                ('price', models.DecimalField(decimal_places=2, max_digits=10, verbose_name='ราคาขาย')),
-                ('quantity', models.IntegerField(verbose_name='จำนวน')),
-                ('subtotal', models.DecimalField(decimal_places=2, max_digits=10, verbose_name='รวม')),
-                ('order', models.ForeignKey(on_delete=django.db.models.deletion.CASCADE, related_name='items', to='Pos.order')),
-                ('product', models.ForeignKey(on_delete=django.db.models.deletion.PROTECT, to='Products.product')),
+                (
+                    "id",
+                    models.BigAutoField(
+                        auto_created=True,
+                        primary_key=True,
+                        serialize=False,
+                        verbose_name="ID",
+                    ),
+                ),
+                (
+                    "price",
+                    models.DecimalField(
+                        decimal_places=2, max_digits=10, verbose_name="ราคาขาย"
+                    ),
+                ),
+                ("quantity", models.IntegerField(verbose_name="จำนวน")),
+                (
+                    "subtotal",
+                    models.DecimalField(
+                        decimal_places=2, max_digits=10, verbose_name="รวม"
+                    ),
+                ),
+                (
+                    "order",
+                    models.ForeignKey(
+                        on_delete=django.db.models.deletion.CASCADE,
+                        related_name="items",
+                        to="Pos.order",
+                    ),
+                ),
+                (
+                    "product",
+                    models.ForeignKey(
+                        on_delete=django.db.models.deletion.PROTECT,
+                        to="Products.product",
+                    ),
+                ),
             ],
         ),
     ]

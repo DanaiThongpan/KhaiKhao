@@ -8,19 +8,33 @@ from django.db import migrations, models
 class Migration(migrations.Migration):
 
     dependencies = [
-        ('Products', '0001_initial'),
+        ("Products", "0001_initial"),
         migrations.swappable_dependency(settings.AUTH_USER_MODEL),
     ]
 
     operations = [
         migrations.AddField(
-            model_name='product',
-            name='created_by',
-            field=models.ForeignKey(blank=True, null=True, on_delete=django.db.models.deletion.SET_NULL, related_name='created_products', to=settings.AUTH_USER_MODEL, verbose_name='ผู้สร้าง'),
+            model_name="product",
+            name="created_by",
+            field=models.ForeignKey(
+                blank=True,
+                null=True,
+                on_delete=django.db.models.deletion.SET_NULL,
+                related_name="created_products",
+                to=settings.AUTH_USER_MODEL,
+                verbose_name="ผู้สร้าง",
+            ),
         ),
         migrations.AddField(
-            model_name='productcategory',
-            name='created_by',
-            field=models.ForeignKey(blank=True, null=True, on_delete=django.db.models.deletion.SET_NULL, related_name='created_categories', to=settings.AUTH_USER_MODEL, verbose_name='ผู้สร้าง'),
+            model_name="productcategory",
+            name="created_by",
+            field=models.ForeignKey(
+                blank=True,
+                null=True,
+                on_delete=django.db.models.deletion.SET_NULL,
+                related_name="created_categories",
+                to=settings.AUTH_USER_MODEL,
+                verbose_name="ผู้สร้าง",
+            ),
         ),
     ]

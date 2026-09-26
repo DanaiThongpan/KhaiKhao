@@ -1,0 +1,62 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Webhook Monitor - KhaiKhao API</title>
+    <style>
+        body { font-family: 'Courier New', Courier, monospace; background: #0f172a; color: #f8fafc; margin: 0; padding: 20px; }
+        .header { display: flex; justify-content: space-between; align-items: center; border-bottom: 2px dashed #334155; padding-bottom: 15px; margin-bottom: 20px; }
+        h1 { margin: 0; color: #38bdf8; font-family: 'Tahoma', sans-serif; }
+        .btn { background: #16a34a; color: white; padding: 10px 15px; border-radius: 6px; text-decoration: none; font-weight: bold; font-family: 'Tahoma'; }
+        .btn-clear { background: #ef4444; margin-left: 10px; }
+        .btn:hover { opacity: 0.8; }
+        
+        .log-container { display: flex; flex-direction: column; gap: 15px; }
+        .log-card { background: #1e293b; border: 1px solid #334155; border-radius: 8px; overflow: hidden; box-shadow: 0 4px 6px rgba(0,0,0,0.3); }
+        .log-header { background: #334155; padding: 10px 15px; display: flex; justify-content: space-between; align-items: center; font-family: 'Tahoma'; font-weight: bold; }
+        .badge { background: #f59e0b; color: #fff; padding: 3px 8px; border-radius: 12px; font-size: 12px; }
+        
+        .log-body { padding: 15px; background: #0f172a; overflow-x: auto; }
+        pre { margin: 0; color: #a7f3d0; font-size: 14px; line-height: 1.4; }
+        
+        .empty { text-align: center; padding: 50px; color: #64748b; font-family: 'Tahoma'; font-size: 18px; }
+    </style>
+    <!-- รีเฟรชหน้าจออัตโนมัติทุกๆ 5 วินาที -->
+    <meta http-equiv="refresh" content="5"> 
+</head>
+<body>
+
+    <div class="header">
+        <h1>📡 Facebook Webhook Monitor</h1>
+        <div>
+            <a href="?refresh=1" class="btn">🔄 รีเฟรชข้อมูล</a>
+            <a href="?action=clear" class="btn btn-clear">🗑️ ล้างข้อมูลทั้งหมด</a>
+        </div>
+    </div>
+
+    <div class="log-container">
+        {% for log in logs %}
+        <div class="log-card">
+            <div class="log-header">
+                <div>
+                    <span class="badge">{{ log.event_type }}</span>
+                </div>
+                <div style="font-size: 12px; color: #cbd5e1; font-weight: normal;">
+                    🕒 {{ log.received_at|date:"d/m/Y H:i:s" }}
+                </div>
+            </div>
+            <div class="log-body">
+                <pre><code>{{ log.payload }}</code></pre>
+            </div>
+        </div>
+        {% empty %}
+        <div class="empty">
+            รอรับข้อมูล...<br>
+            <span style="font-size: 14px; color: #475569;">(ลองกดปุ่ม "ส่งไปยังเซิร์ฟเวอร์ของฉัน" ที่หน้าตั้งค่า Facebook)</span>
+        </div>
+        {% endfor %}
+    </div>
+
+</body>
+</html>

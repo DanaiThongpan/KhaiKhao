@@ -1,11 +1,15 @@
 from datetime import datetime
 from decimal import Decimal
-from django.shortcuts import render, redirect
-from django.contrib.auth.decorators import login_required
+
 from django.contrib import messages
+from django.contrib.auth.decorators import login_required
 from django.db.models import Sum
-from .models import TaxRecord
+from django.shortcuts import redirect, render
+
 from Pos.models import Order
+
+from .models import TaxRecord
+
 
 def calculate_thai_personal_tax(net_income):
     """
@@ -36,42 +40,44 @@ def calculate_thai_personal_tax(net_income):
         tax = 1265000 + (net - 5000000) * 0.35
     return Decimal(str(max(0, tax)))
 
+
 @login_required
 def tax_home_view(request):
     current_year = datetime.now().year
-    
+
     try:
         realtime_orders = Order.objects.filter(
-            created_by=request.user, 
-            created_at__year=current_year
+            created_by=request.user, created_at__year=current_year
         )
-        realtime_sales = realtime_orders.aggregate(total=Sum('total_amount'))['total'] or Decimal('0')
+        realtime_sales = realtime_orders.aggregate(total=Sum("total_amount"))[
+            "total"
+        ] or Decimal("0")
     except:
-        realtime_sales = Decimal('0')
+        realtime_sales = Decimal("0")
 
-    estimated_expense = realtime_sales * Decimal('0.60')
-    personal_deduction = Decimal('60000')
+    estimated_expense = realtime_sales * Decimal("0.60")
+    personal_deduction = Decimal("60000")
     total_deduction_default = estimated_expense + personal_deduction
-    
-    realtime_net_income = max(Decimal('0'), realtime_sales - total_deduction_default)
+
+    realtime_net_income = max(Decimal("0"), realtime_sales - total_deduction_default)
     realtime_tax = calculate_thai_personal_tax(realtime_net_income)
 
-    tax_free_sales_limit = (Decimal('150000') + personal_deduction) / Decimal('0.40')
-    sales_until_tax = max(Decimal('0'), tax_free_sales_limit - realtime_sales)
+    tax_free_sales_limit = (Decimal("150000") + personal_deduction) / Decimal("0.40")
+    sales_until_tax = max(Decimal("0"), tax_free_sales_limit - realtime_sales)
 
     sim_result = None
     if request.method == "POST" and "simulate" in request.POST:
         try:
             sim_income = Decimal(request.POST.get("sim_income", "0"))
             sim_deduction = Decimal(request.POST.get("sim_deduction", "0"))
-            sim_net = max(Decimal('0'), sim_income - sim_deduction)
+            sim_net = max(Decimal("0"), sim_income - sim_deduction)
             sim_tax = calculate_thai_personal_tax(sim_net)
-            
+
             sim_result = {
-                'income': sim_income,
-                'deduction': sim_deduction,
-                'net': sim_net,
-                'tax': sim_tax
+                "income": sim_income,
+                "deduction": sim_deduction,
+                "net": sim_net,
+                "tax": sim_tax,
             }
         except (ValueError, Exception):
             messages.error(request, "กรุณากรอกตัวเลขจำลองให้ถูกต้อง")
@@ -79,9 +85,13 @@ def tax_home_view(request):
     if request.method == "POST" and "save_record" in request.POST:
         try:
             tax_year = int(request.POST.get("tax_year", current_year))
-            total_income = Decimal(request.POST.get("total_income", str(realtime_sales)))
-            deduction = Decimal(request.POST.get("deduction", str(total_deduction_default)))
-            net_income = max(Decimal('0'), total_income - deduction)
+            total_income = Decimal(
+                request.POST.get("total_income", str(realtime_sales))
+            )
+            deduction = Decimal(
+                request.POST.get("deduction", str(total_deduction_default))
+            )
+            net_income = max(Decimal("0"), total_income - deduction)
             tax_to_pay = calculate_thai_personal_tax(net_income)
 
             TaxRecord.objects.create(
@@ -90,23 +100,23 @@ def tax_home_view(request):
                 total_income=total_income,
                 total_expenses_deduction=deduction,
                 net_income=net_income,
-                tax_to_pay=tax_to_pay
+                tax_to_pay=tax_to_pay,
             )
             messages.success(request, "บันทึกประวัติภาษีสำเร็จ!")
-            return redirect('tax:home')
+            return redirect("tax:home")
         except (ValueError, Exception):
             messages.error(request, "ข้อมูลการบันทึกไม่ถูกต้อง")
 
-    history = TaxRecord.objects.filter(user=request.user).order_by('-created_at')
+    history = TaxRecord.objects.filter(user=request.user).order_by("-created_at")
 
     context = {
-        'current_year': current_year,
-        'realtime_sales': realtime_sales,
-        'realtime_net_income': realtime_net_income,
-        'realtime_tax': realtime_tax,
-        'sales_until_tax': sales_until_tax,
-        'total_deduction_default': total_deduction_default,
-        'sim_result': sim_result,
-        'history': history,
+        "current_year": current_year,
+        "realtime_sales": realtime_sales,
+        "realtime_net_income": realtime_net_income,
+        "realtime_tax": realtime_tax,
+        "sales_until_tax": sales_until_tax,
+        "total_deduction_default": total_deduction_default,
+        "sim_result": sim_result,
+        "history": history,
     }
-    return render(request, 'Taxs/tax_home.html', context)
+    return render(request, "Taxes/tax_home.html", context)

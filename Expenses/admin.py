@@ -1,4 +1,5 @@
 from django.contrib import admin
+
 from .models import Expense
 
 
@@ -52,16 +53,9 @@ class ExpenseAdmin(admin.ModelAdmin):
                     "category",
                     "description",
                 )
-            }
+            },
         ),
-        (
-            "Google Calendar",
-            {
-                "fields": (
-                    "google_event_id",
-                )
-            }
-        ),
+        ("Google Calendar", {"fields": ("google_event_id",)}),
         (
             "ข้อมูลระบบ",
             {
@@ -70,13 +64,11 @@ class ExpenseAdmin(admin.ModelAdmin):
                     "created_at",
                     "updated_at",
                 )
-            }
+            },
         ),
     )
 
-    @admin.display(
-        description="Google Calendar"
-    )
+    @admin.display(description="Google Calendar")
     def google_calendar_status(self, obj):
         if obj.google_event_id:
             return "✓ เชื่อมแล้ว"
@@ -96,15 +88,15 @@ class ExpenseAdmin(admin.ModelAdmin):
         # 1. ถ้าเป็น Admin (Superuser) ให้แก้ไขได้เสมอ
         if request.user.is_superuser:
             return True
-        
+
         # 2. ถ้าผู้ใช้เปิดหน้ารวม (obj เป็น None) ให้แสดงได้
         if obj is None:
             return True
-            
+
         # 3. ถ้าเป็นคนสร้าง (created_by ตรงกับคนที่ล็อกอิน) ให้แก้ไขได้
         if obj.created_by == request.user:
             return True
-            
+
         # 4. นอกนั้นห้ามแก้ไข
         return False
 
@@ -112,14 +104,14 @@ class ExpenseAdmin(admin.ModelAdmin):
         # 1. ถ้าเป็น Admin (Superuser) ให้ลบได้เสมอ
         if request.user.is_superuser:
             return True
-            
+
         # 2. ถ้าผู้ใช้กด action ลบหลายรายการพร้อมกัน (obj เป็น None) อนุญาตให้ผ่านไปเช็กสิทธิ์รายตัว
         if obj is None:
             return True
-            
+
         # 3. ถ้าเป็นคนสร้าง (created_by ตรงกับคนที่ล็อกอิน) ให้ลบได้
         if obj.created_by == request.user:
             return True
-            
+
         # 4. นอกนั้นห้ามลบ
         return False

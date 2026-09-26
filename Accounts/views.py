@@ -1,6 +1,7 @@
 from django.contrib import messages
 from django.contrib.auth import authenticate, login, logout
 from django.shortcuts import redirect, render
+
 from .forms import RegisterForm
 
 
@@ -44,18 +45,20 @@ def user_login(request):
             login(request, user)
 
             # ================================================
-            # ตรวจสอบสิทธิ์ (Role) 
+            # ตรวจสอบสิทธิ์ (Role)
             # ================================================
             # เช็คว่าเป็น Admin หรือ Superuser หรือไม่
-            if user.is_superuser or getattr(user, 'role', '') == "admin":
-                return redirect("backoffice:home")  # เปลี่ยน URL ไปหน้า dashboard ของ admin ได้
-            
+            if user.is_superuser or getattr(user, "role", "") == "admin":
+                return redirect(
+                    "backoffice:home"
+                )  # เปลี่ยน URL ไปหน้า dashboard ของ admin ได้
+
             # เช็คว่าเป็น Owner หรือไม่
-            elif getattr(user, 'role', '') == "owner":
+            elif getattr(user, "role", "") == "owner":
                 return redirect("/")  # เปลี่ยน URL ไปหน้า dashboard ของ owner ได้
-                
+
             # เช็คว่าเป็น Employee หรือไม่
-            elif getattr(user, 'role', '') == "employee":
+            elif getattr(user, "role", "") == "employee":
                 return redirect("/")  # เปลี่ยน URL ไปหน้า dashboard ของ employee ได้
 
             # หากไม่ตรงกับสิทธิ์ใดเลย (กันเหนียว)

@@ -6,13 +6,13 @@ from django.db import migrations, models
 class Migration(migrations.Migration):
 
     dependencies = [
-        ('Riders', '0006_alter_dormitory_zone'),
+        ("Riders", "0006_alter_dormitory_zone"),
     ]
 
     operations = [
         migrations.AddField(
-            model_name='dormitory',
-            name='color',
-            field=models.CharField(default='blue', max_length=30),
+            model_name="dormitory",
+            name="color",
+            field=models.CharField(default="blue", max_length=30),
         ),
     ]

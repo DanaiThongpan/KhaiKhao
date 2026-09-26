@@ -6,233 +6,200 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <title>แดชบอร์ดงานจัดส่ง - KhaiKhao Delivery</title>
     
-    <link rel="stylesheet" href="{% static 'css/style.css' %}">
     <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css">
     <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Prompt:wght@300;400;600;700;800&display=swap" rel="stylesheet">
 
     <style>
         * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
-        body { font-family: 'Sarabun', sans-serif; background: #f4f7f6; margin: 0; padding-bottom: 100px; color: #334155; }
+        body { font-family: 'Prompt', sans-serif; background: #f1f5f9; margin: 0; padding-bottom: 100px; color: #1e293b; }
         
-        .app-header { background: linear-gradient(135deg, #1e293b 0%, #0f172a 100%); color: white; padding: 25px 20px 30px; border-bottom-left-radius: 25px; border-bottom-right-radius: 25px; box-shadow: 0 10px 20px rgba(0,0,0,0.05); position: relative; z-index: 10; }
+        /* Header */
+        .app-header { background: #0f172a; color: white; padding: 20px 15px; border-bottom-left-radius: 15px; border-bottom-right-radius: 15px; box-shadow: 0 4px 10px rgba(0,0,0,0.1); }
         .app-header h1 { margin: 0; font-size: 22px; font-weight: 800; display: flex; align-items: center; gap: 8px;}
-        .app-header p { margin: 5px 0 0; font-size: 14px; color: #cbd5e1; }
+        .current-trip { margin-top: 12px; font-size: 16px; color: #facc15; font-weight: 800; background: rgba(250, 204, 21, 0.15); padding: 8px 12px; border-radius: 10px; display: inline-block; border: 1px solid rgba(250, 204, 21, 0.4); width: 100%; text-align: center; }
         
-        .btn-reset-trip { background: rgba(239, 68, 68, 0.15); color: #fca5a5; border: 1px solid #f87171; padding: 8px 14px; border-radius: 10px; font-weight: bold; font-size: 13px; cursor: pointer; transition: 0.2s; display: flex; align-items: center; gap: 5px; }
-        .btn-reset-trip:active { background: rgba(239, 68, 68, 0.3); }
+        .btn-reset-trip { background: #ef4444; color: white; border: none; padding: 8px 12px; border-radius: 10px; font-weight: 700; font-size: 14px; cursor: pointer; display: block; width: 100%; margin-top: 10px; text-align: center; }
 
-        .filter-container { padding: 0 15px; margin-top: 15px; position: relative; z-index: 15; }
-        .filter-select { width: 100%; padding: 12px 15px; border-radius: 12px; border: 1px solid #cbd5e1; background: white; font-family: 'Sarabun', sans-serif; font-size: 14px; font-weight: bold; color: #1e293b; outline: none; box-shadow: 0 4px 6px rgba(0,0,0,0.02); appearance: none; background-image: url("data:image/svg+xml;charset=UTF-8,%3csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%2364748b' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3e%3cpolyline points='6 9 12 15 18 9'%3e%3c/polyline%3e%3c/svg%3e"); background-repeat: no-repeat; background-position: right 15px center; background-size: 16px; cursor: pointer; }
+        /* Filters */
+        .filter-container { padding: 12px 15px; }
+        .filter-select { width: 100%; padding: 12px; border-radius: 10px; border: 2px solid #cbd5e1; background: white; font-family: 'Prompt', sans-serif; font-size: 14px; font-weight: 700; color: #0f172a; outline: none; margin-bottom: 12px;}
+        .checkbox-label { display: flex; align-items: center; gap: 10px; background: white; padding: 12px; border-radius: 10px; border: 2px solid #cbd5e1; font-weight: 700; font-size: 14px; color: #1e293b; }
+        .checkbox-label input[type="checkbox"] { transform: scale(1.4); accent-color: #3b82f6; }
         
-        .container { padding: 0 15px; margin-top: 15px; position: relative; z-index: 20; }
+        .select-all-box { margin-top: 10px; padding: 12px; background: #e0f2fe; border: 2px solid #7dd3fc; border-radius: 10px; }
+        .select-all-box label { color: #0369a1; font-size: 15px; font-weight: 800; }
 
-        .order-card { position: relative; background: white; border-radius: 20px; padding: 18px; margin-bottom: 15px; box-shadow: 0 8px 15px rgba(0,0,0,0.04); border: 1px solid rgba(226, 232, 240, 0.8); transition: transform 0.3s ease-in-out; }
+        /* Cards */
+        .container { padding: 0 15px; }
+        .order-card { background: white; border-radius: 15px; padding: 15px; margin-bottom: 15px; box-shadow: 0 4px 6px rgba(0,0,0,0.05); border: 1px solid #e2e8f0; transition: transform 0.2s; }
         .order-card.selected { border: 2px solid #3b82f6; background: #f0f9ff; }
-        .order-header { display: flex; justify-content: space-between; align-items: center; border-bottom: 2px dashed #f1f5f9; padding-bottom: 12px; margin-bottom: 12px; cursor: pointer; }
+        
+        .order-header { display: flex; justify-content: space-between; align-items: center; border-bottom: 1px dashed #e2e8f0; padding-bottom: 12px; margin-bottom: 12px; }
         .order-id { font-size: 18px; font-weight: 800; color: #0f172a; }
         
-        .badge { padding: 6px 12px; border-radius: 20px; font-size: 11px; font-weight: 800; letter-spacing: 0.5px; }
-        .badge-pending { background: #fffbeb; color: #d97706; border: 1px solid #fde68a; }
-        .badge-going { background: #eff6ff; color: #2563eb; border: 1px solid #bfdbfe; }
-        .badge-delivered { background: #f0fdf4; color: #16a34a; border: 1px solid #bbf7d0; }
+        .badge { padding: 6px 12px; border-radius: 20px; font-size: 12px; font-weight: 800; }
+        .badge-pending { background: #fef3c7; color: #d97706; }
+        .badge-going { background: #dbeafe; color: #1d4ed8; }
+        .badge-delivered { background: #dcfce7; color: #166534; }
 
-        .info-row { display: flex; justify-content: space-between; font-size: 14px; margin-bottom: 8px; color: #64748b; align-items: center;}
-        .info-row strong { color: #10b981; font-size: 16px; font-weight: 900;}
+        .info-row { display: flex; justify-content: space-between; font-size: 14px; margin-bottom: 8px; color: #475569; font-weight: 600;}
+        .info-row strong { color: #059669; font-size: 16px; font-weight: 800;}
 
-        .time-box { background: #f0fdf4; border: 1px dashed #bbf7d0; padding: 10px; border-radius: 12px; margin-bottom: 10px; display: flex; justify-content: space-between; align-items: center;}
-        .time-label { color: #166534; font-size: 13px; font-weight: bold; }
-        .time-val { color: #15803d; font-size: 16px; font-weight: 900; }
-
-        .menu-box { background: #f8fafc; border: 1px solid #e2e8f0; padding: 12px; border-radius: 12px; margin: 12px 0; }
-        .menu-title { font-weight: 800; font-size: 13px; color: #1e293b; margin-bottom: 8px; display: flex; align-items: center; gap: 5px; }
-        .menu-list { margin: 0; padding-left: 20px; color: #475569; font-size: 13px; line-height: 1.6; }
-        .menu-qty { color: #3b82f6; font-weight: 800; }
+        /* Menu */
+        .menu-box { background: #f8fafc; border: 1px solid #f1f5f9; padding: 12px; border-radius: 10px; margin: 12px 0; }
+        .menu-title { font-weight: 800; font-size: 14px; color: #0f172a; margin-bottom: 8px; }
+        .menu-list { margin: 0; padding-left: 20px; color: #334155; font-size: 13px; font-weight: 600; line-height: 1.5; }
+        .menu-qty { color: #2563eb; font-weight: 800; font-size: 14px; }
         
-        .dest-box { background: #fffbeb; padding: 12px 15px; border-radius: 12px; border: 1px solid #fde68a; margin-top: 12px; display: flex; align-items: center; gap: 12px; }
-        .dest-icon { font-size: 22px; background: white; width: 40px; height: 40px; display: flex; justify-content: center; align-items: center; border-radius: 50%; box-shadow: 0 2px 4px rgba(0,0,0,0.05); }
-        .dest-text { flex: 1; }
-        .dest-label { font-size: 11px; color: #d97706; font-weight: bold; margin-bottom: 2px; }
-        .dest-name { font-weight: 800; font-size: 15px; color: #1e293b; }
-        .dest-zone { font-size: 11px; color: #2563eb; background: #dbeafe; padding: 2px 6px; border-radius: 4px; display: inline-block;}
+        /* Destination */
+        .dest-box { background: #fffbeb; padding: 12px; border-radius: 12px; border: 1px solid #fcd34d; display: flex; align-items: center; gap: 12px; margin-top: 12px;}
+        .dest-icon { font-size: 24px; }
+        .dest-name { font-weight: 800; font-size: 16px; color: #0f172a; line-height: 1.3;}
+        .dest-zone { font-size: 12px; color: #1d4ed8; background: #bfdbfe; padding: 2px 6px; border-radius: 4px; display: inline-block; margin-top: 4px; font-weight: 800;}
+        .distance-label { font-size: 13px; color: #7c3aed; margin-top: 6px; font-weight: 800; }
 
-        .btn-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-top: 15px; }
-        .btn { padding: 12px 10px; border-radius: 12px; font-weight: bold; font-size: 14px; text-align: center; border: none; cursor: pointer; transition: 0.2s; display: flex; justify-content: center; align-items: center; gap: 5px; text-decoration: none; }
-        .btn-primary { background: #3b82f6; color: white; box-shadow: 0 4px 10px rgba(59, 130, 246, 0.3); }
-        .btn-success { background: #10b981; color: white; box-shadow: 0 4px 10px rgba(16, 185, 129, 0.3); }
-        .btn-warning { background: #f59e0b; color: white; box-shadow: 0 4px 10px rgba(245, 158, 11, 0.3); }
-        .btn-outline { background: white; color: #3b82f6; border: 2px solid #e2e8f0; }
-        .btn-disabled { background: #e2e8f0; color: #94a3b8; cursor: not-allowed; box-shadow: none; }
+        /* Timer */
+        .time-box { background: #fef3c7; border: 1px dashed #f59e0b; padding: 12px; border-radius: 12px; margin-top: 12px; text-align: center;}
+        .time-label { color: #b45309; font-size: 14px; font-weight: 800; display: block; margin-bottom: 4px;}
+        .time-val { color: #ea580c; font-size: 28px; font-weight: 800; font-variant-numeric: tabular-nums; }
 
-        .bottom-nav { position: fixed; bottom: 0; width: 100%; background: white; display: flex; justify-content: space-around; padding: 12px 0 15px; box-shadow: 0 -5px 20px rgba(0,0,0,0.06); z-index: 1000; border-top-left-radius: 20px; border-top-right-radius: 20px; }
-        .nav-item { display: flex; flex-direction: column; align-items: center; color: #94a3b8; text-decoration: none; font-size: 11px; font-weight: 800; gap: 4px; transition: 0.2s;}
-        .nav-item.active { color: #3b82f6; }
-        .nav-icon { font-size: 22px; transition: transform 0.2s; }
-        .nav-item.active .nav-icon { transform: translateY(-3px); }
+        /* Buttons */
+        .btn { width: 100%; padding: 12px 12px; border-radius: 10px; font-weight: 800; font-size: 15px; text-align: center; border: none; cursor: pointer; display: flex; justify-content: center; align-items: center; gap: 8px; text-decoration: none; margin-top: 8px; }
+        .btn-primary { background: #2563eb; color: white; }
+        .btn-success { background: #10b981; color: white; font-size: 16px; padding: 14px 12px; }
+        .btn-warning { background: #f59e0b; color: white; }
+        .btn-outline { background: white; color: #475569; border: 2px solid #cbd5e1; }
+        .btn-disabled { background: #e2e8f0; color: #94a3b8; }
 
-        .modal-overlay { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(15, 23, 42, 0.6); backdrop-filter: blur(3px); z-index: 2000; display: none; align-items: flex-end; justify-content: center; opacity: 0; transition: opacity 0.3s; }
-        .modal-content { background: white; width: 100%; max-width: 600px; border-top-left-radius: 25px; border-top-right-radius: 25px; padding: 25px 20px 35px; transform: translateY(100%); transition: transform 0.3s cubic-bezier(0.4, 0, 0.2, 1); box-shadow: 0 -10px 25px rgba(0,0,0,0.1); }
-        .modal-overlay.active { display: flex; opacity: 1; }
-        .modal-overlay.active .modal-content { transform: translateY(0); }
-        .modal-handle { width: 40px; height: 5px; background: #cbd5e1; border-radius: 5px; margin: 0 auto 20px; }
-        .modal-title { font-size: 20px; font-weight: 800; margin-bottom: 20px; color: #0f172a; text-align: center; }
-        .form-select { width: 100%; padding: 15px; border-radius: 14px; border: 2px solid #e2e8f0; font-size: 16px; margin-bottom: 20px; background: #f8fafc; outline: none; color: #1e293b; font-weight: bold; }
+        /* Bottom Nav */
+        .bottom-nav { position: fixed; bottom: 0; left: 0; width: 100%; background: white; display: flex; justify-content: space-around; padding: 10px 0 15px; box-shadow: 0 -5px 15px rgba(0,0,0,0.1); z-index: 1000; border-top-left-radius: 20px; border-top-right-radius: 20px; }
+        .nav-item { display: flex; flex-direction: column; align-items: center; color: #64748b; text-decoration: none; font-size: 11px; font-weight: 800; gap: 4px; }
+        .nav-item.active { color: #2563eb; }
+        .nav-icon { font-size: 22px; }
 
-        .batch-bar { position: fixed; bottom: 70px; left: 0; width: 100%; background: #1e293b; padding: 12px 20px; box-shadow: 0 -5px 20px rgba(0,0,0,0.2); z-index: 1500; display: none; justify-content: space-between; align-items: center; border-top-left-radius: 20px; border-top-right-radius: 20px; animation: slideUp 0.3s; }
-        @keyframes slideUp { from { transform: translateY(100%); } to { transform: translateY(0); } }
+        /* Batch Bar */
+        .batch-bar { position: fixed; bottom: 80px; left: 0; width: 100%; background: #0f172a; padding: 12px 15px; box-shadow: 0 -5px 15px rgba(0,0,0,0.3); z-index: 1500; display: none; flex-direction: column; gap: 12px; border-top-left-radius: 20px; border-top-right-radius: 20px; }
+        .batch-info { color: white; display: flex; justify-content: space-between; font-size: 15px; font-weight: 800; }
+        .batch-info span { color: #38bdf8; font-size: 18px; }
+        .batch-actions { display: flex; gap: 10px; }
+
+        /* Modal */
+        .modal-overlay { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(15, 23, 42, 0.7); backdrop-filter: blur(5px); z-index: 2000; display: none; align-items: flex-end; }
+        .modal-content { background: white; width: 100%; border-top-left-radius: 25px; border-top-right-radius: 25px; padding: 25px 20px 30px; }
+        .modal-title { font-size: 20px; font-weight: 800; margin-bottom: 15px; color: #0f172a; text-align: center; }
+        .form-select { width: 100%; padding: 15px; border-radius: 12px; border: 2px solid #cbd5e1; font-size: 16px; margin-bottom: 20px; font-weight: 700; color: #0f172a; }
     </style>
 </head>
 <body>
 
 <header class="app-header">
-    <div style="display: flex; justify-content: space-between; align-items: flex-start;">
-        <div>
-            <h1>🛵 งานจัดส่งของฉัน</h1>
-            <div id="currentTripLabel" style="margin-top: 8px; font-size: 14px; color: #fbbf24; font-weight: 800; background: rgba(251, 191, 36, 0.1); padding: 4px 10px; border-radius: 6px; display: inline-block; border: 1px solid rgba(251, 191, 36, 0.4);">
-                📍 รอบที่จะวิ่งถัดไป: <span style="font-size: 18px;">รอบที่ {{ request.session.trip_number|default:1 }}</span>
-            </div>
-        </div>
-        
-        <button onclick="resetTrip()" class="btn-reset-trip">
-            🔄 รีเซ็ตรอบ
-        </button>
+    <h1>🛵 งานจัดส่งของฉัน</h1>
+    <div class="current-trip">
+        📍 วิ่งรอบที่ {{ request.session.trip_number|default:1 }}
     </div>
+    <button onclick="resetTrip()" class="btn-reset-trip">🔄 รีเซ็ตเลขรอบ (เริ่มรอบ 1 ใหม่)</button>
 </header>
 
 <div class="filter-container">
     <form method="GET" id="filterForm">
         <select name="days" class="filter-select" onchange="document.getElementById('filterForm').submit();">
-            <option value="0" {% if days_filter == '0' or not days_filter %}selected{% endif %}>📅 ดูเฉพาะงานของวันนี้</option>
+            <option value="0" {% if days_filter == '0' or not days_filter %}selected{% endif %}>📅 เฉพาะงานของวันนี้</option>
             <option value="1" {% if days_filter == '1' %}selected{% endif %}>🕒 1 วันย้อนหลัง</option>
             <option value="all" {% if days_filter == 'all' %}selected{% endif %}>📂 ดูงานทั้งหมด</option>
         </select>
 
-        <label style="display:flex; align-items:center; gap:8px; margin-top:10px; background:white; padding:12px 15px; border-radius:12px; border:1px solid #cbd5e1; font-weight:bold; font-size:14px; color:#1e293b; cursor:pointer;">
-            <input type="checkbox" name="undelivered_only" value="1"
-                   {% if undelivered_only %}checked{% endif %}
-                   onchange="document.getElementById('filterForm').submit();"
-                   style="transform: scale(1.4); accent-color: #f59e0b;">
-            🚫 แสดงเฉพาะงานที่ยังไม่ได้ส่ง
+        <label class="checkbox-label">
+            <input type="checkbox" name="undelivered_only" value="1" {% if undelivered_only %}checked{% endif %} onchange="document.getElementById('filterForm').submit();">
+            🚫 แสดงเฉพาะงานที่ยังไม่ส่ง
         </label>
     </form>
 
-    <div style="margin-top: 10px; padding: 12px 15px; background: #e0f2fe; border: 1px solid #bae6fd; border-radius: 12px;">
-        <label style="display:flex; align-items:center; gap:8px; font-weight:bold; font-size:14px; color:#0369a1; cursor:pointer; width: 100%;">
-            <input type="checkbox" id="selectAllCheckbox" onchange="toggleSelectAll()" style="transform: scale(1.5); accent-color: #0284c7;">
-            ☑️ เลือกออเดอร์ที่แสดงอยู่ทั้งหมด
+    <div class="select-all-box">
+        <label class="checkbox-label" style="border:none; padding:0; background:transparent;">
+            <input type="checkbox" id="selectAllCheckbox" onchange="toggleSelectAll()">
+            ☑️ เลือกบิลรอดำเนินการทั้งหมด
         </label>
     </div>
 </div>
 
 <div class="container">
     {% if orders %}
-        
-        <!-- 🌟 กลุ่มที่ 1: งานที่ยังไม่เสร็จ (ถูกครอบด้วย div เพื่อใช้จัดเรียง GPS) 🌟 -->
         <div id="activeOrdersContainer" style="display: flex; flex-direction: column;">
             {% for order in orders %}
             {% with task=order.delivery_info %}
             {% if task.status != 'DELIVERED' and task.status != 'COMPLETED' %}
             
-            <!-- 🌟 แอบฝังพิกัดลงไปในการ์ดแต่ละใบ 🌟 -->
             <div class="order-card" id="order-card-{{ order.id }}"
                  data-lat="{% if task.destination %}{{ task.destination.latitude }}{% endif %}" 
                  data-lng="{% if task.destination %}{{ task.destination.longitude }}{% endif %}">
                 
                 <div class="order-header" onclick="toggleCardCheck('{{ order.id }}', event)">
-                    <div style="display: flex; align-items: center; gap: 10px;">
+                    <div style="display: flex; align-items: center; gap: 12px;">
                         {% if task.status == 'PENDING' %}
-                            <input type="checkbox" class="order-checkbox" value="{{ order.id }}" data-amount="{{ order.total_amount }}" onchange="toggleBatchBar()" style="transform: scale(1.6); accent-color: #3b82f6; cursor: pointer;">
+                            <input type="checkbox" class="order-checkbox" value="{{ order.id }}" data-amount="{{ order.total_amount }}" onchange="toggleBatchBar()" style="transform: scale(1.5); accent-color: #2563eb;">
                         {% endif %}
-                        <span class="order-id">บิล #{{ order.receipt_number|default:order.id }}</span>
+                        <span class="order-id">#{{ order.receipt_number|default:order.id }}</span>
                     </div>
                     
                     <span class="badge {% if task.status == 'GOING' or task.status == 'DELIVERING' or task.status == 'STARTED' %}badge-going{% else %}badge-pending{% endif %}">
-                        {% if task.status == 'GOING' or task.status == 'DELIVERING' or task.status == 'STARTED' %}
-                            DELIVERING
-                        {% else %}
-                            PENDING
-                        {% endif %}
+                        {% if task.status == 'GOING' or task.status == 'DELIVERING' or task.status == 'STARTED' %}กำลังไปส่ง{% else %}รอจัดส่ง{% endif %}
                     </span>
                 </div>
                 
                 <div class="info-row">
-                    <span>เวลาสั่งซื้อ:</span>
-                    <span>{{ order.created_at|date:"H:i (d/m)" }}</span>
+                    <span>สั่งเมื่อ:</span>
+                    <span>{{ order.created_at|date:"H:i" }}</span>
                 </div>
                 <div class="info-row">
-                    <span>ยอดชำระสุทธิ:</span>
+                    <span>ยอดเก็บเงิน:</span>
                     <strong>฿{{ order.total_amount|floatformat:2 }}</strong>
                 </div>
 
                 <div class="menu-box">
-                    <div class="menu-title">📋 รายการที่สั่ง:</div>
+                    <div class="menu-title">📋 รายการ:</div>
                     <ul class="menu-list">
                         {% for item in order.items.all %}
-                            <li>{{ item.product.name }} <span class="menu-qty">(x{{ item.quantity }})</span></li>
+                            <li>{{ item.product.name }} <span class="menu-qty">x{{ item.quantity }}</span></li>
                         {% empty %}
-                            <li style="list-style: none; margin-left: -20px; color: #94a3b8;">- ไม่มีรายการ -</li>
+                            <li>- ไม่มีรายการ -</li>
                         {% endfor %}
                     </ul>
                 </div>
                 
                 <div class="dest-box">
                     <div class="dest-icon">📍</div> 
-                    <div class="dest-text">
-                        <div class="dest-label">สถานที่จัดส่งปลายทาง</div>
-                        <div class="dest-name" style="flex-direction: column; align-items: flex-start;">
-                            {% if task.destination %}
-                                <div style="display: flex; justify-content: space-between; width: 100%;">
-                                    <span>{{ task.destination.name }}</span>
-                                    <span class="dest-zone">{{ task.destination.zone }}</span>
-                                </div>
-                                <!-- 🌟 ป้ายบอกระยะทางสดๆ 🌟 -->
-                                <div class="distance-label" style="font-size: 12px; color: #8b5cf6; margin-top: 6px; font-weight: bold;">
-                                    📡 กำลังดึงพิกัด GPS...
-                                </div>
-                            {% else %}
-                                <span style="color: #ef4444; font-size: 14px;">รอไรเดอร์ระบุหอพัก...</span>
-                            {% endif %}
-                        </div>
+                    <div style="flex: 1;">
+                        {% if task.destination %}
+                            <div class="dest-name">{{ task.destination.name }}</div>
+                            <div class="dest-zone">{{ task.destination.zone }}</div>
+                            <div class="distance-label">📡 ดึงพิกัด...</div>
+                        {% else %}
+                            <div class="dest-name" style="color: #ef4444;">รอระบุหอพัก...</div>
+                        {% endif %}
                     </div>
                 </div>
 
                 {% if task.status == 'GOING' or task.status == 'DELIVERING' or task.status == 'STARTED' %}
-                <div class="time-box" style="background: #fffbeb; border-color: #fde68a; margin-top: 15px; display: flex; flex-direction: column; align-items: center; padding: 15px;">
-                    <span class="time-label" style="color: #d97706; margin-bottom: 5px;">⏱️ วิ่งงานรอบที่ {{ task.trip_number|default:"1" }} (เวลาที่ใช้ไป):</span>
-                    <span class="time-val live-timer" data-start="{{ task.started_at|date:'c' }}" style="color: #b45309; font-size: 28px; font-variant-numeric: tabular-nums; letter-spacing: 1px;">กำลังคำนวณ...</span>
+                <div class="time-box">
+                    <span class="time-label">⏱️ วิ่งงานรอบที่ {{ task.trip_number|default:"1" }}</span>
+                    <span class="time-val live-timer" data-start="{{ task.started_at|date:'c' }}">--:--</span>
                 </div>
                 {% endif %}
 
-                <div class="btn-grid">
-                    <button class="btn btn-outline" onclick="openSelectModal('{{ order.id }}')">
-                        ⚙️ เลือกหอพัก
-                    </button>
-                    
-                    {% if task.destination %}
-                        {% if task.destination.latitude and task.destination.longitude %}
-                            <a href="https://www.google.com/maps/search/?api=1&query={{ task.destination.latitude }},{{ task.destination.longitude }}" target="_blank" class="btn btn-primary">
-                                🗺️ ดูเส้นทาง
-                            </a>
-                        {% else %}
-                            <a href="https://www.google.com/maps/search/?api=1&query={{ task.destination.name|urlencode }}" target="_blank" class="btn btn-primary">
-                                🗺️ ดูเส้นทาง
-                            </a>
-                        {% endif %}
-                    {% else %}
-                        <button class="btn btn-disabled" onclick="alert('กรุณาเลือกหอพักปลายทางก่อนดูเส้นทางครับ')">
-                            🗺️ ดูเส้นทาง
-                        </button>
-                    {% endif %}
-                </div>
-
-                <div style="margin-top: 10px;">
+                <div style="margin-top: 12px; display:flex; flex-direction:column; gap:8px;">
                     {% if task.status == 'PENDING' %}
-                        <div style="text-align: center; color: #94a3b8; font-size: 13px; margin-top: 10px; font-weight: bold;">
-                            👆 แตะส่วนหัวการ์ดหรือติ๊กกล่องเพื่อนำบิลนี้ไปส่ง
-                        </div>
-                    {% elif task.status == 'GOING' or task.status == 'DELIVERING' or task.status == 'STARTED' %}
-                        <button class="btn btn-success" style="width: 100%; padding: 15px; font-size: 16px;" onclick="completeDeliveryCard('{{ order.id }}', event)">
-                            ✅ จัดส่งสำเร็จแล้ว
-                        </button>
+                        <button class="btn btn-outline" onclick="openSelectModal('{{ order.id }}')">⚙️ เปลี่ยนหอพัก</button>
+                    {% endif %}
+
+                    {% if task.destination %}
+                        <a href="https://www.google.com/maps/search/?api=1&query={% if task.destination.latitude %}{{ task.destination.latitude }},{{ task.destination.longitude }}{% else %}{{ task.destination.name|urlencode }}{% endif %}" target="_blank" class="btn btn-primary">🗺️ ดูเส้นทางแผนที่</a>
+                    {% else %}
+                        <button class="btn btn-disabled" onclick="alert('กรุณาเลือกหอพักก่อน')">🗺️ ดูเส้นทางแผนที่</button>
+                    {% endif %}
+                    
+                    {% if task.status == 'GOING' or task.status == 'DELIVERING' or task.status == 'STARTED' %}
+                        <button class="btn btn-success" onclick="completeDeliveryCard('{{ order.id }}', event)">✅ ส่งสำเร็จแล้ว!</button>
                     {% endif %}
                 </div>
 
@@ -242,47 +209,25 @@
             {% endfor %}
         </div>
 
-        <!-- 🌟 กลุ่มที่ 2: งานที่จัดส่งสำเร็จแล้ว (ดันลงมาอยู่ด้านล่างสุด พร้อมลดความเข้มลง) 🌟 -->
+        <!-- Completed Orders -->
         {% for order in orders %}
         {% with task=order.delivery_info %}
         {% if task.status == 'DELIVERED' or task.status == 'COMPLETED' %}
         
         {% if forloop.first %}
-        <div style="margin: 30px 0 15px; text-align: center; color: #16a34a; font-weight: bold; font-size: 15px; display: flex; align-items: center; gap: 10px;">
-            <span style="flex: 1; height: 1px; background: #bbf7d0;"></span>
+        <div style="margin: 30px 0 15px; text-align: center; color: #166534; font-weight: 800; font-size: 15px; background: #dcfce7; padding: 12px; border-radius: 10px;">
             ✅ ออเดอร์ที่จัดส่งสำเร็จแล้ว
-            <span style="flex: 1; height: 1px; background: #bbf7d0;"></span>
         </div>
         {% endif %}
 
-        <div class="order-card" id="order-card-{{ order.id }}" style="opacity: 0.75; transform: scale(0.98); margin-bottom: 10px;">
-            <div class="order-header">
-                <div style="display: flex; align-items: center; gap: 10px;">
-                    <span class="order-id">บิล #{{ order.receipt_number|default:order.id }}</span>
-                </div>
-                <span class="badge badge-delivered">DELIVERED</span>
+        <div class="order-card" style="opacity: 0.6; padding: 12px;">
+            <div class="order-header" style="margin-bottom: 8px; padding-bottom: 8px;">
+                <span class="order-id" style="font-size: 16px;">#{{ order.receipt_number|default:order.id }}</span>
+                <span class="badge badge-delivered" style="font-size: 11px;">สำเร็จ</span>
             </div>
-            
-            <div class="info-row">
-                <span>เวลาสั่งซื้อ:</span>
-                <span>{{ order.created_at|date:"H:i (d/m)" }}</span>
-            </div>
-            <div class="info-row">
-                <span>ยอดชำระสุทธิ:</span>
-                <strong style="color: #94a3b8;">฿{{ order.total_amount|floatformat:2 }}</strong>
-            </div>
-            
-            <div class="dest-box" style="padding: 8px 12px; margin-top: 8px;">
-                <div class="dest-icon" style="width: 30px; height: 30px; font-size: 16px;">📍</div> 
-                <div class="dest-text">
-                    <div class="dest-name" style="font-size: 14px;">
-                        {% if task.destination %}{{ task.destination.name }}{% else %}ไม่ระบุ{% endif %}
-                    </div>
-                </div>
-            </div>
-
-            <div style="background: #f8fafc; text-align: center; padding: 12px; border-radius: 12px; border: 1px solid #e2e8f0; color: #16a34a; font-weight: 800; font-size: 14px; margin-top: 12px;">
-                🎉 ส่งสำเร็จแล้ว (รอบที่ {{ task.trip_number|default:"1" }})
+            <div class="dest-box" style="padding: 8px; margin-top: 0;">
+                <div class="dest-icon" style="font-size: 18px;">📍</div> 
+                <div class="dest-name" style="font-size: 14px;">{% if task.destination %}{{ task.destination.name }}{% else %}ไม่ระบุ{% endif %}</div>
             </div>
         </div>
         {% endif %}
@@ -291,48 +236,43 @@
 
     {% else %}
         <div style="text-align: center; padding: 60px 20px; color: #94a3b8;">
-            <div style="font-size: 60px; margin-bottom: 15px; opacity: 0.5;">🛵</div>
-            <h3 style="margin: 0 0 5px; color: #475569;">ไม่มีงานจัดส่งในช่วงเวลานี้</h3>
+            <div style="font-size: 60px; margin-bottom: 15px;">🛵</div>
+            <h2 style="color: #475569; font-size: 18px;">ไม่มีงานจัดส่ง</h2>
         </div>
     {% endif %}
 </div>
 
-<div id="batchActionBar" class="batch-bar" style="flex-wrap: wrap; gap: 10px;">
-    <div style="flex: 1;">
-        <span style="color: #94a3b8; font-size: 12px;">เลือกแล้ว <b id="selectedCount" style="color: #38bdf8;">0</b> รายการ</span>
-        <div style="color: #10b981; font-size: 16px; font-weight: bold;">รวม ฿<span id="selectedTotal">0.00</span></div>
+<!-- Batch Action Bar -->
+<div id="batchActionBar" class="batch-bar">
+    <div class="batch-info">
+        <div>เลือกแล้ว <span id="selectedCount">0</span> บิล</div>
+        <div>ยอด ฿<span id="selectedTotal">0</span></div>
     </div>
-    <div style="display: flex; gap: 8px;">
-        <button class="btn btn-warning" onclick="completeBatchDelivery()" style="padding: 10px 12px; border-radius: 12px; font-size: 13px;">
-            🧹 ปิดงานทิ้ง
-        </button>
-        <button class="btn btn-primary" onclick="startBatchDelivery()" style="padding: 10px 15px; border-radius: 12px; font-size: 14px;">
-            🚀 เริ่มวิ่งรอบนี้
-        </button>
+    <div class="batch-actions">
+        <button class="btn btn-warning" onclick="completeBatchDelivery()" style="flex: 1; padding: 12px; font-size: 14px;">🧹 ปิดทิ้ง</button>
+        <button class="btn btn-primary" onclick="startBatchDelivery()" style="flex: 2; padding: 12px; background: #3b82f6; font-size: 15px;">🚀 เริ่มวิ่งรถ!</button>
     </div>
 </div>
 
+<!-- Modal -->
 <div class="modal-overlay" id="selectDormModal" onclick="closeSelectModal(event)">
     <div class="modal-content" onclick="event.stopPropagation()">
-        <div class="modal-handle"></div>
-        <div class="modal-title">เลือกสถานที่จัดส่ง</div>
+        <div class="modal-title">เลือกหอพัก</div>
         <input type="hidden" id="modalOrderId">
         <select id="modalDormSelect" class="form-select">
-            <option value="" disabled selected>-- ค้นหา / เลือกหอพัก --</option>
+            <option value="" disabled selected>-- เลือกหอพัก --</option>
             {% for d in dorms %}
                 <option value="{{ d.id }}">[{{ d.zone }}] {{ d.name }}</option>
             {% endfor %}
         </select>
-        <button class="btn btn-primary" style="width: 100%; padding: 16px; font-size: 16px; border-radius: 14px;" onclick="saveDestination()">
-            💾 ยืนยันการเลือก
-        </button>
+        <button class="btn btn-primary" style="padding: 15px;" onclick="saveDestination()">💾 ยืนยัน</button>
     </div>
 </div>
 
 <div class="bottom-nav">
     <a href="{% url 'pos:home' %}" class="nav-item"><span class="nav-icon">🏠</span> หน้าแรก</a>
-    <a href="#" class="nav-item active"><span class="nav-icon">🛵</span> งานจัดส่ง</a>
-    <a href="{% url 'riders:dormitory_map' %}" class="nav-item"><span class="nav-icon">📍</span> จัดการพิกัด</a>
+    <a href="#" class="nav-item active"><span class="nav-icon">🛵</span> จัดส่ง</a>
+    <a href="{% url 'riders:dormitory_map' %}" class="nav-item"><span class="nav-icon">📍</span> พิกัด</a>
 </div>
 
 <script>
@@ -352,9 +292,8 @@
     }
     const csrftoken = getCookie('csrftoken');
 
-    // 🌟 ระบบเรียงลำดับคิวตามระยะทาง GPS สดๆ 🌟
     function calculateDistance(lat1, lon1, lat2, lon2) {
-        const R = 6371; // รัศมีโลก (กม.)
+        const R = 6371; 
         const dLat = (lat2 - lat1) * (Math.PI / 180);
         const dLon = (lon2 - lon1) * (Math.PI / 180);
         const a = Math.sin(dLat/2) * Math.sin(dLat/2) +
@@ -368,12 +307,10 @@
         navigator.geolocation.watchPosition((position) => {
             const riderLat = position.coords.latitude;
             const riderLng = position.coords.longitude;
-            
             const container = document.getElementById('activeOrdersContainer');
             if(!container) return;
 
             const cards = Array.from(container.querySelectorAll('.order-card'));
-            
             cards.forEach(card => {
                 const lat = parseFloat(card.getAttribute('data-lat'));
                 const lng = parseFloat(card.getAttribute('data-lng'));
@@ -382,67 +319,45 @@
                 if (!isNaN(lat) && !isNaN(lng)) {
                     const distKm = calculateDistance(riderLat, riderLng, lat, lng);
                     card.setAttribute('data-distance', distKm);
-                    if(distLabel) distLabel.innerHTML = `📍 ห่างจากจุดที่คุณอยู่: <span style="font-size:14px;">${distKm.toFixed(2)}</span> กม.`;
+                    if(distLabel) distLabel.innerHTML = `📍 ห่าง: <span style="font-size:15px;">${distKm.toFixed(2)}</span> กม.`;
                 } else {
-                    card.setAttribute('data-distance', 9999); // หอพักที่ไม่ได้ระบุพิกัดให้ตกไปอยู่ล่างสุด
+                    card.setAttribute('data-distance', 9999);
                 }
             });
 
-            // จัดเรียงการ์ดใหม่ตามระยะทางจากน้อยไปมาก
-            cards.sort((a, b) => {
-                return parseFloat(a.getAttribute('data-distance')) - parseFloat(b.getAttribute('data-distance'));
-            });
-
-            // สลับการแสดงผลทันที (ไม่โหลดหน้าใหม่)
+            cards.sort((a, b) => parseFloat(a.getAttribute('data-distance')) - parseFloat(b.getAttribute('data-distance')));
             cards.forEach(card => container.appendChild(card));
-
         }, (error) => {
-            console.warn("ไม่สามารถดึงตำแหน่ง GPS ได้: ", error.message);
             document.querySelectorAll('.distance-label').forEach(el => el.innerHTML = `⚠️ ไม่ได้รับอนุญาตให้ใช้ GPS`);
-        }, {
-            enableHighAccuracy: true,
-            maximumAge: 10000,
-            timeout: 5000
-        });
+        }, { enableHighAccuracy: true, maximumAge: 10000, timeout: 5000 });
     }
 
     function toggleCardCheck(orderId, event) {
         if (event.target.tagName === 'INPUT') return; 
-        const card = document.getElementById(`order-card-${orderId}`);
-        const cb = card.querySelector('.order-checkbox');
-        if (cb) {
-            cb.checked = !cb.checked;
-            toggleBatchBar();
-        }
+        const cb = document.getElementById(`order-card-${orderId}`).querySelector('.order-checkbox');
+        if (cb) { cb.checked = !cb.checked; toggleBatchBar(); }
     }
 
     function toggleSelectAll() {
         const selectAllCb = document.getElementById('selectAllCheckbox');
-        const checkboxes = document.querySelectorAll('.order-checkbox');
-        checkboxes.forEach(cb => {
-            cb.checked = selectAllCb.checked;
-        });
+        document.querySelectorAll('.order-checkbox').forEach(cb => cb.checked = selectAllCb.checked);
         toggleBatchBar();
     }
 
     function toggleBatchBar() {
         const checkboxes = document.querySelectorAll('.order-checkbox:checked');
         const bar = document.getElementById('batchActionBar');
-        const countSpan = document.getElementById('selectedCount');
-        const totalSpan = document.getElementById('selectedTotal');
-        
         let sum = 0;
+        
         document.querySelectorAll('.order-card').forEach(card => card.classList.remove('selected'));
-
         checkboxes.forEach(cb => {
             sum += parseFloat(cb.getAttribute('data-amount') || 0);
-            const card = document.getElementById(`order-card-${cb.value}`);
-            if (card) card.classList.add('selected');
+            document.getElementById(`order-card-${cb.value}`).classList.add('selected');
         });
 
         if (checkboxes.length > 0) {
-            countSpan.innerText = checkboxes.length;
-            totalSpan.innerText = sum.toFixed(2);
+            document.getElementById('selectedCount').innerText = checkboxes.length;
+            document.getElementById('selectedTotal').innerText = sum.toFixed(0);
             bar.style.display = 'flex';
         } else {
             bar.style.display = 'none';
@@ -453,141 +368,80 @@
         const checkboxes = document.querySelectorAll('.order-checkbox:checked');
         let orderIds = [];
         checkboxes.forEach(cb => orderIds.push(cb.value));
-
-        if(orderIds.length === 0) return;
-        if(!confirm(`⚠️ ต้องการล้างออเดอร์ขยะ ${orderIds.length} รายการนี้\nปรับเป็น "จัดส่งสำเร็จ" ใช่ไหม?`)) return;
-
+        if(orderIds.length === 0 || !confirm(`⚠️ ล้างออเดอร์ขยะ ${orderIds.length} บิล ใช่ไหม?`)) return;
         try {
             const res = await fetch("{% url 'riders:complete_batch_delivery_api' %}", {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json', 'X-CSRFToken': csrftoken },
+                method: 'POST', headers: { 'Content-Type': 'application/json', 'X-CSRFToken': csrftoken },
                 body: JSON.stringify({ order_ids: orderIds })
             });
-            const data = await res.json();
-            
-            if (data.status === 'success') {
-                location.reload();
-            } else {
-                alert("❌ เกิดข้อผิดพลาด: " + data.message);
-            }
-        } catch(e) {
-            alert("❌ เซิร์ฟเวอร์ไม่ตอบสนอง");
-        }
+            if ((await res.json()).status === 'success') location.reload();
+        } catch(e) { alert("❌ เซิร์ฟเวอร์ไม่ตอบสนอง"); }
     }
 
     async function startBatchDelivery() {
         const checkboxes = document.querySelectorAll('.order-checkbox:checked');
         let orderIds = [];
         checkboxes.forEach(cb => orderIds.push(cb.value));
-
-        if(orderIds.length === 0) return;
-        if(!confirm(`🚀 ยืนยันกดวิ่งรถ! เริ่มจัดส่ง ${orderIds.length} ออเดอร์ (รอบที่ {{ request.session.trip_number|default:1 }}) ใช่ไหม?`)) return;
-
+        if(orderIds.length === 0 || !confirm(`🚀 เริ่มวิ่งรถส่ง ${orderIds.length} ออเดอร์ ใช่ไหม?`)) return;
         try {
             const res = await fetch("{% url 'riders:start_batch_delivery_api' %}", {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json', 'X-CSRFToken': csrftoken },
+                method: 'POST', headers: { 'Content-Type': 'application/json', 'X-CSRFToken': csrftoken },
                 body: JSON.stringify({ order_ids: orderIds })
             });
-            const data = await res.json();
-            
-            if (data.status === 'success') {
-                location.reload();
-            } else {
-                alert("❌ เกิดข้อผิดพลาด: " + data.message);
-            }
-        } catch(e) {
-            alert("❌ เซิร์ฟเวอร์ไม่ตอบสนอง");
-        }
+            if ((await res.json()).status === 'success') location.reload();
+        } catch(e) { alert("❌ เซิร์ฟเวอร์ไม่ตอบสนอง"); }
     }
 
     async function resetTrip() {
-        if(!confirm("🔄 ยืนยันที่จะรีเซ็ตเลขรอบกลับไปเป็น 'รอบที่ 1' ใช่ไหม?")) return;
-        try {
-            const res = await fetch("{% url 'riders:reset_trip_api' %}", {
-                method: 'POST',
-                headers: { 'X-CSRFToken': csrftoken }
-            });
-            if (res.ok) location.reload();
-        } catch(e) { alert("❌ เซิร์ฟเวอร์ไม่ตอบสนอง"); }
+        if(!confirm("🔄 รีเซ็ตกลับไปรอบ 1 ใช่ไหม?")) return;
+        if ((await fetch("{% url 'riders:reset_trip_api' %}", { method: 'POST', headers: { 'X-CSRFToken': csrftoken } })).ok) location.reload();
     }
 
     function updateLiveTimers() {
         document.querySelectorAll('.live-timer').forEach(el => {
-            let startTimeStr = el.getAttribute('data-start');
-            if (startTimeStr && startTimeStr !== 'None' && startTimeStr !== '') {
-                let startDate = new Date(startTimeStr);
-                if (!isNaN(startDate)) {
-                    let diffSeconds = Math.floor((new Date() - startDate) / 1000);
-                    if (diffSeconds < 0) diffSeconds = 0;
-                    
-                    let m = Math.floor(diffSeconds / 60).toString().padStart(2, '0');
-                    let s = (diffSeconds % 60).toString().padStart(2, '0');
-                    el.innerText = `${m}:${s} นาที`;
-                    return;
-                }
+            let start = el.getAttribute('data-start');
+            if (start && start !== 'None' && start !== '') {
+                let diff = Math.floor((new Date() - new Date(start)) / 1000);
+                el.innerText = diff >= 0 ? `${String(Math.floor(diff/60)).padStart(2,'0')}:${String(diff%60).padStart(2,'0')} นาที` : "กำลังวิ่ง...";
             }
-            el.innerText = "กำลังวิ่ง...";
         });
     }
     setInterval(updateLiveTimers, 1000);
     updateLiveTimers();
 
     async function completeDeliveryCard(orderId, event) {
-        if(!confirm("✅ ยืนยันว่าจัดส่งอาหารถึงมือลูกค้าเรียบร้อยแล้วใช่ไหม?")) return;
+        if(!confirm("✅ จัดส่งสำเร็จแล้วใช่ไหม?")) return;
         const btn = event.currentTarget;
-        btn.disabled = true; 
-        btn.innerText = "⏳ กำลังบันทึกข้อมูล...";
-
+        btn.disabled = true; btn.innerText = "⏳ บันทึก...";
         try {
-            const res = await fetch(`/riders/api/complete-delivery/${orderId}/`, { 
-                method: 'POST', 
-                headers: { 'X-CSRFToken': csrftoken } 
-            });
-            const data = await res.json();
-            
-            if (data.status === 'success') {
-                location.reload(); 
-            } else {
-                alert("❌ เกิดข้อผิดพลาด: " + data.message);
-                btn.disabled = false; btn.innerText = "✅ จัดส่งสำเร็จแล้ว";
-            }
-        } catch(e) {
-            alert("❌ ไม่สามารถเชื่อมต่อเซิร์ฟเวอร์เพื่อปิดงานได้");
-            btn.disabled = false; btn.innerText = "✅ จัดส่งสำเร็จแล้ว";
-        }
+            const res = await fetch(`/riders/api/complete-delivery/${orderId}/`, { method: 'POST', headers: { 'X-CSRFToken': csrftoken } });
+            if ((await res.json()).status === 'success') location.reload();
+            else { btn.disabled = false; btn.innerText = "✅ ส่งสำเร็จแล้ว!"; }
+        } catch(e) { btn.disabled = false; btn.innerText = "✅ ส่งสำเร็จแล้ว!"; }
     }
 
     function openSelectModal(orderId) {
         document.getElementById('modalOrderId').value = orderId;
         const modal = document.getElementById('selectDormModal');
         modal.style.display = 'flex';
-        setTimeout(() => modal.classList.add('active'), 10);
     }
 
     function closeSelectModal(e) {
         if(e) e.preventDefault();
-        const modal = document.getElementById('selectDormModal');
-        modal.classList.remove('active');
-        setTimeout(() => modal.style.display = 'none', 300);
+        document.getElementById('selectDormModal').style.display = 'none';
     }
 
     async function saveDestination() {
         const orderId = document.getElementById('modalOrderId').value;
         const dormId = document.getElementById('modalDormSelect').value;
-
-        if (!dormId) return alert("⚠️ กรุณาเลือกหอพักที่ต้องการจัดส่ง");
-
+        if (!dormId) return alert("⚠️ เลือกหอพักก่อน!");
         try {
             const res = await fetch(`/riders/api/save-destination/${orderId}/`, {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json', 'X-CSRFToken': csrftoken },
+                method: 'POST', headers: { 'Content-Type': 'application/json', 'X-CSRFToken': csrftoken },
                 body: JSON.stringify({ dormitory_id: dormId })
             });
-            const data = await res.json();
-            if (data.status === 'success') { location.reload(); } 
-            else { alert("❌ เกิดข้อผิดพลาด: " + data.message); }
-        } catch(e) { alert("❌ เซิร์ฟเวอร์ขัดข้อง"); }
+            if ((await res.json()).status === 'success') location.reload();
+        } catch(e) { alert("❌ ขัดข้อง"); }
     }
 </script>
 </body>

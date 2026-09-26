@@ -6,13 +6,23 @@ from django.db import migrations, models
 class Migration(migrations.Migration):
 
     dependencies = [
-        ('Riders', '0004_dormitory_remove_deliverytask_dest_latitude_and_more'),
+        ("Riders", "0004_dormitory_remove_deliverytask_dest_latitude_and_more"),
     ]
 
     operations = [
         migrations.AddField(
-            model_name='dormitory',
-            name='zone',
-            field=models.CharField(choices=[('โซนอนามัย 10', 'โซนอนามัย 10'), ('โซนหน้ามอ', 'โซนหน้ามอ'), ('โซนประตู 3', 'โซนประตู 3'), ('โซนร้านหวานเย็น', 'โซนร้านหวานเย็น'), ('โซนบุญเยี่ยมหรือนอกพื้นที่', 'โซนบุญเยี่ยมหรือนอกพื้นที่')], default='โซนหน้ามอ', max_length=50),
+            model_name="dormitory",
+            name="zone",
+            field=models.CharField(
+                choices=[
+                    ("โซนอนามัย 10", "โซนอนามัย 10"),
+                    ("โซนหน้ามอ", "โซนหน้ามอ"),
+                    ("โซนประตู 3", "โซนประตู 3"),
+                    ("โซนร้านหวานเย็น", "โซนร้านหวานเย็น"),
+                    ("โซนบุญเยี่ยมหรือนอกพื้นที่", "โซนบุญเยี่ยมหรือนอกพื้นที่"),
+                ],
+                default="โซนหน้ามอ",
+                max_length=50,
+            ),
         ),
     ]

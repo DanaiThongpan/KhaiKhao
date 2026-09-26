@@ -6,13 +6,13 @@ from django.db import migrations, models
 class Migration(migrations.Migration):
 
     dependencies = [
-        ('Expenses', '0003_expense_created_by'),
+        ("Expenses", "0003_expense_created_by"),
     ]
 
     operations = [
         migrations.AddField(
-            model_name='expense',
-            name='is_paid',
-            field=models.BooleanField(default=True, verbose_name='จ่ายแล้ว'),
+            model_name="expense",
+            name="is_paid",
+            field=models.BooleanField(default=True, verbose_name="จ่ายแล้ว"),
         ),
     ]

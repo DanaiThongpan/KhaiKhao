@@ -1,7 +1,7 @@
-from django.db import models
 from django.conf import settings  # เปลี่ยนมาใช้บรรทัดนี้แทน
-from django.db import models
 from django.contrib.auth.models import User
+from django.db import models
+
 
 class Expense(models.Model):
 
@@ -25,32 +25,19 @@ class Expense(models.Model):
     # ข้อมูลรายจ่าย
     # =====================================================
 
-    name = models.CharField(
-        max_length=255,
-        verbose_name="รายการรายจ่าย"
-    )
+    name = models.CharField(max_length=255, verbose_name="รายการรายจ่าย")
 
     amount = models.DecimalField(
-        max_digits=12,
-        decimal_places=2,
-        verbose_name="จำนวนเงิน"
+        max_digits=12, decimal_places=2, verbose_name="จำนวนเงิน"
     )
 
-    expense_date = models.DateField(
-        verbose_name="วันที่รายจ่าย"
-    )
+    expense_date = models.DateField(verbose_name="วันที่รายจ่าย")
 
     category = models.CharField(
-        max_length=30,
-        choices=CATEGORY_CHOICES,
-        verbose_name="หมวดหมู่"
+        max_length=30, choices=CATEGORY_CHOICES, verbose_name="หมวดหมู่"
     )
 
-    description = models.TextField(
-        blank=True,
-        null=True,
-        verbose_name="รายละเอียด"
-    )
+    description = models.TextField(blank=True, null=True, verbose_name="รายละเอียด")
 
     # =====================================================
     # ผู้บันทึก (ให้ Admin หรือคนสร้างลบได้)
@@ -61,32 +48,23 @@ class Expense(models.Model):
         on_delete=models.SET_NULL,
         null=True,
         blank=True,
-        verbose_name="ผู้บันทึก"
+        verbose_name="ผู้บันทึก",
     )
     # =====================================================
     # Google Calendar
     # =====================================================
 
     google_event_id = models.CharField(
-        max_length=255,
-        blank=True,
-        null=True,
-        verbose_name="Google Calendar Event ID"
+        max_length=255, blank=True, null=True, verbose_name="Google Calendar Event ID"
     )
 
     # =====================================================
     # วันที่ระบบ
     # =====================================================
 
-    created_at = models.DateTimeField(
-        auto_now_add=True,
-        verbose_name="สร้างเมื่อ"
-    )
+    created_at = models.DateTimeField(auto_now_add=True, verbose_name="สร้างเมื่อ")
 
-    updated_at = models.DateTimeField(
-        auto_now=True,
-        verbose_name="แก้ไขล่าสุด"
-    )
+    updated_at = models.DateTimeField(auto_now=True, verbose_name="แก้ไขล่าสุด")
 
     is_paid = models.BooleanField(default=True, verbose_name="จ่ายแล้ว")
 

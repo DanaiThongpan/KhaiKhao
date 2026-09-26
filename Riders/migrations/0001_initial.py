@@ -10,32 +10,83 @@ class Migration(migrations.Migration):
     initial = True
 
     dependencies = [
-        ('Pos', '0001_initial'),
+        ("Pos", "0001_initial"),
         migrations.swappable_dependency(settings.AUTH_USER_MODEL),
     ]
 
     operations = [
         migrations.CreateModel(
-            name='RiderProfile',
+            name="RiderProfile",
             fields=[
-                ('id', models.BigAutoField(auto_created=True, primary_key=True, serialize=False, verbose_name='ID')),
-                ('name', models.CharField(max_length=100)),
-                ('phone', models.CharField(blank=True, max_length=20, null=True)),
-                ('rider_type', models.CharField(choices=[('INTERNAL', 'ไรเดอร์ของร้านเอง'), ('GRAB', 'GrabFood'), ('LINEMAN', 'LINE MAN'), ('SHOPEE', 'ShopeeFood'), ('FOODPANDA', 'Foodpanda')], default='INTERNAL', max_length=20)),
-                ('is_active', models.BooleanField(default=True)),
-                ('created_by', models.ForeignKey(on_delete=django.db.models.deletion.CASCADE, to=settings.AUTH_USER_MODEL)),
+                (
+                    "id",
+                    models.BigAutoField(
+                        auto_created=True,
+                        primary_key=True,
+                        serialize=False,
+                        verbose_name="ID",
+                    ),
+                ),
+                ("name", models.CharField(max_length=100)),
+                ("phone", models.CharField(blank=True, max_length=20, null=True)),
+                (
+                    "rider_type",
+                    models.CharField(
+                        choices=[
+                            ("INTERNAL", "ไรเดอร์ของร้านเอง"),
+                            ("GRAB", "GrabFood"),
+                            ("LINEMAN", "LINE MAN"),
+                            ("SHOPEE", "ShopeeFood"),
+                            ("FOODPANDA", "Foodpanda"),
+                        ],
+                        default="INTERNAL",
+                        max_length=20,
+                    ),
+                ),
+                ("is_active", models.BooleanField(default=True)),
+                (
+                    "created_by",
+                    models.ForeignKey(
+                        on_delete=django.db.models.deletion.CASCADE,
+                        to=settings.AUTH_USER_MODEL,
+                    ),
+                ),
             ],
         ),
         migrations.CreateModel(
-            name='DeliveryTask',
+            name="DeliveryTask",
             fields=[
-                ('id', models.BigAutoField(auto_created=True, primary_key=True, serialize=False, verbose_name='ID')),
-                ('latitude', models.FloatField(blank=True, null=True)),
-                ('longitude', models.FloatField(blank=True, null=True)),
-                ('last_location_update', models.DateTimeField(blank=True, null=True)),
-                ('status', models.CharField(default='PENDING', max_length=20)),
-                ('order', models.OneToOneField(on_delete=django.db.models.deletion.CASCADE, related_name='delivery_info', to='Pos.order')),
-                ('rider', models.ForeignKey(blank=True, null=True, on_delete=django.db.models.deletion.SET_NULL, related_name='tasks', to='Riders.riderprofile')),
+                (
+                    "id",
+                    models.BigAutoField(
+                        auto_created=True,
+                        primary_key=True,
+                        serialize=False,
+                        verbose_name="ID",
+                    ),
+                ),
+                ("latitude", models.FloatField(blank=True, null=True)),
+                ("longitude", models.FloatField(blank=True, null=True)),
+                ("last_location_update", models.DateTimeField(blank=True, null=True)),
+                ("status", models.CharField(default="PENDING", max_length=20)),
+                (
+                    "order",
+                    models.OneToOneField(
+                        on_delete=django.db.models.deletion.CASCADE,
+                        related_name="delivery_info",
+                        to="Pos.order",
+                    ),
+                ),
+                (
+                    "rider",
+                    models.ForeignKey(
+                        blank=True,
+                        null=True,
+                        on_delete=django.db.models.deletion.SET_NULL,
+                        related_name="tasks",
+                        to="Riders.riderprofile",
+                    ),
+                ),
             ],
         ),
     ]

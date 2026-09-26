@@ -6,13 +6,13 @@ from django.db import migrations, models
 class Migration(migrations.Migration):
 
     dependencies = [
-        ('Riders', '0008_deliverytask_completed_at_and_more'),
+        ("Riders", "0008_deliverytask_completed_at_and_more"),
     ]
 
     operations = [
         migrations.AddField(
-            model_name='deliverytask',
-            name='trip_number',
-            field=models.IntegerField(default=1, verbose_name='รอบการจัดส่ง'),
+            model_name="deliverytask",
+            name="trip_number",
+            field=models.IntegerField(default=1, verbose_name="รอบการจัดส่ง"),
         ),
     ]
