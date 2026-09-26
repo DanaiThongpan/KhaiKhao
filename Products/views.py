@@ -1,3 +1,5 @@
+import os
+
 from django.contrib.auth.decorators import login_required
 from django.shortcuts import get_object_or_404, redirect, render
 
@@ -95,73 +97,78 @@ from .models import WebhookLog # อย่าลืม Import Model ที่เ
 
 # 🌟 ฟังก์ชันสำหรับรับ Webhook จาก Facebook (รวมเวอร์ชั่นสมบูรณ์ไว้ตัวเดียว)
 # 🌟 ฟังก์ชันสำหรับรับ Webhook จาก Facebook
+# ต้องตั้งค่า FB_VERIFY_TOKEN ไว้ในไฟล์ .env หรือ config ของ PythonAnywhere
+VERIFY_TOKEN = os.environ.get("KhaiKhao_Secret_Token_2026")
+ 
+ 
+# 🌟 ฟังก์ชันสำหรับรับ Webhook จาก Facebook
 @csrf_exempt
 def facebook_webhook(request):
-    VERIFY_TOKEN = "KhaiKhao_Secret_Token_2026"
-
     # 1. ส่วนของการรับการยืนยันตัวตน (เชื่อมต่อ)
-    if request.method == 'GET':
-        mode = request.GET.get('hub.mode')
-        token = request.GET.get('hub.verify_token')
-        challenge = request.GET.get('hub.challenge')
-
-        if mode == 'subscribe' and token == VERIFY_TOKEN:
+    if request.method == "GET":
+        mode = request.GET.get("hub.mode")
+        token = request.GET.get("hub.verify_token")
+        challenge = request.GET.get("hub.challenge")
+ 
+        if mode == "subscribe" and token == VERIFY_TOKEN and VERIFY_TOKEN:
             return HttpResponse(challenge, status=200)
-        else:
-            return HttpResponseForbidden('รหัสลับไม่ถูกต้อง', status=403)
-
+        return HttpResponseForbidden("รหัสลับไม่ถูกต้อง")
+ 
     # 2. ส่วนของการรับข้อมูล และดึงแชทลูกค้า
-    elif request.method == 'POST':
+    if request.method == "POST":
+        raw_body = request.body.decode("utf-8")
+ 
+        # 🌟 พยายาม parse JSON ก่อน แยก error กรณี JSON เสีย ออกจาก error อื่นๆ
         try:
-            body_unicode = request.body.decode('utf-8')
-            body_data = json.loads(body_unicode)
-
-            # 🌟 ดักจับประเภท Event ให้ยืดหยุ่นที่สุด รองรับทั้งแบบ Sample และของจริง
-            if 'sample' in body_data:
-                field_name = body_data['sample'].get('field', 'messages')
+            body_data = json.loads(raw_body)
+        except json.JSONDecodeError as e:
+            print("❌ Webhook JSON parse error:", e)
+            WebhookLog.objects.create(
+                event_type="ERROR_PARSE",
+                payload=raw_body,
+            )
+            return HttpResponse("ERROR", status=400)
+ 
+        # 🌟 ดักจับประเภท Event ให้ยืดหยุ่นที่สุด รองรับทั้งแบบ Sample และของจริง
+        try:
+            if "sample" in body_data:
+                field_name = body_data["sample"].get("field", "messages")
                 event_type = f"TEST_{field_name.upper()}"
-            elif 'object' in body_data:
-                event_type = body_data['object']
+            elif "object" in body_data:
+                event_type = body_data["object"]
             else:
                 event_type = "CUSTOM_WEBHOOK"
-
+ 
             # 🌟 บันทึกข้อมูลลง Database ทันที
             WebhookLog.objects.create(
                 event_type=event_type,
-                payload=json.dumps(body_data, indent=4, ensure_ascii=False)
+                payload=json.dumps(body_data, indent=4, ensure_ascii=False),
             )
-            
+ 
             print("📨 บันทึกข้อมูล Webhook สำเร็จ!")
-            return HttpResponse('EVENT_RECEIVED', status=200)
-
+            return HttpResponse("EVENT_RECEIVED", status=200)
+ 
         except Exception as e:
+            # กรณีอื่นๆ ที่ไม่ใช่ JSON เสีย (เช่น โครงสร้างข้อมูลผิดคาด)
             print("❌ Webhook Error:", e)
-            # กรณีอ่าน JSON ไม่สำเร็จ เซฟข้อความดิบลงไปดูเลย
             WebhookLog.objects.create(
                 event_type="ERROR_RAW",
-                payload=request.body.decode('utf-8')
+                payload=raw_body,
             )
-            return HttpResponse('EVENT_RECEIVED', status=200)
-
-        except Exception as e:
-            print("❌ Webhook Error:", e)
-            # ถ้าพังตรงไหน อย่างน้อยก็บันทึก Raw Text ดิบๆ ลงไปดูหน้างานเลย
-            try:
-                WebhookLog.objects.create(
-                    event_type="ERROR_PARSE",
-                    payload=request.body.decode('utf-8')
-                )
-            except:
-                pass
-            return HttpResponse('ERROR', status=400)
-
-
+            return HttpResponse("EVENT_RECEIVED", status=200)
+ 
+    return HttpResponseForbidden("Method not allowed")
+ 
+ 
 # ==========================================
-# 🌟 หน้าจอแสดงผล Webhook Test (ใช้โค้ดเดิมได้เลยครับ)
+# 🌟 หน้าจอแสดงผล Webhook Test
 # ==========================================
 def webhook_test_page(request):
-    logs = WebhookLog.objects.all().order_by('-received_at')[:50]
-    if request.GET.get('action') == 'clear':
+    if request.GET.get("action") == "clear":
         WebhookLog.objects.all().delete()
         logs = []
-    return render(request, 'Products/webhook_test.html', {'logs': logs})
+    else:
+        logs = WebhookLog.objects.all().order_by("-received_at")[:50]
+ 
+    return render(request, "Products/webhook_test.html", {"logs": logs})
+ 
