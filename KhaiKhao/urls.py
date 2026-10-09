@@ -35,15 +35,6 @@ urlpatterns = [
     path('backoffice/', include('BackOffice.urls')), 
 ]
 
-from django.urls import re_path
-from django.views.static import serve
-
-# 🌟 3. บังคับให้ Django เสิร์ฟไฟล์ Media และ Static เสมอ แม้จะรันบน PythonAnywhere (DEBUG=False)
-urlpatterns += [
-    re_path(r'^media/(?P<path>.*)$', serve, {'document_root': settings.MEDIA_ROOT}),
-    re_path(r'^static/(?P<path>.*)$', serve, {'document_root': settings.STATIC_ROOT}),
-]
-
 # Add delivery_zones
 urlpatterns += [
     path('delivery-zones/', include('DeliveryZones.urls')),

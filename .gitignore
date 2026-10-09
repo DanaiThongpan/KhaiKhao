@@ -2,4 +2,4 @@ db.sqlite3
 venv/
 __pycache__/
 *.py[cod]
-staticfiles/
+staticfiles/!staticfiles/media/

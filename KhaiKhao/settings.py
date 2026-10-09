@@ -156,9 +156,9 @@ STATICFILES_DIRS = [
 # เป้าหมายของคำสั่ง collectstatic เพื่อให้ PythonAnywhere ดึงไปแสดงผล
 STATIC_ROOT = BASE_DIR / 'staticfiles'
 
-# Media files (รูปภาพที่ผู้ใช้อัปโหลด เช่น รูปสินค้า สลิปโอนเงิน)
-MEDIA_URL = '/media/'
-MEDIA_ROOT = os.path.join(BASE_DIR, 'media')
+# Media files (เปลี่ยนไปเก็บใน staticfiles เพื่อให้ PythonAnywhere เสิร์ฟผ่าน /static/ ได้เลย)
+MEDIA_URL = '/static/media/'
+MEDIA_ROOT = os.path.join(STATIC_ROOT, 'media')
 
 # ==========================================
 
