@@ -1,45 +1,65 @@
 import json
-import re
-from datetime import datetime, timedelta
-
-import pytesseract
-from django.contrib.auth.decorators import login_required
-from django.db.models import Prefetch, Q, Sum
-from django.http import JsonResponse
 from django.shortcuts import render
+from django.http import JsonResponse
 from django.utils import timezone
-from PIL import Image, ImageEnhance
+from django.db.models import Sum, Prefetch, Q
+from django.contrib.auth.decorators import login_required
 
-from Expenses.models import Expense
 from Products.models import Product, ProductCategory
-from Riders.models import DeliveryTask, Dormitory
+from Expenses.models import Expense
+from .models import Order, OrderItem
 from Stocks.models import StockItem, StockLog
 
-from .models import Order, OrderItem
+from Riders.models import Dormitory, DeliveryTask
+import re
+import pytesseract
+from PIL import Image, ImageEnhance
+from datetime import datetime, timedelta
+
+def is_point_in_polygon(lng, lat, polygon):
+    x, y = lng, lat
+    inside = False
+    n = len(polygon)
+    if n == 0: return False
+    p1x, p1y = polygon[0]
+    for i in range(1, n + 1):
+        p2x, p2y = polygon[i % n]
+        if y > min(p1y, p2y):
+            if y <= max(p1y, p2y):
+                if x <= max(p1x, p2x):
+                    if p1y != p2y:
+                        xints = (y - p1y) * (p2x - p1x) / (p2y - p1y) + p1x
+                    if p1x == p2x or x <= xints:
+                        inside = not inside
+        p1x, p1y = p2x, p2y
+    return inside
+
+def get_dorm_fee(dorm):
+    from DeliveryZones.models import DeliveryZone
+    import json
+    zones = DeliveryZone.objects.filter(is_active=True)
+    for z in zones:
+        poly_data = z.polygon_data
+        if type(poly_data) == str:
+            poly_data = json.loads(poly_data)
+        if poly_data.get("geometry", {}).get("type") == "Polygon":
+            coords = poly_data["geometry"]["coordinates"][0]
+            if is_point_in_polygon(dorm.longitude, dorm.latitude, coords):
+                return float(z.fee)
+    return 0.0
 
 
 @login_required
 def home(request):
     my_products = Product.objects.filter(is_active=True, created_by=request.user)
-    dorms = Dormitory.objects.all().order_by("zone", "name")
+    dorms = Dormitory.objects.all().order_by('zone', 'name')
 
     raw_categories = ProductCategory.objects.filter(
         is_active=True, created_by=request.user
     ).prefetch_related(Prefetch("products", queryset=my_products))
 
     def sort_category(category):
-        back_keywords = [
-            "topping",
-            "ท็อปปิ้ง",
-            "กับข้าว",
-            "พิเศษ",
-            "เครื่องดื่ม",
-            "โปรโมชั่น",
-            "เพิ่มเติม",
-            "ของทานเล่น",
-            "ค่าจัดส่ง",
-            "โปรโมชั่นส่วนลด",
-        ]
+        back_keywords = ["topping", "ท็อปปิ้ง", "กับข้าว", "พิเศษ", "เครื่องดื่ม", "โปรโมชั่น", "เพิ่มเติม", "ของทานเล่น", "ค่าจัดส่ง", "โปรโมชั่นส่วนลด"]
         for keyword in back_keywords:
             if keyword in category.name.lower():
                 return 1
@@ -48,63 +68,60 @@ def home(request):
     categories = list(raw_categories)
     categories.sort(key=lambda c: (sort_category(c), c.name))
 
-    selected_date_str = request.GET.get("date")
+    selected_date_str = request.GET.get('date')
     if selected_date_str:
-        selected_date = datetime.strptime(selected_date_str, "%Y-%m-%d").date()
+        selected_date = datetime.strptime(selected_date_str, '%Y-%m-%d').date()
     else:
         selected_date = timezone.localdate()
 
-    daily_sales = (
-        Order.objects.filter(
-            created_at__date=selected_date, created_by=request.user
-        ).aggregate(total=Sum("total_amount"))["total"]
-        or 0
-    )
+    import json
+    dorm_fees = { d.id: get_dorm_fee(d) for d in dorms }
+    dorm_fees_json = json.dumps(dorm_fees)
+
+    daily_sales = Order.objects.filter(
+        created_at__date=selected_date,
+        created_by=request.user
+    ).aggregate(total=Sum('total_amount'))['total'] or 0
 
     # =====================================================
     # ดึงบิลค้างจ่าย
     # =====================================================
     today = timezone.localdate()
-    raw_unpaid = Expense.objects.filter(is_paid=False).order_by("expense_date")
+    raw_unpaid = Expense.objects.filter(is_paid=False).order_by('expense_date')
     unpaid_expenses = []
 
     for exp in raw_unpaid:
         days_diff = (exp.expense_date - today).days
-        unpaid_expenses.append(
-            {
-                "id": exp.id,
-                "name": exp.name,
-                "amount": exp.amount,
-                "days_left": days_diff,
-            }
-        )
+        unpaid_expenses.append({
+            'id': exp.id,
+            'name': exp.name,
+            'amount': exp.amount,
+            'days_left': days_diff,
+        })
 
     # =====================================================
     # 🌟 ดึงข้อมูล "กล่อง" เพื่อไปสร้างเงื่อนไขบล็อกหน้าเว็บ
     # =====================================================
-    out_of_stock_items = StockItem.objects.filter(
-        created_by=request.user, quantity__lte=0
-    ).order_by("name")
+    out_of_stock_items = StockItem.objects.filter(created_by=request.user, quantity__lte=0).order_by('name')
     total_noti_count = len(unpaid_expenses) + out_of_stock_items.count()
 
-    box_item = StockItem.objects.filter(
-        created_by=request.user, name__icontains="กล่อง"
-    ).first()
+    box_item = StockItem.objects.filter(created_by=request.user, name__icontains='กล่อง').first()
     box_quantity = box_item.quantity if box_item else 0
     has_box_item = bool(box_item)
 
     context = {
+        "dorm_fees_json": dorm_fees_json,
         "categories": categories,
         "products": my_products,
         "daily_sales": daily_sales,
         "selected_date": selected_date,
         "unpaid_expenses": unpaid_expenses,
-        "out_of_stock_items": out_of_stock_items,
+        "out_of_stock_items": out_of_stock_items, 
         "total_noti_count": total_noti_count,
         "shop_promptpay": request.user.promptpay_number or "",
-        "dorms": dorms,
-        "box_quantity": box_quantity,  # ส่งจำนวนกล่องคงเหลือ
-        "has_box_item": has_box_item,  # ส่งสถานะว่าร้านมีของชื่อกล่องไหม
+        'dorms': dorms, 
+        'box_quantity': box_quantity, # ส่งจำนวนกล่องคงเหลือ
+        'has_box_item': has_box_item, # ส่งสถานะว่าร้านมีของชื่อกล่องไหม
     }
 
     return render(request, "Pos/home.html", context)
@@ -115,43 +132,42 @@ def home(request):
 # =====================================================
 @login_required
 def api_compare_profit(request):
-    start_date_str = request.GET.get("start")
-    end_date_str = request.GET.get("end")
+    start_date_str = request.GET.get('start')
+    end_date_str = request.GET.get('end')
 
     if not start_date_str or not end_date_str:
-        return JsonResponse({"error": "กรุณาระบุวันที่ให้ครบถ้วน"}, status=400)
+        return JsonResponse({'error': 'กรุณาระบุวันที่ให้ครบถ้วน'}, status=400)
 
     try:
-        start_dt = datetime.strptime(start_date_str, "%Y-%m-%d").date()
-        end_dt = datetime.strptime(end_date_str, "%Y-%m-%d").date()
+        start_dt = datetime.strptime(start_date_str, '%Y-%m-%d').date()
+        end_dt = datetime.strptime(end_date_str, '%Y-%m-%d').date()
     except ValueError:
-        return JsonResponse({"error": "รูปแบบวันที่ไม่ถูกต้อง"}, status=400)
+        return JsonResponse({'error': 'รูปแบบวันที่ไม่ถูกต้อง'}, status=400)
 
-    sales = (
-        Order.objects.filter(
-            created_at__date__gte=start_dt,
-            created_at__date__lte=end_dt,
-            created_by=request.user,
-        ).aggregate(total=Sum("total_amount"))["total"]
-        or 0
-    )
+    sales = Order.objects.filter(
+        created_at__date__gte=start_dt,
+        created_at__date__lte=end_dt,
+        created_by=request.user
+    ).aggregate(total=Sum('total_amount'))['total'] or 0
 
-    expenses_qs = Expense.objects.filter(is_paid=False).order_by("expense_date")
+    expenses_qs = Expense.objects.filter(
+        is_paid=False
+    ).order_by('expense_date')
 
     expenses_list = []
     for exp in expenses_qs:
-        expenses_list.append(
-            {
-                "id": exp.id,
-                "name": exp.name,
-                "amount": float(exp.amount),
-                "date": exp.expense_date.strftime("%d/%m/%Y"),
-                "category": f"{exp.get_category_display()} (ยังไม่จ่าย)",
-            }
-        )
+        expenses_list.append({
+            'id': exp.id,
+            'name': exp.name,
+            'amount': float(exp.amount),
+            'date': exp.expense_date.strftime('%d/%m/%Y'),
+            'category': f"{exp.get_category_display()} (ยังไม่จ่าย)"
+        })
 
-    return JsonResponse({"sales_total": float(sales), "expenses": expenses_list})
-
+    return JsonResponse({
+        'sales_total': float(sales),
+        'expenses': expenses_list
+    })
 
 # =====================================================
 # มาร์ครายจ่ายว่า "จ่ายแล้ว"
@@ -165,9 +181,7 @@ def mark_expense_paid(request, expense_id):
             exp.save()
             return JsonResponse({"status": "success", "message": "อัปเดตสถานะสำเร็จ!"})
         except Expense.DoesNotExist:
-            return JsonResponse(
-                {"status": "error", "message": "ไม่พบบิลนี้"}, status=404
-            )
+            return JsonResponse({"status": "error", "message": "ไม่พบบิลนี้"}, status=404)
     return JsonResponse({"status": "error", "message": "Invalid request"}, status=400)
 
 
@@ -179,43 +193,30 @@ def process_checkout(request):
     if request.method == "POST":
         try:
             data = json.loads(request.body)
-            cart_items = data.get("cart", [])
-            dormitory_id = data.get("dormitory_id", "")
+            cart_items = data.get('cart', [])
+            cart_items = [item for item in cart_items if str(item.get('id')) != 'DELIVERY']
+            dormitory_id = data.get('dormitory_id', '')
 
             if not cart_items:
-                return JsonResponse(
-                    {"status": "error", "message": "ตะกร้าว่างเปล่า"}, status=400
-                )
+                return JsonResponse({"status": "error", "message": "ตะกร้าว่างเปล่า"}, status=400)
 
             # คำนวณจำนวนกล่องที่ต้องใช้ก่อนบันทึกบิล
-            # คำนวณจำนวนกล่องที่ต้องใช้ก่อนบันทึกบิล
+# คำนวณจำนวนกล่องที่ต้องใช้ก่อนบันทึกบิล
             boxes_to_deduct = 0
-            exclude_keywords = [
-                "topping",
-                "ท็อปปิ้ง",
-                "กับข้าว",
-                "พิเศษ",
-                "เครื่องดื่ม",
-                "โปรโมชั่น",
-                "เพิ่มเติม",
-                "ค่าจัดส่ง",
-                "โปรโมชั่นส่วนลด",
-            ]
-
+            exclude_keywords = ["topping", "ท็อปปิ้ง", "กับข้าว", "พิเศษ", "เครื่องดื่ม", "โปรโมชั่น", "เพิ่มเติม", "ค่าจัดส่ง", "โปรโมชั่นส่วนลด"]
+            
             # 🌟 เพิ่มคีย์เวิร์ดของทานเล่นที่ "บังคับต้องใส่กล่อง" 🌟
             force_box_keywords = ["เฟรนช์ฟรายส์", "นักเก็ต", "ไก่ป๊อป", "ทานเล่น"]
 
             for item in cart_items:
-                product = Product.objects.get(id=item["id"])
-                qty = item["qty"]
+                product = Product.objects.get(id=item['id'])
+                qty = item['qty']
                 cat_name = product.category.name.lower() if product.category else ""
                 prod_name = product.name.lower()
 
                 # ตรวจสอบเบื้องต้นว่าติดคำยกเว้นหรือไม่
-                is_excluded = any(
-                    kw in cat_name or kw in prod_name for kw in exclude_keywords
-                )
-
+                is_excluded = any(kw in cat_name or kw in prod_name for kw in exclude_keywords)
+                
                 # 🌟 ยกเลิกการแบน: ถ้าชื่อสินค้าตรงกับกลุ่ม "บังคับต้องใส่กล่อง" ให้เปลี่ยนค่า is_excluded เป็น False
                 if any(fw in prod_name for fw in force_box_keywords):
                     is_excluded = False
@@ -226,38 +227,27 @@ def process_checkout(request):
             # 🌟 หากต้องใช้กล่อง เช็คสต๊อกกล่องให้แน่ใจก่อนบันทึก Database 🌟
             box_stock = None
             if boxes_to_deduct > 0:
-                box_stock = StockItem.objects.filter(
-                    created_by=request.user, name__icontains="กล่อง"
-                ).first()
+                box_stock = StockItem.objects.filter(created_by=request.user, name__icontains='กล่อง').first()
                 if box_stock and box_stock.quantity < boxes_to_deduct:
-                    return JsonResponse(
-                        {
-                            "status": "error",
-                            "message": f"กล่องไม่พอ! (บิลนี้ต้องใช้ {boxes_to_deduct} ใบ แต่มีกล่องเหลือ {int(box_stock.quantity)} ใบ)",
-                        },
-                        status=400,
-                    )
+                    return JsonResponse({"status": "error", "message": f"กล่องไม่พอ! (บิลนี้ต้องใช้ {boxes_to_deduct} ใบ แต่มีกล่องเหลือ {int(box_stock.quantity)} ใบ)"}, status=400)
 
             # -------------------------------------------------------------------
             # ถ่ากล่องพอ หรือไม่ต้องใช้กล่อง ถึงจะอนุญาตให้เซฟบิลได้
             # -------------------------------------------------------------------
             local_now = timezone.localtime()
-            date_str = local_now.strftime("%Y%m%d")
+            date_str = local_now.strftime('%Y%m%d')
 
             shop_code = request.user.username.upper()
             prefix = f"INV-{shop_code}-{date_str}-"
 
-            last_order = (
-                Order.objects.filter(
-                    created_by=request.user, receipt_number__startswith=prefix
-                )
-                .order_by("receipt_number")
-                .first()
-            )
+            last_order = Order.objects.filter(
+                created_by=request.user,
+                receipt_number__startswith=prefix
+            ).order_by('receipt_number').first()
 
             if last_order:
                 try:
-                    last_number = int(last_order.receipt_number.split("-")[-1])
+                    last_number = int(last_order.receipt_number.split('-')[-1])
                     new_number = last_number - 1
                 except (ValueError, IndexError):
                     new_number = 9999
@@ -272,24 +262,25 @@ def process_checkout(request):
                     new_number = 9999
                 receipt_number = f"{prefix}{new_number:04d}"
 
-            total_amount = sum(item["price"] * item["qty"] for item in cart_items)
+            from decimal import Decimal
+            total_amount = Decimal(str(sum(item['price'] * item['qty'] for item in cart_items)))
 
             order = Order.objects.create(
                 receipt_number=receipt_number,
                 total_amount=total_amount,
-                created_by=request.user,
+                created_by=request.user
             )
 
             for item in cart_items:
-                product = Product.objects.get(id=item["id"])
-                qty = item["qty"]
+                product = Product.objects.get(id=item['id'])
+                qty = item['qty']
 
                 OrderItem.objects.create(
                     order=order,
                     product=product,
-                    price=item["price"],
+                    price=item['price'],
                     quantity=qty,
-                    subtotal=item["price"] * qty,
+                    subtotal=item['price'] * qty
                 )
 
                 product.stock_quantity -= qty
@@ -298,13 +289,41 @@ def process_checkout(request):
             if dormitory_id:
                 try:
                     dorm = Dormitory.objects.get(id=dormitory_id)
-                    DeliveryTask.objects.create(
-                        order=order, destination=dorm, status="PENDING"
-                    )
+                    DeliveryTask.objects.create(order=order, destination=dorm, status='PENDING')
+                    
+                    # 🌟 หักค่าจัดส่งโดยเช็คพิกัด Polygon 🌟
+                    from Products.models import ProductCategory
+                    from decimal import Decimal
+                    fee = get_dorm_fee(dorm)
+                    fee_decimal = Decimal(str(fee))
+                    if fee_decimal > 0:
+                        try:
+                            delivery_product = Product.objects.get(name='ค่าจัดส่ง')
+                        except Product.DoesNotExist:
+                            cat, _ = ProductCategory.objects.get_or_create(name='ค่าจัดส่ง', created_by=request.user)
+                            delivery_product = Product.objects.create(
+                                name='ค่าจัดส่ง',
+                                code='FEE-DELIVERY',
+                                selling_price=0,
+                                category=cat,
+                                created_by=request.user,
+                                is_active=True
+                            )
+                        
+                        OrderItem.objects.create(
+                            order=order,
+                            product=delivery_product,
+                            price=fee_decimal,
+                            quantity=1,
+                            subtotal=fee_decimal
+                        )
+                        order.total_amount += fee_decimal
+                        order.save()
+                        
                 except Dormitory.DoesNotExist:
-                    DeliveryTask.objects.create(order=order, status="PENDING")
+                    DeliveryTask.objects.create(order=order, status='PENDING')
             else:
-                DeliveryTask.objects.create(order=order, status="PENDING")
+                DeliveryTask.objects.create(order=order, status='PENDING')
 
             # ตัดสต๊อกกล่อง
             if boxes_to_deduct > 0 and box_stock:
@@ -313,52 +332,41 @@ def process_checkout(request):
 
                 StockLog.objects.create(
                     item=box_stock,
-                    action="OUT",
+                    action='OUT',
                     amount=boxes_to_deduct,
-                    note=f"ขายหน้าร้านบิล {receipt_number}",
-                    created_by=request.user,
+                    note=f'ขายหน้าร้านบิล {receipt_number}',
+                    created_by=request.user
                 )
 
-            return JsonResponse(
-                {
-                    "status": "success",
-                    "message": "บันทึกสำเร็จ!",
-                    "receipt": receipt_number,
-                }
-            )
+            return JsonResponse({"status": "success", "message": "บันทึกสำเร็จ!", "receipt": receipt_number})
 
         except Exception as e:
             return JsonResponse({"status": "error", "message": str(e)}, status=500)
 
     return JsonResponse({"status": "error", "message": "Invalid request"}, status=400)
 
-
 @login_required
 def api_check_slips(request):
-    if request.method == "POST" and request.FILES.getlist("slips"):
-        files = request.FILES.getlist("slips")
+    if request.method == 'POST' and request.FILES.getlist('slips'):
+        files = request.FILES.getlist('slips')
         recent_orders = Order.objects.filter(
             created_by=request.user,
-            created_at__gte=timezone.localtime() - timedelta(days=2),
-        ).order_by("-created_at")
+            created_at__gte=timezone.localtime() - timedelta(days=2)
+        ).order_by('-created_at')
 
         results = []
         for f in files:
             try:
-                img = Image.open(f.file).convert("L")
+                img = Image.open(f.file).convert('L')
                 enhancer = ImageEnhance.Contrast(img)
                 img = enhancer.enhance(2.0)
-                text = pytesseract.image_to_string(img, lang="eng+tha")
+                text = pytesseract.image_to_string(img, lang='eng+tha')
 
-                amount_matches = re.findall(r"\d{1,3}(?:,\d{3})*\.\d{2}", text)
-                float_amounts = [float(a.replace(",", "")) for a in amount_matches]
-
-                time_matches = re.findall(r"([0-1]?[0-9]|2[0-3]):([0-5][0-9])", text)
-                slip_time_str = (
-                    f"{time_matches[0][0]}:{time_matches[0][1]}"
-                    if time_matches
-                    else None
-                )
+                amount_matches = re.findall(r'\d{1,3}(?:,\d{3})*\.\d{2}', text)
+                float_amounts = [float(a.replace(',', '')) for a in amount_matches]
+                
+                time_matches = re.findall(r'([0-1]?[0-9]|2[0-3]):([0-5][0-9])', text)
+                slip_time_str = f"{time_matches[0][0]}:{time_matches[0][1]}" if time_matches else None
 
                 matched_order_id = None
                 status = "NOT_FOUND"
@@ -368,11 +376,7 @@ def api_check_slips(request):
                     potential_orders = []
                     # 🌟 เทียบค่าที่ได้ทั้งหมดกับบิลเหมือนกัน
                     for amt in sorted(float_amounts, reverse=True):
-                        pots = [
-                            o
-                            for o in recent_orders
-                            if abs(float(o.total_amount) - amt) < 0.01
-                        ]
+                        pots = [o for o in recent_orders if abs(float(o.total_amount) - amt) < 0.01]
                         if pots:
                             potential_orders = pots
                             final_amount = amt
@@ -380,224 +384,219 @@ def api_check_slips(request):
 
                     if potential_orders:
                         if slip_time_str:
-                            slip_time_obj = datetime.strptime(
-                                slip_time_str, "%H:%M"
-                            ).time()
+                            slip_time_obj = datetime.strptime(slip_time_str, '%H:%M').time()
                             best_order = None
-                            min_diff = float("inf")
-
+                            min_diff = float('inf')
+                            
                             for order in potential_orders:
                                 order_time = timezone.localtime(order.created_at).time()
                                 o_mins = order_time.hour * 60 + order_time.minute
                                 s_mins = slip_time_obj.hour * 60 + slip_time_obj.minute
-                                diff = min(
-                                    (s_mins - o_mins) % 1440, (o_mins - s_mins) % 1440
-                                )
-
+                                diff = min((s_mins - o_mins) % 1440, (o_mins - s_mins) % 1440)
+                                
                                 if diff < min_diff:
                                     min_diff = diff
                                     best_order = order
-
+                                    
                             matched_order_id = best_order.id
                         else:
                             matched_order_id = potential_orders[0].id
-
+                        
                         status = "MATCHED"
 
-                results.append(
-                    {
-                        "filename": f.name,
-                        "amount": final_amount,
-                        "order_id": matched_order_id,
-                        "status": status,
-                    }
-                )
+                results.append({
+                    'filename': f.name,
+                    'amount': final_amount,
+                    'order_id': matched_order_id,
+                    'status': status
+                })
             except Exception as e:
-                results.append({"filename": f.name, "status": "ERROR"})
+                results.append({'filename': f.name, 'status': 'ERROR'})
 
-        return JsonResponse({"status": "success", "results": results})
-    return JsonResponse({"status": "error"}, status=400)
+        return JsonResponse({'status': 'success', 'results': results})
+    return JsonResponse({'status': 'error'}, status=400)
 
+from django.views.decorators.http import require_POST
 
 import json
 import re
+import requests
 from datetime import datetime, timedelta
 
-import requests
-from django.contrib.auth.decorators import login_required
-from django.http import JsonResponse
-from django.shortcuts import render
-from django.utils import timezone
-from django.views.decorators.http import require_POST
+def is_point_in_polygon(lng, lat, polygon):
+    x, y = lng, lat
+    inside = False
+    n = len(polygon)
+    if n == 0: return False
+    p1x, p1y = polygon[0]
+    for i in range(1, n + 1):
+        p2x, p2y = polygon[i % n]
+        if y > min(p1y, p2y):
+            if y <= max(p1y, p2y):
+                if x <= max(p1x, p2x):
+                    if p1y != p2y:
+                        xints = (y - p1y) * (p2x - p1x) / (p2y - p1y) + p1x
+                    if p1x == p2x or x <= xints:
+                        inside = not inside
+        p1x, p1y = p2x, p2y
+    return inside
 
+def get_dorm_fee(dorm):
+    from DeliveryZones.models import DeliveryZone
+    import json
+    zones = DeliveryZone.objects.filter(is_active=True)
+    for z in zones:
+        poly_data = z.polygon_data
+        if type(poly_data) == str:
+            poly_data = json.loads(poly_data)
+        if poly_data.get("geometry", {}).get("type") == "Polygon":
+            coords = poly_data["geometry"]["coordinates"][0]
+            if is_point_in_polygon(dorm.longitude, dorm.latitude, coords):
+                return float(z.fee)
+    return 0.0
+
+from django.utils import timezone
+from django.shortcuts import render
+from django.http import JsonResponse
+from django.views.decorators.http import require_POST
+from django.contrib.auth.decorators import login_required
 # สมมติว่าดึงโมเดลมาครบแล้ว เช่น Order, OrderItem, Dormitory...
 
 # 🌟 ใส่ลิงก์ Go API ตรงนี้
 API_GO_URL = "https://godanai.wdlabs.online/api/v1/scan-slip"
 
-
 @login_required
 def check_slips(request):
     # ฟังก์ชันนี้ใช้แค่สำหรับโหลดโครงหน้าเว็บตอนแรกเท่านั้น (ไม่ทำการประมวลผลรูปภาพที่นี่แล้ว)
-    filter_date_str = request.GET.get("filter_date")
+    filter_date_str = request.GET.get('filter_date')
     if filter_date_str:
         try:
-            selected_date = datetime.strptime(filter_date_str, "%Y-%m-%d").date()
+            selected_date = datetime.strptime(filter_date_str, '%Y-%m-%d').date()
         except ValueError:
             selected_date = timezone.localdate()
     else:
         selected_date = timezone.localdate()
+    
+    orders = Order.objects.filter(
+        created_by=request.user, 
+        created_at__date=selected_date
+    ).select_related('delivery_info__destination').prefetch_related('items__product').order_by('-created_at')
 
-    orders = (
-        Order.objects.filter(created_by=request.user, created_at__date=selected_date)
-        .select_related("delivery_info__destination")
-        .prefetch_related("items__product")
-        .order_by("-created_at")
-    )
+    return render(request, 'Pos/check_slips.html', {
+        'orders': orders,
+        'selected_date': selected_date.strftime('%Y-%m-%d')
+    })
 
-    return render(
-        request,
-        "Pos/check_slips.html",
-        {"orders": orders, "selected_date": selected_date.strftime("%Y-%m-%d")},
-    )
 
 
 def _get_dorm_name(order):
-    if (
-        hasattr(order, "delivery_info")
-        and order.delivery_info
-        and hasattr(order.delivery_info, "destination")
-        and order.delivery_info.destination
-    ):
+    if hasattr(order, 'delivery_info') and order.delivery_info and hasattr(order.delivery_info, 'destination') and order.delivery_info.destination:
         return order.delivery_info.destination.name
     return "อยู่ระหว่างรวบรวมข้อมูลหอพัก"
-
 
 @login_required
 @require_POST
 def api_process_single_slip(request):
     try:
-        filter_date_str = request.POST.get("filter_date")
+        filter_date_str = request.POST.get('filter_date')
         if filter_date_str:
-            selected_date = datetime.strptime(filter_date_str, "%Y-%m-%d").date()
+            selected_date = datetime.strptime(filter_date_str, '%Y-%m-%d').date()
         else:
             selected_date = timezone.localdate()
-
-        exclude_ids_str = request.POST.get("exclude_ids", "[]")
+            
+        exclude_ids_str = request.POST.get('exclude_ids', '[]')
         exclude_ids_raw = json.loads(exclude_ids_str)
         exclude_ids = [int(eid) for eid in exclude_ids_raw if str(eid).isdigit()]
-
+        
         # 🌟 รับข้อมูลที่ถูกสกัดมาจากหน้าเว็บ (แทนการรับไฟล์รูป) 🌟
-        extracted_data_str = request.POST.get("extracted_data")
+        extracted_data_str = request.POST.get('extracted_data')
         if not extracted_data_str:
-            return JsonResponse(
-                {"status": "ERROR", "error_msg": "ไม่พบข้อมูลที่สกัดจากสลิป"}
-            )
-
+            return JsonResponse({'status': 'ERROR', 'error_msg': 'ไม่พบข้อมูลที่สกัดจากสลิป'})
+            
         slip_data = json.loads(extracted_data_str)
-
-        slip_amount = slip_data.get("amount")
+        
+        slip_amount = slip_data.get('amount')
         if slip_amount is not None:
-            try:
-                slip_amount = float(slip_amount)
-            except ValueError:
-                slip_amount = None
-
-        slip_ref_id = slip_data.get("transaction_ref")
-        raw_date = slip_data.get("date", "")
-        raw_text = slip_data.get("raw_text", "")
-        sender_name = slip_data.get("sender_name", "")
-        receiver_name = slip_data.get("receiver_name", "")
-
+            try: slip_amount = float(slip_amount)
+            except ValueError: slip_amount = None
+                
+        slip_ref_id = slip_data.get('transaction_ref')
+        raw_date = slip_data.get('date', '')
+        raw_text = slip_data.get('raw_text', '')
+        sender_name = slip_data.get('sender_name', '')
+        receiver_name = slip_data.get('receiver_name', '')
+        
         slip_time_str = None
         if raw_date or raw_text:
-            time_matches = re.findall(
-                r"([0-1]?[0-9]|2[0-3]):([0-5][0-9])", str(raw_date)
-            )
-            if not time_matches:
-                time_matches = re.findall(
-                    r"([0-1]?[0-9]|2[0-3]):([0-5][0-9])", str(raw_text)
-                )
+            time_matches = re.findall(r'([0-1]?[0-9]|2[0-3]):([0-5][0-9])', str(raw_date))
+            if not time_matches: 
+                time_matches = re.findall(r'([0-1]?[0-9]|2[0-3]):([0-5][0-9])', str(raw_text))
             if time_matches:
                 slip_time_str = f"{time_matches[-1][0].zfill(2)}:{time_matches[-1][1]}"
-
-        recent_orders = (
-            Order.objects.filter(
-                created_by=request.user, created_at__date=selected_date
-            )
-            .select_related("delivery_info__destination")
-            .prefetch_related("items__product")
-            .order_by("-created_at")
-        )
-
-        used_transactions = list(
-            Order.objects.filter(created_by=request.user, transaction_ref__isnull=False)
-            .exclude(transaction_ref="")
-            .values_list("transaction_ref", flat=True)
-        )
-
+                
+        recent_orders = Order.objects.filter(
+            created_by=request.user,
+            created_at__date=selected_date
+        ).select_related('delivery_info__destination').prefetch_related('items__product').order_by('-created_at')
+        
+        used_transactions = list(Order.objects.filter(
+            created_by=request.user, 
+            transaction_ref__isnull=False
+        ).exclude(transaction_ref="").values_list('transaction_ref', flat=True))
+        
         match_status = "NOT_FOUND"
         matched_order = None
         possible_matches = []
-
+        
         if slip_ref_id and slip_ref_id in used_transactions:
             match_status = "DUPLICATE"
         elif slip_amount is not None:
             potential_orders = [
-                o
-                for o in recent_orders
-                if abs(float(o.total_amount) - slip_amount) < 0.01
-                and o.payment_status != "PAID"
+                o for o in recent_orders 
+                if abs(float(o.total_amount) - slip_amount) < 0.01 
+                and o.payment_status != 'PAID'
                 and o.id not in exclude_ids
             ]
-
+            
             if potential_orders:
                 for po in potential_orders:
                     d_name = _get_dorm_name(po)
-
-                    i_text = [
-                        f"{i.product.name} (x{i.quantity})" for i in po.items.all()
-                    ]
-                    possible_matches.append(
-                        {
-                            "id": po.id,
-                            "receipt_number": po.receipt_number,
-                            "dorm_name": d_name,
-                            "items": i_text,
-                            "time": timezone.localtime(po.created_at).strftime("%H:%M"),
-                        }
-                    )
-
+                        
+                    i_text = [f"{i.product.name} (x{i.quantity})" for i in po.items.all()]
+                    possible_matches.append({
+                        'id': po.id, 'receipt_number': po.receipt_number,
+                        'dorm_name': d_name, 'items': i_text,
+                        'time': timezone.localtime(po.created_at).strftime('%H:%M')
+                    })
+                    
                 matched_order = potential_orders[-1]
                 match_status = "MATCHED"
-
+                
         order_items_text = []
         dorm_name = "อยู่ระหว่างรวบรวมข้อมูลหอพัก"
         if matched_order:
             for item in matched_order.items.all():
                 order_items_text.append(f"{item.product.name} (x{item.quantity})")
             dorm_name = _get_dorm_name(matched_order)
-
-        return JsonResponse(
-            {
-                "status": "SUCCESS",
-                "data": {
-                    "amount": slip_amount,
-                    "time": slip_time_str,
-                    "transaction_ref": slip_ref_id,
-                    "sender_name": sender_name,
-                    "receiver_name": receiver_name,
-                    "order_id": matched_order.id if matched_order else None,
-                    "order_ref": matched_order.receipt_number if matched_order else "-",
-                    "dorm_name": dorm_name,
-                    "items": order_items_text,
-                    "match_status": match_status,
-                    "possible_matches": possible_matches,
-                },
+                
+        return JsonResponse({
+            'status': 'SUCCESS',
+            'data': {
+                'amount': slip_amount,
+                'time': slip_time_str,
+                'transaction_ref': slip_ref_id,
+                'sender_name': sender_name,
+                'receiver_name': receiver_name,
+                'order_id': matched_order.id if matched_order else None,
+                'order_ref': matched_order.receipt_number if matched_order else "-",
+                'dorm_name': dorm_name,
+                'items': order_items_text,
+                'match_status': match_status,
+                'possible_matches': possible_matches
             }
-        )
+        })
     except Exception as e:
-        return JsonResponse({"status": "ERROR", "error_msg": str(e)})
+        return JsonResponse({'status': 'ERROR', 'error_msg': str(e)})
 
 
 @login_required
@@ -605,18 +604,14 @@ def api_process_single_slip(request):
 def mark_order_unpaid(request):
     try:
         data = json.loads(request.body)
-        order_id = data.get("order_id")
-
+        order_id = data.get('order_id')
+        
         if order_id:
             Order.objects.filter(id=order_id, created_by=request.user).update(
-                payment_status="PENDING", transaction_ref=None
+                payment_status='PENDING',
+                transaction_ref=None
             )
-            return JsonResponse(
-                {
-                    "status": "success",
-                    "message": "อัปเดตสถานะเป็นยังไม่จ่ายเรียบร้อยแล้ว",
-                }
-            )
+            return JsonResponse({"status": "success", "message": "อัปเดตสถานะเป็นยังไม่จ่ายเรียบร้อยแล้ว"})
         return JsonResponse({"status": "error", "message": "ไม่พบรหัสบิล"}, status=400)
     except Exception as e:
         return JsonResponse({"status": "error", "message": str(e)}, status=500)
@@ -627,20 +622,14 @@ def mark_order_unpaid(request):
 def reset_slip_ref(request):
     try:
         data = json.loads(request.body)
-        ref = data.get("transaction_ref")
+        ref = data.get('transaction_ref')
         if ref:
             Order.objects.filter(created_by=request.user, transaction_ref=ref).update(
-                transaction_ref=None, payment_status="PENDING"
+                transaction_ref=None,
+                payment_status='PENDING'
             )
-            return JsonResponse(
-                {
-                    "status": "success",
-                    "message": "รีเซ็ตสลิปซ้ำเรียบร้อยแล้ว สามารถสแกนใหม่อีกครั้งได้",
-                }
-            )
-        return JsonResponse(
-            {"status": "error", "message": "ไม่พบเลขอ้างอิงสลิป"}, status=400
-        )
+            return JsonResponse({"status": "success", "message": "รีเซ็ตสลิปซ้ำเรียบร้อยแล้ว สามารถสแกนใหม่อีกครั้งได้"})
+        return JsonResponse({"status": "error", "message": "ไม่พบเลขอ้างอิงสลิป"}, status=400)
     except Exception as e:
         return JsonResponse({"status": "error", "message": str(e)}, status=500)
 
@@ -650,45 +639,36 @@ def reset_slip_ref(request):
 def confirm_matched_slips(request):
     try:
         data = json.loads(request.body)
-        matched_items = data.get("matches", [])
-
+        matched_items = data.get('matches', [])
+        
         updated_count = 0
         for item in matched_items:
-            order_id = item.get("order_id")
-            ref = item.get("transaction_ref")
-
+            order_id = item.get('order_id')
+            ref = item.get('transaction_ref')
+            
             if order_id:
                 Order.objects.filter(id=order_id, created_by=request.user).update(
-                    payment_status="PAID", transaction_ref=ref
+                    payment_status='PAID',
+                    transaction_ref=ref
                 )
                 updated_count += 1
-
-        return JsonResponse(
-            {
-                "status": "success",
-                "message": f"บันทึกยอดเงินสำเร็จ {updated_count} รายการ",
-            }
-        )
+                
+        return JsonResponse({"status": "success", "message": f"บันทึกยอดเงินสำเร็จ {updated_count} รายการ"})
     except Exception as e:
         return JsonResponse({"status": "error", "message": str(e)}, status=500)
 
-
 from django.utils.crypto import get_random_string
-
 
 @login_required
 def voice_order_page(request):
     # 🌟 ดึงรายชื่อสินค้าและหอพักทั้งหมดที่ Active จากฐานข้อมูล เพื่อส่งไปให้ระบบ AI ฟังเสียง
-    products = list(
-        Product.objects.filter(is_active=True).values_list("name", flat=True)
-    )
-    dorms = list(Dormitory.objects.all().values_list("name", flat=True))
-
-    return render(
-        request,
-        "Pos/voice_order.html",
-        {"product_names": json.dumps(products), "dorm_names": json.dumps(dorms)},
-    )
+    products = list(Product.objects.filter(is_active=True).values_list('name', flat=True))
+    dorms = list(Dormitory.objects.all().values_list('name', flat=True))
+    
+    return render(request, 'Pos/voice_order.html', {
+        'product_names': json.dumps(products),
+        'dorm_names': json.dumps(dorms)
+    })
 
 
 @login_required
@@ -696,27 +676,22 @@ def voice_order_page(request):
 def api_save_voice_order(request):
     try:
         data = json.loads(request.body)
-        product_name = data.get("product_name")
-        quantity = int(data.get("quantity", 1))
-        dorm_name = data.get("dorm_name")
+        product_name = data.get('product_name')
+        quantity = int(data.get('quantity', 1))
+        dorm_name = data.get('dorm_name')
 
         # 1. ค้นหาสินค้าจากฐานข้อมูล
-        product = Product.objects.filter(
-            name__icontains=product_name, is_active=True
-        ).first()
+        product = Product.objects.filter(name__icontains=product_name, is_active=True).first()
         if not product:
-            return JsonResponse(
-                {"status": "error", "message": f"ไม่พบสินค้าชื่อ: {product_name}"}
-            )
+            return JsonResponse({'status': 'error', 'message': f'ไม่พบสินค้าชื่อ: {product_name}'})
 
         # 2. สร้างบิล (Order)
         receipt_no = f"VOX-{get_random_string(8).upper()}"
         new_order = Order.objects.create(
             receipt_number=receipt_no,
-            total_amount=product.selling_price
-            * quantity,  # ใช้ selling_price ตามโมเดลจริง
+            total_amount=product.selling_price * quantity, # ใช้ selling_price ตามโมเดลจริง
             created_by=request.user,
-            payment_status="PENDING",
+            payment_status='PENDING'
         )
 
         # 3. สร้างรายการสินค้า (OrderItem)
@@ -725,7 +700,7 @@ def api_save_voice_order(request):
             product=product,
             price=product.selling_price,
             quantity=quantity,
-            subtotal=product.selling_price * quantity,
+            subtotal=product.selling_price * quantity
         )
 
         # 4. สร้างงานจัดส่ง (DeliveryTask)
@@ -734,15 +709,18 @@ def api_save_voice_order(request):
             dorm = Dormitory.objects.filter(name__icontains=dorm_name).first()
             if dorm:
                 DeliveryTask.objects.create(
-                    order=new_order, destination=dorm, status="PENDING"
+                    order=new_order,
+                    destination=dorm,
+                    status='PENDING'
                 )
             else:
                 # ถ้าไม่เจอหอพักแต่มีการสั่งส่ง ให้สร้าง Task ว่างไว้
-                DeliveryTask.objects.create(order=new_order, status="PENDING")
+                DeliveryTask.objects.create(
+                    order=new_order,
+                    status='PENDING'
+                )
 
-        return JsonResponse(
-            {"status": "success", "message": "บันทึกออเดอร์ด้วยเสียงสำเร็จ"}
-        )
+        return JsonResponse({'status': 'success', 'message': 'บันทึกออเดอร์ด้วยเสียงสำเร็จ'})
 
     except Exception as e:
-        return JsonResponse({"status": "error", "message": str(e)})
+        return JsonResponse({'status': 'error', 'message': str(e)})

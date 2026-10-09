@@ -1,0 +1,318 @@
+{% load static %}
+<!DOCTYPE html>
+<html lang="th">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>สโคปพื้นที่จัดส่ง - KhaiKhao</title>
+
+    <!-- Google Fonts Prompt -->
+    <link href="https://fonts.googleapis.com/css2?family=Prompt:wght@300;400;600;700;800&display=swap" rel="stylesheet">
+    
+    <!-- Leaflet & Leaflet Draw -->
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css">
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet.draw/1.0.4/leaflet.draw.css" />
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet.draw/1.0.4/leaflet.draw.js"></script>
+
+    <style>
+        * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+        html, body { margin: 0; padding: 0; font-family: 'Prompt', sans-serif; background: #f8fafc; overflow-x: hidden; }
+
+        .app { display: flex; min-height: 100vh; }
+        
+        /* Sidebar (Copied from POS/Heatmap style) */
+        .sidebar { width: 250px; flex-shrink: 0; background: #111827; color: white; display: flex; flex-direction: column; }
+        .logo { padding: 25px; border-bottom: 1px solid rgba(255,255,255,0.05); }
+        .logo h2 { margin: 0; color: #4ade80; font-size: 26px; }
+        .logo span { font-size: 13px; color: #9ca3af; letter-spacing: 2px; }
+        .menu { display: flex; flex-direction: column; padding: 15px; gap: 8px; }
+        .menu-item { display: flex; align-items: center; gap: 12px; padding: 14px 18px; color: #cbd5e1; text-decoration: none; border-radius: 12px; font-weight: 500; transition: 0.2s; }
+        .menu-item:hover { background: rgba(255,255,255,0.05); color: white; }
+        .menu-item.active { background: #1f2937; color: #4ade80; box-shadow: inset 4px 0 0 #4ade80; }
+
+        /* Main Content */
+        .main { flex: 1; display: flex; flex-direction: column; height: 100vh; }
+        
+        .page-header { margin: 20px 25px 0; padding-bottom: 15px; border-bottom: 2px dashed #e2e8f0; }
+        .page-header h1 { margin: 0; font-size: 24px; color: #0f172a; font-weight: 800; }
+        .page-header p { margin: 5px 0 0; color: #64748b; font-size: 14px; }
+
+        .content-layout { display: flex; flex: 1; padding: 20px 25px; gap: 20px; min-height: 0; }
+        
+        /* Map Area */
+        .map-container { flex: 2; border-radius: 15px; border: 4px solid white; box-shadow: 0 4px 10px rgba(0,0,0,0.05); overflow: hidden; position: relative; z-index: 1;}
+        #map { width: 100%; height: 100%; }
+
+        /* Panel Area */
+        .panel { flex: 1; background: white; border-radius: 15px; box-shadow: 0 4px 10px rgba(0,0,0,0.05); padding: 20px; overflow-y: auto; border: 1px solid #e2e8f0; display: flex; flex-direction: column;}
+        
+        .section-title { font-size: 18px; font-weight: 800; color: #0f172a; margin-bottom: 15px; display: flex; justify-content: space-between; align-items: center;}
+        
+        .form-group { margin-bottom: 15px; }
+        .form-label { display: block; font-size: 14px; font-weight: 700; color: #334155; margin-bottom: 5px; }
+        .form-input { width: 100%; padding: 12px; border-radius: 10px; border: 2px solid #cbd5e1; font-family: 'Prompt', sans-serif; font-size: 14px; outline: none; }
+        .form-input:focus { border-color: #3b82f6; }
+        
+        .btn { width: 100%; padding: 12px; border-radius: 10px; font-family: 'Prompt', sans-serif; font-weight: 800; font-size: 14px; border: none; cursor: pointer; text-align: center; }
+        .btn-green { background: #10b981; color: white; }
+        .btn-blue { background: #2563eb; color: white; }
+        .btn-red { background: #ef4444; color: white; }
+        .btn-outline { background: white; border: 2px solid #cbd5e1; color: #475569; }
+
+        .zone-list { list-style: none; padding: 0; margin: 0; flex: 1; overflow-y: auto; border-top: 2px dashed #e2e8f0; padding-top: 15px; margin-top: 15px;}
+        .zone-item { background: #f8fafc; border: 1px solid #e2e8f0; padding: 12px; border-radius: 10px; margin-bottom: 10px; display: flex; justify-content: space-between; align-items: center; }
+        .zone-info { flex: 1; }
+        .zone-name { font-weight: 700; font-size: 15px; color: #0f172a; display: flex; align-items: center; gap: 8px;}
+        .zone-fee { font-size: 13px; color: #64748b; margin-top: 3px; font-weight: 600;}
+        .zone-actions button { background: none; border: none; cursor: pointer; font-size: 16px; padding: 5px; }
+
+        .color-picker { width: 100%; height: 45px; border: none; border-radius: 10px; cursor: pointer; padding: 0; }
+
+        #formBox { display: none; background: #eff6ff; padding: 15px; border-radius: 12px; border: 1px solid #bfdbfe; margin-bottom: 15px; }
+
+        @media screen and (max-width: 1024px) {
+            .app { flex-direction: column; }
+            .sidebar { position: fixed; bottom: 0; width: 100%; height: 70px; flex-direction: row; padding: 0; z-index: 9999; justify-content: space-around; background: #111827; }
+            .logo { display: none; }
+            .menu { flex-direction: row; width: 100%; justify-content: space-around; padding: 0; }
+            .menu-item { flex-direction: column; padding: 5px; font-size: 11px; gap: 4px; }
+            .menu-item span:nth-child(1) { font-size: 24px; }
+            .content-layout { flex-direction: column; padding: 15px; padding-bottom: 90px; }
+            .map-container { min-height: 50vh; }
+        }
+    </style>
+</head>
+<body>
+
+<div class="app">
+    <aside class="sidebar">
+        <div class="logo"><h2>KhaiKhao</h2><span>POS</span></div>
+        <nav class="menu">
+            <a href="{% url 'pos:home' %}" class="menu-item"><span>🏠</span><span>หน้าหลัก</span></a>
+            <a href="{% url 'heatmap:home' %}" class="menu-item"><span>🔥</span><span>แผนที่ยอดขาย</span></a>
+            <a href="{% url 'delivery_zones:home' %}" class="menu-item active"><span>📍</span><span>พื้นที่จัดส่ง</span></a>
+        </nav>
+    </aside>
+
+    <main class="main">
+        <header class="page-header">
+            <h1>📍 สโคปพื้นที่จัดส่ง (Delivery Zones)</h1>
+            <p>วาดขอบเขตพื้นที่บนแผนที่ เพื่อกำหนดค่าจัดส่งสำหรับแต่ละโซน</p>
+        </header>
+
+        <div class="content-layout">
+            <!-- แผนที่ -->
+            <div class="map-container">
+                <div id="map"></div>
+            </div>
+
+            <!-- พาเนลจัดการข้อมูล -->
+            <div class="panel">
+                <div class="section-title">
+                    <span>📋 รายการโซน</span>
+                    <button class="btn btn-blue" style="width: auto; padding: 6px 12px; font-size: 12px;" onclick="startDrawing()">➕ วาดโซนใหม่</button>
+                </div>
+
+                <div id="formBox">
+                    <div style="font-weight: 700; color: #1e40af; margin-bottom: 10px;">✏️ บันทึกโซนจัดส่ง</div>
+                    <input type="hidden" id="zoneId">
+                    <input type="hidden" id="polygonData">
+                    
+                    <div class="form-group">
+                        <label class="form-label">ชื่อพื้นที่ / โซน</label>
+                        <input type="text" id="zoneName" class="form-input" placeholder="เช่น นอกมอ, วารินชำราบ">
+                    </div>
+                    <div class="form-group">
+                        <label class="form-label">ค่าจัดส่ง (บาท)</label>
+                        <input type="number" id="zoneFee" class="form-input" value="0">
+                    </div>
+                    <div class="form-group">
+                        <label class="form-label">สีของพื้นที่</label>
+                        <input type="color" id="zoneColor" class="color-picker" value="#3b82f6">
+                    </div>
+                    <div style="display: flex; gap: 10px;">
+                        <button class="btn btn-green" onclick="saveZone()">💾 บันทึก</button>
+                        <button class="btn btn-outline" onclick="cancelForm()">ยกเลิก</button>
+                    </div>
+                </div>
+
+                <ul class="zone-list" id="zoneList">
+                    <!-- Javascript Data -->
+                </ul>
+            </div>
+        </div>
+    </main>
+</div>
+
+<script>
+    const zonesData = {{ zones_json|safe }};
+    const dormsData = {{ dorms_json|safe }};
+    let map, drawControl, drawnItems, markerGroup;
+    let currentDrawingLayer = null;
+    let mapLayers = {};
+
+    // ตั้งค่า Icon ของหมุด
+    const iconBaseUrl = 'https://raw.githubusercontent.com/pointhi/leaflet-color-markers/master/img/marker-icon-2x-';
+    const shadowUrl = 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/0.7.7/images/marker-shadow.png';
+    const iconOpts = { iconSize: [25, 41], iconAnchor: [12, 41], popupAnchor: [1, -34], shadowUrl: shadowUrl };
+
+    function getMarkerIcon(colorName) {
+        if (!colorName) colorName = 'blue';
+        const validColors = ['blue', 'green', 'gold', 'violet', 'red', 'orange', 'grey', 'black', 'pink', 'cyan'];
+        if (!validColors.includes(colorName)) colorName = 'blue';
+        return L.icon({ iconUrl: iconBaseUrl + colorName + '.png', ...iconOpts });
+    }
+
+    document.addEventListener("DOMContentLoaded", function() {
+        map = L.map('map').setView([15.1218, 104.9038], 14);
+        L.tileLayer('https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png', {
+            maxZoom: 19,
+            attribution: '&copy; OpenStreetMap'
+        }).addTo(map);
+
+        drawnItems = new L.FeatureGroup();
+        markerGroup = new L.FeatureGroup();
+        map.addLayer(drawnItems);
+        map.addLayer(markerGroup);
+
+        drawControl = new L.Control.Draw({
+            draw: {
+                polygon: { allowIntersection: false, showArea: true, shapeOptions: { color: '#3b82f6' } },
+                polyline: false, rectangle: false, circle: false, marker: false, circlemarker: false
+            },
+            edit: { featureGroup: drawnItems, remove: false, edit: false } 
+        });
+        map.addControl(drawControl);
+
+        map.on(L.Draw.Event.CREATED, function (event) {
+            if (currentDrawingLayer) drawnItems.removeLayer(currentDrawingLayer);
+            let layer = event.layer;
+            drawnItems.addLayer(layer);
+            currentDrawingLayer = layer;
+            
+            document.getElementById('formBox').style.display = 'block';
+            document.getElementById('zoneId').value = '';
+            document.getElementById('polygonData').value = JSON.stringify(layer.toGeoJSON());
+        });
+
+        renderDorms();
+        renderZones();
+    });
+
+    function renderDorms() {
+        markerGroup.clearLayers();
+        dormsData.forEach(d => {
+            if(d.lat && d.lng) {
+                let marker = L.marker([d.lat, d.lng], {icon: getMarkerIcon(d.color)});
+                marker.bindPopup(`<b style="font-family:'Prompt'; font-size: 14px;">🏢 ${d.name}</b><br><span style="color:#64748b; font-size:12px;">โซน: ${d.zone || '-'}</span>`);
+                markerGroup.addLayer(marker);
+            }
+        });
+    }
+
+    function startDrawing() {
+        document.querySelector('.leaflet-draw-draw-polygon').click();
+    }
+
+    function renderZones() {
+        drawnItems.clearLayers();
+        mapLayers = {};
+        const list = document.getElementById('zoneList');
+        list.innerHTML = '';
+
+        if (zonesData.length === 0) {
+            list.innerHTML = '<li style="text-align:center; color:#94a3b8; padding: 20px;">ยังไม่มีข้อมูลโซน</li>';
+        }
+
+        zonesData.forEach(z => {
+            let geojsonFeature = z.polygon_data;
+            if(typeof geojsonFeature === 'string') geojsonFeature = JSON.parse(geojsonFeature);
+            
+            let layer = L.geoJSON(geojsonFeature, {
+                style: { color: z.color, fillColor: z.color, weight: 3, fillOpacity: 0.15 }
+            });
+            layer.bindPopup(`<b style="font-family:'Prompt';">${z.name}</b><br>ค่าจัดส่ง: ${z.fee} บาท`);
+            drawnItems.addLayer(layer);
+            mapLayers[z.id] = layer;
+
+            list.innerHTML += `
+                <li class="zone-item">
+                    <div class="zone-info" onclick="focusZone(${z.id})" style="cursor:pointer;">
+                        <div class="zone-name">
+                            <span style="display:inline-block; width:12px; height:12px; border-radius:50%; background:${z.color};"></span>
+                            ${z.name}
+                        </div>
+                        <div class="zone-fee">🚚 ค่าจัดส่ง: ฿${z.fee}</div>
+                    </div>
+                    <div class="zone-actions">
+                        <button onclick="deleteZone(${z.id})" title="ลบโซน">🗑️</button>
+                    </div>
+                </li>
+            `;
+        });
+    }
+
+    function focusZone(id) {
+        if(mapLayers[id]) {
+            map.fitBounds(mapLayers[id].getBounds());
+            mapLayers[id].openPopup();
+        }
+    }
+
+    function cancelForm() {
+        document.getElementById('formBox').style.display = 'none';
+        document.getElementById('zoneName').value = '';
+        document.getElementById('zoneFee').value = '0';
+        if (currentDrawingLayer) drawnItems.removeLayer(currentDrawingLayer);
+        currentDrawingLayer = null;
+        renderZones();
+    }
+
+    async function saveZone() {
+        const id = document.getElementById('zoneId').value;
+        const name = document.getElementById('zoneName').value.trim();
+        const fee = document.getElementById('zoneFee').value;
+        const color = document.getElementById('zoneColor').value;
+        const polygon_data = document.getElementById('polygonData').value;
+
+        if (!name || !polygon_data) return alert('กรุณากรอกชื่อและวาดโซนบนแผนที่');
+
+        try {
+            let res = await fetch('/delivery-zones/api/save/', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ id, name, fee, color, polygon_data: JSON.parse(polygon_data) })
+            });
+            let data = await res.json();
+            if (data.status === 'success') {
+                if(!id) {
+                    zonesData.push({ id: data.id, name, fee, color, polygon_data: JSON.parse(polygon_data) });
+                }
+                cancelForm();
+                renderZones();
+            } else {
+                alert('Error: ' + data.message);
+            }
+        } catch(e) {
+            alert('เกิดข้อผิดพลาดในการเชื่อมต่อ');
+        }
+    }
+
+    async function deleteZone(id) {
+        if(!confirm('ยืนยันการลบโซนจัดส่งนี้?')) return;
+        try {
+            let res = await fetch(`/delivery-zones/api/delete/${id}/`, { method: 'POST' });
+            let data = await res.json();
+            if(data.status === 'success') {
+                const index = zonesData.findIndex(z => z.id === id);
+                if(index > -1) zonesData.splice(index, 1);
+                renderZones();
+            }
+        } catch(e) {
+            alert('ลบไม่สำเร็จ');
+        }
+    }
+</script>
+</body>
+</html>

@@ -632,7 +632,8 @@
     }
 
     function downloadSlipImage(receiptNo, dateStr, total, qrDataUrl, shopName, itemsScriptId, dormName) {
-        const items = JSON.parse(document.getElementById(itemsScriptId).textContent);
+        let items = JSON.parse(document.getElementById(itemsScriptId).textContent);
+        items = items.filter(i => i.name !== 'ค่าจัดส่ง' && !(i.category && i.category.includes('ค่าจัดส่ง')));
 
         let fullShopName = shopName;
         if (shopName === 'P184') fullShopName = "🔥 ร้านทอดเป่า P184 🔥";
@@ -651,39 +652,133 @@
         slipContainer.style.borderRadius = '12px';
 
         const excludeKeywords = ["topping", "ท็อปปิ้ง", "กับข้าว", "พิเศษ", "เครื่องดื่ม", "เพิ่มเติม"];
-        let mainIndex = 1;
-
-        let dormText = (dormName && dormName.trim() !== "") ? dormName : "อยู่ระหว่างรวบรวมข้อมูลหอพัก";
-        let dormHtml = `<div style="display: flex; justify-content: space-between; margin-top: 4px;"><span>จัดส่ง:</span> <span style="font-weight: 500; text-align: right; max-width: 70%;">${dormText}</span></div>`;
         
-        let itemsHtml = items.map(item => {
-            const catName = (item.category || "").toLowerCase();
-            const prodName = item.name.toLowerCase();
-            let isSubItem = excludeKeywords.some(kw => prodName.includes(kw) || catName.includes(kw));
+        let itemsTotal = items.reduce((sum, item) => sum + (item.price * item.qty), 0);
+        let slipFee = total - itemsTotal;
+        let dormText = (dormName && dormName.trim() !== "") ? dormName : "อยู่ระหว่างรวบรวมข้อมูลหอพัก";
 
-            if (prodName.includes("กับข้าว") || catName.includes("กับข้าว") || prodName.includes("น้ำเปล่า") || prodName.includes("ข้าวเปล่า") || prodName.includes("ข้าวปล่าว")) {
-                isSubItem = false;
+        if (fullShopName.includes("P184") || shopName === "P184") {
+            slipContainer.style.background = 'linear-gradient(135deg, #fef9f2 0%, #fef3e5 100%)';
+            slipContainer.style.color = '#3f2b1c';
+
+            let p184_dormHtml = `<div style="display: flex; justify-content: space-between; margin-top: 6px;"><span>🚚 จัดส่ง:</span> <span style="font-weight: 500; text-align: right; max-width: 70%;">${dormText}</span></div>`;
+            if (slipFee > 0) {
+                p184_dormHtml += `<div style="display: flex; justify-content: space-between; margin-top: 6px; color: #b45309; font-weight: 700;"><span>📍 ค่าจัดส่ง:</span> <span>฿${slipFee.toFixed(2)}</span></div>`;
+            } else if (dormName && dormName.trim() !== "") {
+                p184_dormHtml += `<div style="display: flex; justify-content: space-between; margin-top: 6px;"><span>📍 ค่าจัดส่ง:</span> <span style="font-weight: 700; color: #16a34a;">ส่งฟรี</span></div>`;
             }
 
-            if (isSubItem) {
-                return `
-                    <div style="display: flex; justify-content: space-between; margin-bottom: 6px; font-size: 14px; padding-left: 20px; color: #6b7280;">
-                        <span style="flex: 1; padding-right: 10px;"><span style="color:#d97706; margin-right:5px;">↳</span> ${item.name} <span style="font-size: 12px;">(x${item.qty})</span></span>
-                        <span style="white-space: nowrap;">฿${(item.price * item.qty).toFixed(2)}</span>
-                    </div>
-                `;
-            } else {
-                let currentIdx = mainIndex++;
-                return `
-                    <div style="display: flex; justify-content: space-between; margin-bottom: 8px; font-size: 15px; color: #1f2937;">
-                        <span style="flex: 1; padding-right: 10px; font-weight: 500;">${currentIdx}. ${item.name} <span style="color: #6b7280; font-weight: normal; font-size: 13px;">(x${item.qty})</span></span>
-                        <span style="font-weight: bold; white-space: nowrap;">฿${(item.price * item.qty).toFixed(2)}</span>
-                    </div>
-                `;
-            }
-        }).join('');
+            let p184_itemsIndex = 1;
+            let p184_itemsHtml = items.map(item => {
+                const catName = (item.category || "").toLowerCase();
+                const prodName = item.name.toLowerCase();
+                let isSubItem = excludeKeywords.some(kw => prodName.includes(kw) || catName.includes(kw));
+                if (prodName.includes("กับข้าว") || catName.includes("กับข้าว") || prodName.includes("น้ำเปล่า") || prodName.includes("ข้าวเปล่า") || prodName.includes("ข้าวปล่าว")) {
+                    isSubItem = false;
+                }
 
-        if (fullShopName.includes("M053") || fullShopName.includes("เรื่องของหมู")) {
+                if (isSubItem) {
+                    return `
+                        <div style="display: flex; justify-content: space-between; margin-bottom: 6px; font-size: 14px; padding-left: 25px; color: #6b4c3a;">
+                            <span style="flex: 1; padding-right: 10px;"><span style="color:#d4a373; margin-right:5px;">↳</span> ${item.name} <span style="font-size: 12px;">(x${item.qty})</span></span>
+                            <span style="white-space: nowrap;">฿${(item.price * item.qty).toFixed(2)}</span>
+                        </div>
+                    `;
+                } else {
+                    let currentIdx = p184_itemsIndex++;
+                    return `
+                        <div style="display: flex; justify-content: space-between; margin-bottom: 8px; font-size: 15px; color: #3f2b1c;">
+                            <span style="flex: 1; padding-right: 10px; font-weight: 500;">🍛 ${currentIdx}. ${item.name} <span style="color: #8c6b5d; font-weight: normal; font-size: 13px;">(x${item.qty})</span></span>
+                            <span style="font-weight: bold; white-space: nowrap;">฿${(item.price * item.qty).toFixed(2)}</span>
+                        </div>
+                    `;
+                }
+            }).join('');
+
+            slipContainer.innerHTML = `
+                <div style="text-align: center; margin-bottom: 10px;">
+                    <div style="font-size: 26px; margin-bottom: 5px; color: #1e293b; display: flex; align-items: center; justify-content: center; gap: 10px;">
+                        <span style="display: inline-block; transform: scaleX(-1);"><svg width="40" height="40" viewBox="0 0 100 100" style="filter: drop-shadow(0 2px 2px rgba(0,0,0,0.1));"><path d="M 40 5 Q 10 30 20 60 Q 40 35 45 70 Q 70 50 80 60 Q 80 30 40 5 Z" fill="#ea580c"/><path d="M 40 20 Q 25 40 30 55 Q 40 40 45 60 Q 60 45 65 55 Q 65 35 40 20 Z" fill="#f59e0b"/><line x1="45" y1="75" x2="90" y2="25" stroke="#1f2937" stroke-width="7" stroke-linecap="round"/><circle cx="90" cy="25" r="3" fill="#1f2937"/><ellipse cx="40" cy="75" rx="32" ry="16" fill="#111827"/><ellipse cx="40" cy="72" rx="30" ry="14" fill="#374151"/><path d="M 22 72 Q 35 62 55 72 Q 40 82 22 72 Z" fill="#b45309"/><path d="M 28 71 Q 40 65 48 71" stroke="#f59e0b" stroke-width="2" fill="none" stroke-linecap="round"/></svg></span>
+                        POS By Danai
+                        <span><svg width="40" height="40" viewBox="0 0 100 100" style="filter: drop-shadow(0 2px 2px rgba(0,0,0,0.1));"><path d="M 40 5 Q 10 30 20 60 Q 40 35 45 70 Q 70 50 80 60 Q 80 30 40 5 Z" fill="#ea580c"/><path d="M 40 20 Q 25 40 30 55 Q 40 40 45 60 Q 60 45 65 55 Q 65 35 40 20 Z" fill="#f59e0b"/><line x1="45" y1="75" x2="90" y2="25" stroke="#1f2937" stroke-width="7" stroke-linecap="round"/><circle cx="90" cy="25" r="3" fill="#1f2937"/><ellipse cx="40" cy="75" rx="32" ry="16" fill="#111827"/><ellipse cx="40" cy="72" rx="30" ry="14" fill="#374151"/><path d="M 22 72 Q 35 62 55 72 Q 40 82 22 72 Z" fill="#b45309"/><path d="M 28 71 Q 40 65 48 71" stroke="#f59e0b" stroke-width="2" fill="none" stroke-linecap="round"/></svg></span>
+                    </div>
+                    <h2 style="margin: 0 0 5px 0; font-size: 22px; color: #b43a1f;">${fullShopName}</h2>
+                    <p style="margin: 0; font-size: 13px; color: #6b4c3a;">ใบรายละเอียดออเดอร์ / Order Details</p>
+                </div>
+                
+                <div style="display: flex; align-items: center; justify-content: center; margin: 15px 0;">
+                    <div style="flex: 1; border-bottom: 2px dotted #d4a373;"></div>
+                    <div style="margin: 0 10px; color: #d4a373; font-size: 10px;">◆</div>
+                    <div style="flex: 1; border-bottom: 2px dotted #d4a373;"></div>
+                </div>
+
+                <div style="margin-bottom: 20px; font-size: 14px; color: #3f2b1c; line-height: 1.8;">
+                    <div style="display: flex; justify-content: space-between;"><span>📄 เลขที่บิล:</span> <span style="font-weight: 500;">${receiptNo}</span></div>
+                    <div style="display: flex; justify-content: space-between;"><span>📅 วันที่:</span> <span>${dateStr}</span></div>
+                    ${p184_dormHtml}
+                </div>
+
+                <div style="border-bottom: 2px dotted #d4a373; border-top: 2px dotted #d4a373; padding: 15px 0; margin-bottom: 20px;">
+                    ${p184_itemsHtml}
+                </div>
+
+                <div style="border-radius: 12px; box-shadow: 0 4px 10px rgba(0,0,0,0.08); background: #fff; overflow: hidden; margin-bottom: 15px; border: 1px solid #fde68a;">
+                    <div style="background: linear-gradient(90deg, #c2410c 0%, #d97706 100%); padding: 12px 20px; color: white; display: flex; justify-content: space-between; align-items: center; font-size: 20px; font-weight: bold;">
+                        <span>ยอดรวมสุทธิ:</span>
+                        <span>฿${total.toFixed(2)}</span>
+                    </div>
+                    <div style="background: #fff; padding: 25px 20px 15px 20px; text-align: center; position: relative;">
+                        ${qrDataUrl ? `
+                        <div style="position: absolute; top: -14px; left: 0; right: 0; margin: 0 auto; width: 110px; background: #b45309; color: white; padding: 4px 0; border-radius: 20px; font-size: 12px; font-weight: bold; border: 2px solid white; display: flex; align-items: center; justify-content: center; gap: 4px;">
+                            <span>📱</span> Scan to Pay
+                        </div>
+                        <img src="${qrDataUrl}" style="width: 150px; height: 150px; margin-bottom: 12px;">` : ''}
+                        <p style="margin: 0; font-size: 13px; color: #43302b; font-weight: bold; line-height: 1.6;">
+                            ⚠️ กรุณาตรวจสอบความถูกต้องของยอดเงิน<br>
+                            ↘❗ ก่อนกดยืนยันทุกครั้ง<br>
+                            📢 หากพบว่ายอดเงินไม่ถูกต้อง<br>
+                            ↘❗ กรุณาแจ้งทางร้านทันที<br>
+                            🙇🏻‍♀️ ขอบคุณที่มาอุดหนุนนะค๊าบ 🙇
+                        </p>
+                    </div>
+                </div>
+            `;
+        } else if (fullShopName.includes("M053") || fullShopName.includes("เรื่องของหมู")) {
+            let dormHtml = `<div style="display: flex; justify-content: space-between; margin-top: 4px;"><span>จัดส่ง:</span> <span style="font-weight: 500; text-align: right; max-width: 70%;">${dormText}</span></div>`;
+            if (slipFee > 0) {
+                dormHtml += `<div style="display: flex; justify-content: space-between; margin-top: 4px; color: #000; font-weight: 700;"><span>ค่าจัดส่ง:</span> <span>฿${slipFee.toFixed(2)}</span></div>`;
+            } else if (dormName && dormName.trim() !== "") {
+                dormHtml += `<div style="display: flex; justify-content: space-between; margin-top: 4px;"><span>ค่าจัดส่ง:</span> <span style="font-weight: 500; color: #16a34a;">ส่งฟรี</span></div>`;
+            }
+            
+            let mainIndex = 1;
+            let itemsHtml = items.map(item => {
+                const catName = (item.category || "").toLowerCase();
+                const prodName = item.name.toLowerCase();
+                let isSubItem = excludeKeywords.some(kw => prodName.includes(kw) || catName.includes(kw));
+
+                if (prodName.includes("กับข้าว") || catName.includes("กับข้าว") || prodName.includes("น้ำเปล่า") || prodName.includes("ข้าวเปล่า") || prodName.includes("ข้าวปล่าว")) {
+                    isSubItem = false;
+                }
+
+                if (isSubItem) {
+                    return `
+                        <div style="display: flex; justify-content: space-between; margin-bottom: 6px; font-size: 14px; padding-left: 20px; color: #6b7280;">
+                            <span style="flex: 1; padding-right: 10px;"><span style="color:#d97706; margin-right:5px;">↳</span> ${item.name} <span style="font-size: 12px;">(x${item.qty})</span></span>
+                            <span style="white-space: nowrap;">฿${(item.price * item.qty).toFixed(2)}</span>
+                        </div>
+                    `;
+                } else {
+                    let currentIdx = mainIndex++;
+                    return `
+                        <div style="display: flex; justify-content: space-between; margin-bottom: 8px; font-size: 15px; color: #1f2937;">
+                            <span style="flex: 1; padding-right: 10px; font-weight: 500;">${currentIdx}. ${item.name} <span style="color: #6b7280; font-weight: normal; font-size: 13px;">(x${item.qty})</span></span>
+                            <span style="font-weight: bold; white-space: nowrap;">฿${(item.price * item.qty).toFixed(2)}</span>
+                        </div>
+                    `;
+                }
+            }).join('');
+            
             slipContainer.innerHTML = `
                 <div style="text-align: center; border-bottom: 2px dashed #fbcfe8; padding-bottom: 15px; margin-bottom: 15px;">
                     <h2 style="margin: 0 0 5px 0; font-size: 24px; color: #be185d;">${fullShopName}</h2>
@@ -712,6 +807,41 @@
                 </div>
             `;
         } else {
+            let dormHtml = `<div style="display: flex; justify-content: space-between; margin-top: 4px;"><span>จัดส่ง:</span> <span style="font-weight: 500; text-align: right; max-width: 70%;">${dormText}</span></div>`;
+            if (slipFee > 0) {
+                dormHtml += `<div style="display: flex; justify-content: space-between; margin-top: 4px; color: #000; font-weight: 700;"><span>ค่าจัดส่ง:</span> <span>฿${slipFee.toFixed(2)}</span></div>`;
+            } else if (dormName && dormName.trim() !== "") {
+                dormHtml += `<div style="display: flex; justify-content: space-between; margin-top: 4px;"><span>ค่าจัดส่ง:</span> <span style="font-weight: 500; color: #16a34a;">ส่งฟรี</span></div>`;
+            }
+            
+            let mainIndex = 1;
+            let itemsHtml = items.map(item => {
+                const catName = (item.category || "").toLowerCase();
+                const prodName = item.name.toLowerCase();
+                let isSubItem = excludeKeywords.some(kw => prodName.includes(kw) || catName.includes(kw));
+
+                if (prodName.includes("กับข้าว") || catName.includes("กับข้าว") || prodName.includes("น้ำเปล่า") || prodName.includes("ข้าวเปล่า") || prodName.includes("ข้าวปล่าว")) {
+                    isSubItem = false;
+                }
+
+                if (isSubItem) {
+                    return `
+                        <div style="display: flex; justify-content: space-between; margin-bottom: 6px; font-size: 14px; padding-left: 20px; color: #6b7280;">
+                            <span style="flex: 1; padding-right: 10px;"><span style="color:#d97706; margin-right:5px;">↳</span> ${item.name} <span style="font-size: 12px;">(x${item.qty})</span></span>
+                            <span style="white-space: nowrap;">฿${(item.price * item.qty).toFixed(2)}</span>
+                        </div>
+                    `;
+                } else {
+                    let currentIdx = mainIndex++;
+                    return `
+                        <div style="display: flex; justify-content: space-between; margin-bottom: 8px; font-size: 15px; color: #1f2937;">
+                            <span style="flex: 1; padding-right: 10px; font-weight: 500;">${currentIdx}. ${item.name} <span style="color: #6b7280; font-weight: normal; font-size: 13px;">(x${item.qty})</span></span>
+                            <span style="font-weight: bold; white-space: nowrap;">฿${(item.price * item.qty).toFixed(2)}</span>
+                        </div>
+                    `;
+                }
+            }).join('');
+            
             slipContainer.innerHTML = `
                 <div style="text-align: center; border-bottom: 1px dashed #d1d5db; padding-bottom: 15px; margin-bottom: 15px;">
                     <div style="font-size: 30px; margin-bottom: 5px;">POS By Danai</div>
@@ -731,13 +861,10 @@
                     <span>฿${total.toFixed(2)}</span>
                 </div>
                 <div style="text-align: center; background: #f9fafb; padding: 15px; border-radius: 8px; border: 1px solid #f3f4f6;">
-                    ${qrDataUrl ? `<img src="${qrDataUrl}" style="width: 140px; height: 140px; margin-bottom: 12px; mix-blend-mode: multiply;">` : ''}
-                    <p style="margin: 0; font-size: 13px; color: #4b5563; font-weight: bold; line-height: 1.5;">
-                       ⚠️ กรุณาตรวจสอบความถูกต้องของยอดเงิน<br>
-                        ↘❗ ก่อนกดยืนยันทุกครั้ง<br>
-                        📢 หากพบว่ายอดเงินไม่ถูกต้อง<br>
-                        ↘❗ กรุณาแจ้งทางร้านทันที<br>
-                        🙇🏻‍♀️ ขอบคุณที่มาอุดหนุนนะค้าบ 🙇
+                    ${qrDataUrl ? `<img src="${qrDataUrl}" style="width: 140px; height: 140px; margin-bottom: 12px; mix-blend-mode: multiply; border-radius: 8px;">` : ''}
+                    <p style="margin: 0; font-size: 13px; color: #6b7280; font-weight: bold; line-height: 1.5;">
+                        ⚠️ กรุณาตรวจสอบความถูกต้องของยอดเงิน<br>ก่อนกดยืนยันทุกครั้ง<br>
+                        ขอบคุณที่ใช้บริการ 🙏
                     </p>
                 </div>
             `;
@@ -745,12 +872,21 @@
 
         document.body.appendChild(slipContainer);
 
-        html2canvas(slipContainer, { scale: 2, backgroundColor: '#ffffff' }).then(canvas => {
-            let link = document.createElement('a');
-            link.download = `Slip_${receiptNo}.png`;
+        html2canvas(slipContainer, {
+            scale: 2, 
+            backgroundColor: null,
+            logging: false,
+            useCORS: true
+        }).then(canvas => {
+            const link = document.createElement('a');
+            link.download = `slip-${receiptNo}.png`;
             link.href = canvas.toDataURL('image/png');
             link.click();
             document.body.removeChild(slipContainer);
+        }).catch(err => {
+            console.error("Error generating slip image:", err);
+            document.body.removeChild(slipContainer);
+            alert("ไม่สามารถสร้างรูปภาพบิลได้ กรุณาลองใหม่");
         });
     }
 </script>
