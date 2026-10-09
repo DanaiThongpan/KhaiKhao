@@ -10,26 +10,38 @@ For the full list of settings and their values, see
 https://docs.djangoproject.com/en/4.2/ref/settings/
 """
 
+import os
 from pathlib import Path
 
 # Build paths inside the project like this: BASE_DIR / 'subdir'.
 BASE_DIR = Path(__file__).resolve().parent.parent
 
-
 # Quick-start development settings - unsuitable for production
 # See https://docs.djangoproject.com/en/4.2/howto/deployment/checklist/
 
 # SECURITY WARNING: keep the secret key used in production secret!
-SECRET_KEY = 'django-insecure-*7v=$4j2smtjtsm&g&l2xx-hzh2yjemi5b%00cpkk3sz#t!f6c'
+# ดึงค่า SECRET_KEY จาก Environment Variables (ถ้าไม่มีจะใช้ค่าเริ่มต้นสำหรับทดสอบ)
+SECRET_KEY = os.environ.get('DJANGO_SECRET_KEY', 'django-insecure-*7v=$4j2smtjtsm&g&l2xx-hzh2yjemi5b%00cpkk3sz#t!f6c')
 
 # SECURITY WARNING: don't run with debug turned on in production!
-DEBUG = True
+# แนะนำให้ตั้งเป็น False เมื่ออัพขึ้น PythonAnywhere (ผ่าน Environment Variables)
+DEBUG = os.environ.get('DJANGO_DEBUG', 'True') == 'True'
 
 # เพิ่มโดเมนของ PythonAnywhere และค่าพื้นฐานสำหรับรันในเครื่อง
 ALLOWED_HOSTS = ['danaith64.pythonanywhere.com', '127.0.0.1', 'localhost']
 # ALLOWED_HOSTS = ['f763-49-229-22-76.ngrok-free.app', '127.0.0.1', 'localhost']
 
+# ==========================================
+# ตั้งค่าความปลอดภัยสำหรับ PythonAnywhere (บังคับ HTTPS และแก้ปัญหาฟอร์ม)
+# ==========================================
 SECURE_PROXY_SSL_HEADER = ('HTTP_X_FORWARDED_PROTO', 'https')
+CSRF_TRUSTED_ORIGINS = ['https://danaith64.pythonanywhere.com']
+
+if not DEBUG:
+    # บังคับให้เปลี่ยน HTTP เป็น HTTPS เสมอเมื่อรันบน Production (แก้ปัญหาแผนที่มือถือไม่แสดงพิกัด)
+    SECURE_SSL_REDIRECT = True
+    SESSION_COOKIE_SECURE = True
+    CSRF_COOKIE_SECURE = True
 
 # Application definition
 
@@ -123,25 +135,32 @@ AUTH_PASSWORD_VALIDATORS = [
 
 LANGUAGE_CODE = 'en-us'
 
-# ตั้งค่าโซนเวลาเป็นเวลาประเทศไทย (Asia/Bangkok)
-TIME_ZONE = 'UTC'
+# ตั้งเวลาเป็น UTC -7 (เช่น อเมริกา/เดนเวอร์)
+TIME_ZONE = 'America/Denver'
 
 USE_I18N = True
+USE_TZ = True
 
-USE_TZ = False
 
+# ==========================================
+# ตั้งค่า Static Files & Media สำหรับ PythonAnywhere
+# ==========================================
 
-# Static files (CSS, JavaScript, Images)
-# https://docs.djangoproject.com/en/4.2/howto/static-files/
-
-STATIC_URL = 'static/'
+# Static files (CSS, JavaScript, Images ที่มากับธีมเว็บ)
+STATIC_URL = '/static/'
 
 STATICFILES_DIRS = [
     BASE_DIR / "static",
 ]
 
-# เส้นทางจัดเก็บไฟล์ Static สำหรับขึ้นเซิร์ฟเวอร์ (PythonAnywhere)
+# เป้าหมายของคำสั่ง collectstatic เพื่อให้ PythonAnywhere ดึงไปแสดงผล
 STATIC_ROOT = BASE_DIR / 'staticfiles'
+
+# Media files (รูปภาพที่ผู้ใช้อัปโหลด เช่น รูปสินค้า สลิปโอนเงิน)
+MEDIA_URL = '/media/'
+MEDIA_ROOT = os.path.join(BASE_DIR, 'media')
+
+# ==========================================
 
 # Default primary key field type
 # https://docs.djangoproject.com/en/4.2/ref/settings/#default-auto-field
@@ -150,6 +169,3 @@ DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
 
 AUTH_USER_MODEL = 'Accounts.User'
 DATA_UPLOAD_MAX_NUMBER_FIELDS = 5000
-MEDIA_URL = '/media/'
-import os
-MEDIA_ROOT = os.path.join(BASE_DIR, 'media')
