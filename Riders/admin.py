@@ -5,9 +5,9 @@ from .models import DeliveryTask, Dormitory, RiderProfile
 
 @admin.register(Dormitory)
 class DormitoryAdmin(admin.ModelAdmin):
-    # เพิ่ม zone และ color ในหน้าแอดมินด้วย
-    list_display = ("name", "zone", "color", "latitude", "longitude", "created_at")
-    list_filter = ("zone", "color")
+    # เพิ่ม zone, color และ created_by ในหน้าแอดมิน
+    list_display = ("name", "zone", "color", "created_by", "latitude", "longitude", "created_at")
+    list_filter = ("zone", "color", "created_by")
     search_fields = ("name", "zone")
 
 

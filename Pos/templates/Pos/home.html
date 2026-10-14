@@ -141,6 +141,8 @@
             <a href="{% url 'reports:home' %}" class="menu-item"><span>📊</span><span>รายงาน</span></a>
             <a href="{% url 'tax:home' %}" class="menu-item"><span>📑</span><span>คำนวณภาษี</span></a>
             <a href="{% url 'riders:home' %}" class="menu-item"><span>🛵</span><span>ติดตามไรเดอร์</span></a>
+            <a href="{% url 'heatmap:home' %}" class="menu-item"><span>🔥</span><span>แผนที่ยอดขาย</span></a>
+            <a href="{% url 'delivery_zones:home' %}" class="menu-item"><span>📍</span><span>พื้นที่จัดส่ง</span></a>
             <a href="{% url 'shop_history:home' %}" class="menu-item"><span>🏪</span><span>ประวัติเปิด-ปิดร้าน</span></a>
             
             {% if request.user.is_superuser or request.user.role == 'admin' %}
@@ -404,18 +406,35 @@
                 
                 <div id="zoneFilters" style="display: flex; gap: 6px; flex-wrap: wrap; margin-bottom: 10px;">
                     <span class="zone-badge active" onclick="setZoneFilter('')">ทั้งหมด</span>
-                    <span class="zone-badge" onclick="setZoneFilter('หน้ามอ')">หน้ามอ</span>
-                    <span class="zone-badge" onclick="setZoneFilter('อนามัย 10')">อ.10</span>
-                    <span class="zone-badge" onclick="setZoneFilter('ประตู 3')">ประตู 3</span>
-                    <span class="zone-badge" onclick="setZoneFilter('หวานเย็น')">หวานเย็น</span>
+                    {% for z in shop_zones %}
+                        <span class="zone-badge" onclick="setZoneFilter('{{ z }}')">{{ z }}</span>
+                    {% endfor %}
                 </div>
 
-                <select id="checkoutDormSelect" style="width: 100%; padding: 10px; border-radius: 8px; border: 1px solid #93c5fd; font-size: 14px; outline: none; background: white;">
-                    <option value="" data-zone="">-- อยู่ระหว่างรวบรวมข้อมูลหอพัก --</option>
+                <select id="checkoutDormSelect" style="width: 100%; padding: 10px; border-radius: 8px; border: 1px solid #93c5fd; font-size: 14px; outline: none; background: white;" onchange="updateDeliveryFeeFromDorm()">
+                    <option value="" data-zone="">-- เลือกหอพักปลายทาง (หรือพิมพ์ค้นหาด้านบน) --</option>
                     {% for d in dorms %}
                         <option value="{{ d.id }}" data-zone="{{ d.zone }}">[{{ d.zone }}] {{ d.name }}</option>
                     {% endfor %}
                 </select>
+
+                <!-- 🌟 ช่องค่าจัดส่ง และปุ่ม Checkbox/Toggle "ส่งฟรี" 🌟 -->
+                <div style="display: flex; justify-content: space-between; align-items: center; margin-top: 12px; background: white; padding: 10px 14px; border-radius: 8px; border: 1px solid #bfdbfe;">
+                    <div style="display: flex; align-items: center; gap: 8px;">
+                        <span style="font-size: 13px; font-weight: bold; color: #1e40af;">🚚 ค่าจัดส่ง:</span>
+                        <div style="position: relative; display: inline-flex; align-items: center;">
+                            <span style="position: absolute; left: 8px; color: #64748b; font-size: 13px; font-weight: bold;">฿</span>
+                            <input type="number" id="deliveryFeeInput" value="0" min="0" step="1" 
+                                   style="width: 85px; padding: 6px 8px 6px 22px; border: 1px solid #93c5fd; border-radius: 6px; font-size: 14px; font-weight: bold; outline: none; color: #1e40af;"
+                                   oninput="onDeliveryFeeInputChanged()">
+                        </div>
+                    </div>
+
+                    <label style="display: flex; align-items: center; gap: 6px; font-size: 13px; font-weight: bold; color: #16a34a; cursor: pointer; user-select: none; background: #f0fdf4; padding: 6px 12px; border-radius: 6px; border: 1px solid #bbf7d0; transition: 0.2s;" title="ส่งฟรีเนื่องจากจัดส่งล่าช้า">
+                        <input type="checkbox" id="freeDeliveryToggle" onchange="toggleFreeDelivery(this)" style="accent-color: #16a34a; transform: scale(1.2); cursor: pointer;">
+                        <span>🎁 ส่งฟรี (จัดส่งล่าช้า)</span>
+                    </label>
+                </div>
             </div>
 
             <div style="background: #f8fafc; border: 1px solid #e2e8f0; padding: 15px; border-radius: 8px; margin: 15px 0; text-align: left;">
@@ -687,6 +706,94 @@
         if (statusEl) statusEl.innerText = `*สำหรับ A4 บิลถัดไปจะพิมพ์ที่ช่อง: ${slot + 1} / 6`;
     }
 
+    let originalDeliveryFee = 0;
+
+    function updateDeliveryFeeFromDorm() {
+        const dormSelect = document.getElementById('checkoutDormSelect');
+        const feeInput = document.getElementById('deliveryFeeInput');
+        const freeToggle = document.getElementById('freeDeliveryToggle');
+
+        let fee = 0;
+        if (dormSelect && dormSelect.value && dormFees[dormSelect.value]) {
+            fee = parseFloat(dormFees[dormSelect.value]) || 0;
+        }
+        originalDeliveryFee = fee;
+
+        if (freeToggle && freeToggle.checked) {
+            if (feeInput) {
+                feeInput.value = 0;
+                feeInput.disabled = true;
+            }
+        } else {
+            if (feeInput) {
+                feeInput.value = fee;
+                feeInput.disabled = false;
+            }
+        }
+        recalculateCheckoutTotal();
+    }
+
+    function toggleFreeDelivery(checkbox) {
+        const feeInput = document.getElementById('deliveryFeeInput');
+        const dormSelect = document.getElementById('checkoutDormSelect');
+        if (!feeInput) return;
+
+        if (checkbox.checked) {
+            let currentVal = parseFloat(feeInput.value) || 0;
+            if (currentVal > 0) {
+                originalDeliveryFee = currentVal;
+            } else if (dormSelect && dormSelect.value && dormFees[dormSelect.value]) {
+                originalDeliveryFee = parseFloat(dormFees[dormSelect.value]) || 0;
+            }
+            feeInput.value = 0;
+            feeInput.disabled = true;
+        } else {
+            feeInput.disabled = false;
+            if (originalDeliveryFee > 0) {
+                feeInput.value = originalDeliveryFee;
+            } else if (dormSelect && dormSelect.value && dormFees[dormSelect.value]) {
+                feeInput.value = parseFloat(dormFees[dormSelect.value]) || 0;
+            } else {
+                feeInput.value = 0;
+            }
+        }
+        recalculateCheckoutTotal();
+    }
+
+    function onDeliveryFeeInputChanged() {
+        const feeInput = document.getElementById('deliveryFeeInput');
+        if (feeInput) {
+            originalDeliveryFee = parseFloat(feeInput.value) || 0;
+            recalculateCheckoutTotal();
+        }
+    }
+
+    function recalculateCheckoutTotal() {
+        const feeInput = document.getElementById('deliveryFeeInput');
+        const freeToggle = document.getElementById('freeDeliveryToggle');
+        let fee = 0;
+        if (freeToggle && freeToggle.checked) {
+            fee = 0;
+        } else if (feeInput) {
+            fee = parseFloat(feeInput.value) || 0;
+        }
+
+        let itemsTotal = cart.reduce((sum, item) => sum + (item.price * item.qty), 0);
+        let totalPrice = itemsTotal + fee;
+
+        const qrTotalEl = document.getElementById('qrTotalText');
+        if (qrTotalEl) {
+            qrTotalEl.innerText = '฿' + totalPrice.toLocaleString(undefined, {minimumFractionDigits: 2});
+        }
+
+        let qrContainer = document.getElementById('qrcode');
+        if (qrContainer && PROMPTPAY_ID && PROMPTPAY_ID.trim() !== '') {
+            qrContainer.innerHTML = '';
+            let payload = generatePromptPayPayload(PROMPTPAY_ID, totalPrice);
+            new QRCode(qrContainer, { text: payload, width: 200, height: 200 });
+        }
+    }
+
     function openQrModal() {
         if (cart.length === 0) return;
 
@@ -695,17 +802,7 @@
             return;
         }
 
-        let deliveryFee = 0;
-        const dormSelect = document.getElementById('checkoutDormSelect');
-        if (dormSelect && dormSelect.value) {
-            const selectedDormId = dormSelect.value;
-            if (dormFees[selectedDormId]) {
-                deliveryFee = parseFloat(dormFees[selectedDormId]);
-            }
-        }
-        let totalPrice = cart.reduce((sum, item) => sum + (item.price * item.qty), 0) + deliveryFee;
-
-        document.getElementById('qrTotalText').innerText = '฿' + totalPrice.toLocaleString(undefined, {minimumFractionDigits: 2});
+        updateDeliveryFeeFromDorm();
 
         updatePrintSlotStatus(); 
 
@@ -717,15 +814,6 @@
         }
 
         document.getElementById('qrModal').style.display = 'flex';
-
-        document.getElementById('qrcode').innerHTML = "";
-        let payload = generatePromptPayPayload(PROMPTPAY_ID, totalPrice);
-
-        new QRCode(document.getElementById("qrcode"), {
-            text: payload,
-            width: 200,
-            height: 200,
-        });
     }
 
     function closeQrModal() {
@@ -749,13 +837,10 @@
 
         const currentCart = [...cart];
         
-        let deliveryFee = 0;
-        if (dormSelect && dormSelect.value) {
-            const selectedDormId = dormSelect.value;
-            if (dormFees[selectedDormId]) {
-                deliveryFee = parseFloat(dormFees[selectedDormId]);
-            }
-        }
+        const freeToggle = document.getElementById('freeDeliveryToggle');
+        const isFreeDelivery = freeToggle ? freeToggle.checked : false;
+        const feeInput = document.getElementById('deliveryFeeInput');
+        const deliveryFee = isFreeDelivery ? 0 : (parseFloat(feeInput ? feeInput.value : 0) || 0);
         
         const totalPrice = currentCart.reduce((sum, item) => sum + (item.price * item.qty), 0) + deliveryFee;
         const shopName = document.getElementById('shopNameDisplay').innerText.trim();
@@ -769,7 +854,12 @@
                 "Content-Type": "application/json", 
                 "X-CSRFToken": document.querySelector('[name=csrfmiddlewaretoken]').value 
             }, 
-            body: JSON.stringify({ cart: currentCart, dormitory_id: selectedDormId })
+            body: JSON.stringify({ 
+                cart: currentCart, 
+                dormitory_id: selectedDormId,
+                is_free_delivery: isFreeDelivery,
+                delivery_fee: deliveryFee
+            })
         })
         .then(async response => {
             const text = await response.text();
@@ -789,12 +879,12 @@
 
 
                 if (selectedBillType === 'print') {
-                    triggerPrintReceipt(receiptNo, currentCart, totalPrice, qrDataUrl, shopName, selectedDormName);
+                    triggerPrintReceipt(receiptNo, currentCart, totalPrice, qrDataUrl, shopName, selectedDormName, isFreeDelivery);
                     setTimeout(() => { window.location.href = "{% url 'pos:home' %}"; }, 1500);
                 } else if (selectedBillType === 'image') {
-                    downloadSlipImage(receiptNo, currentCart, totalPrice, qrDataUrl, shopName, selectedDormName);
+                    downloadSlipImage(receiptNo, currentCart, totalPrice, qrDataUrl, shopName, selectedDormName, isFreeDelivery);
                 } else if (selectedBillType === 'screen') {
-                    showScreenBill(receiptNo, currentCart, totalPrice, shopName, selectedDormName);
+                    showScreenBill(receiptNo, currentCart, totalPrice, shopName, selectedDormName, isFreeDelivery, deliveryFee);
                 } else {
                     window.location.href = "{% url 'pos:home' %}";
                 }
@@ -814,7 +904,7 @@
     }
 
     // 🌟 ทุกร้านใช้วิธีดึงจุดส่งและปิดเวลา
-    function triggerPrintReceipt(receiptNo, items, total, qrDataUrl, shopName, selectedDormName) {
+    function triggerPrintReceipt(receiptNo, items, total, qrDataUrl, shopName, selectedDormName, isFreeDelivery = false) {
         let printWindow = window.open('', '_blank');
         let currentSlot = parseInt(localStorage.getItem('printSlotIndex')) || 0;
 
@@ -843,12 +933,15 @@
 
         let itemsTotal = items.reduce((sum, item) => sum + (item.price * item.qty), 0);
         let printFee = total - itemsTotal;
-        let dormText = (selectedDormName && selectedDormName.trim() !== "") ? selectedDormName : "อยู่ระหว่างรวบรวมข้อมูลหอพัก";
-        let dormHtml = `<div class="info-text">จุดส่ง: <strong>${dormText}</strong></div>`;
-        if (printFee > 0) {
-            dormHtml += `<div class="info-text" style="color: #000; font-weight: bold;">ค่าจัดส่ง: <strong>฿${printFee.toFixed(2)}</strong></div>`;
-        } else if (selectedDormName && selectedDormName.trim() !== "") {
-            dormHtml += `<div class="info-text">ค่าจัดส่ง: <strong>ส่งฟรี</strong></div>`;
+        let dormText = (selectedDormName && selectedDormName.trim() !== "") ? selectedDormName : "";
+        let dormHtml = "";
+        if (dormText) {
+            dormHtml = `<div class="info-text">จุดส่ง: <strong>${dormText}</strong></div>`;
+            if (isFreeDelivery) {
+                dormHtml += `<div class="info-text" style="color: #16a34a; font-weight: bold;">ค่าจัดส่ง: <strong>ส่งฟรีเนื่องจากจัดส่งล่าช้า</strong></div>`;
+            } else if (printFee > 0) {
+                dormHtml += `<div class="info-text" style="color: #b45309; font-weight: bold;">ค่าจัดส่งโซนห่างไกล: <strong>฿${printFee.toFixed(2)}</strong></div>`;
+            }
         }
 
         let htmlContent = `
@@ -936,7 +1029,7 @@
         printWindow.document.close();
     }
 
-    function downloadSlipImage(receiptNo, items, total, qrDataUrl, shopName, selectedDormName) {
+    function downloadSlipImage(receiptNo, items, total, qrDataUrl, shopName, selectedDormName, isFreeDelivery = false) {
         let fullShopName = shopName;
         if (shopName === 'P184') fullShopName = "🔥 ร้านทอดเป่า P184 🔥";
         else if (shopName === 'M053') fullShopName = "🐷 ร้านเรื่องของหมู M053 🐷";
@@ -958,12 +1051,15 @@
 
         let itemsTotal = items.reduce((sum, item) => sum + (item.price * item.qty), 0);
         let slipFee = total - itemsTotal;
-        let dormText = (selectedDormName && selectedDormName.trim() !== "") ? selectedDormName : "อยู่ระหว่างรวบรวมข้อมูลหอพัก";
-        let dormHtml = `<div style="display: flex; justify-content: space-between; margin-top: 4px;"><span>จัดส่ง:</span> <span style="font-weight: 500; text-align: right; max-width: 70%;">${dormText}</span></div>`;
-        if (slipFee > 0) {
-            dormHtml += `<div style="display: flex; justify-content: space-between; margin-top: 4px; color: #000; font-weight: 700;"><span>ค่าจัดส่ง:</span> <span>฿${slipFee.toFixed(2)}</span></div>`;
-        } else if (selectedDormName && selectedDormName.trim() !== "") {
-            dormHtml += `<div style="display: flex; justify-content: space-between; margin-top: 4px;"><span>ค่าจัดส่ง:</span> <span style="font-weight: 500; color: #16a34a;">ส่งฟรี</span></div>`;
+        let dormText = (selectedDormName && selectedDormName.trim() !== "") ? selectedDormName : "";
+        let dormHtml = "";
+        if (dormText) {
+            dormHtml = `<div style="display: flex; justify-content: space-between; margin-top: 4px;"><span>จัดส่ง:</span> <span style="font-weight: 500; text-align: right; max-width: 70%;">${dormText}</span></div>`;
+            if (isFreeDelivery) {
+                dormHtml += `<div style="display: flex; justify-content: space-between; margin-top: 4px;"><span style="color: #16a34a; font-weight: 700;">ค่าจัดส่ง:</span> <span style="font-weight: 700; color: #16a34a;">ส่งฟรีเนื่องจากจัดส่งล่าช้า</span></div>`;
+            } else if (slipFee > 0) {
+                dormHtml += `<div style="display: flex; justify-content: space-between; margin-top: 4px; color: #b45309; font-weight: 700;"><span>ค่าจัดส่งโซนห่างไกล:</span> <span>฿${slipFee.toFixed(2)}</span></div>`;
+            }
         }
 
         let itemsHtml = items.map(item => {
@@ -997,11 +1093,14 @@
             slipContainer.style.background = 'linear-gradient(135deg, #fef9f2 0%, #fef3e5 100%)';
             slipContainer.style.color = '#3f2b1c';
 
-            let p184_dormHtml = `<div style="display: flex; justify-content: space-between; margin-top: 6px;"><span>🚚 จัดส่ง:</span> <span style="font-weight: 500; text-align: right; max-width: 70%;">${dormText}</span></div>`;
-            if (slipFee > 0) {
-                p184_dormHtml += `<div style="display: flex; justify-content: space-between; margin-top: 6px; color: #b45309; font-weight: 700;"><span>📍 ค่าจัดส่ง:</span> <span>฿${slipFee.toFixed(2)}</span></div>`;
-            } else if (selectedDormName && selectedDormName.trim() !== "") {
-                p184_dormHtml += `<div style="display: flex; justify-content: space-between; margin-top: 6px;"><span>📍 ค่าจัดส่ง:</span> <span style="font-weight: 700; color: #16a34a;">ส่งฟรี</span></div>`;
+            let p184_dormHtml = "";
+            if (dormText) {
+                p184_dormHtml = `<div style="display: flex; justify-content: space-between; margin-top: 6px;"><span>🚚 จัดส่ง:</span> <span style="font-weight: 500; text-align: right; max-width: 70%;">${dormText}</span></div>`;
+                if (isFreeDelivery) {
+                    p184_dormHtml += `<div style="display: flex; justify-content: space-between; margin-top: 6px;"><span style="color: #16a34a; font-weight: 700;">📍 ค่าจัดส่ง:</span> <span style="font-weight: 700; color: #16a34a;">ส่งฟรีเนื่องจากจัดส่งล่าช้า</span></div>`;
+                } else if (slipFee > 0) {
+                    p184_dormHtml += `<div style="display: flex; justify-content: space-between; margin-top: 6px; color: #b45309; font-weight: 700;"><span>📍 ค่าจัดส่งโซนห่างไกล:</span> <span>฿${slipFee.toFixed(2)}</span></div>`;
+                }
             }
 
             let p184_itemsIndex = 1;
@@ -1151,20 +1250,22 @@
         });
     }
 
-    function showScreenBill(receiptNo, items, total, shopName, selectedDormName) {
+    function showScreenBill(receiptNo, items, total, shopName, selectedDormName, isFreeDelivery = false, deliveryFee = 0) {
         document.getElementById('billReceiptNum').innerText = receiptNo;
         
-        let itemsTotal = items.reduce((sum, item) => sum + (item.price * item.qty), 0);
-        let screenFee = total - itemsTotal;
         let dormElem = document.getElementById('screenBillDorm');
-        let dormText = (selectedDormName && selectedDormName.trim() !== "") ? selectedDormName : "อยู่ระหว่างรวบรวมข้อมูลหอพัก";
-        dormElem.innerHTML = `จัดส่ง: <strong style="color: #1f2937;">${dormText}</strong>`;
-        if (screenFee > 0) {
-            dormElem.innerHTML += `<br><span style="color: #000; font-weight: 700;">ค่าจัดส่ง: ฿${screenFee.toFixed(2)}</span>`;
-        } else if (selectedDormName && selectedDormName.trim() !== "") {
-            dormElem.innerHTML += `<br>ค่าจัดส่ง: <strong style="color: #16a34a;">ส่งฟรี</strong>`;
+        let dormText = (selectedDormName && selectedDormName.trim() !== "") ? selectedDormName : "";
+        if (dormText) {
+            dormElem.innerHTML = `จัดส่ง: <strong style="color: #1f2937;">${dormText}</strong>`;
+            if (isFreeDelivery) {
+                dormElem.innerHTML += `<br>ค่าจัดส่ง: <strong style="color: #16a34a;">ส่งฟรีเนื่องจากจัดส่งล่าช้า</strong>`;
+            } else if (deliveryFee > 0) {
+                dormElem.innerHTML += `<br><span style="color: #b45309; font-weight: 700;">ค่าจัดส่งโซนห่างไกล: ฿${deliveryFee.toFixed(2)}</span>`;
+            }
+            dormElem.style.display = "block";
+        } else {
+            dormElem.style.display = "none";
         }
-        dormElem.style.display = "block";
         document.getElementById('billReceiptNum').parentElement.style.marginBottom = "5px";
 
         document.getElementById('billGrandTotal').innerText = '฿' + total.toLocaleString(undefined, {minimumFractionDigits: 2});
@@ -1324,14 +1425,16 @@
         
         if (deliveryFee > 0) {
             totalPrice += deliveryFee;
-            container.innerHTML += `<div class="cart-item" style="background:#f0fdf4; border:1px dashed #22c55e;">
-                <div class="cart-item-info"><h4>🚚 ค่าจัดส่ง</h4></div>
-                <div style="text-align: right;"><div style="font-weight: bold; color:#16a34a;">฿${deliveryFee.toFixed(2)}</div></div>
+            container.innerHTML += `<div class="cart-item" style="background:#fef3c7; border:1px dashed #f59e0b;">
+                <div class="cart-item-info"><h4 style="color: #b45309;">🚚 ค่าจัดส่งโซนห่างไกล</h4></div>
+                <div style="text-align: right;"><div style="font-weight: bold; color:#b45309;">฿${deliveryFee.toFixed(2)}</div></div>
             </div>`;
         } else if (dormSelect && dormSelect.value) {
+            const freeToggle = document.getElementById('freeDeliveryToggle');
+            const isFree = freeToggle && freeToggle.checked;
             container.innerHTML += `<div class="cart-item" style="background:#f0fdf4; border:1px dashed #22c55e;">
-                <div class="cart-item-info"><h4>🚚 ค่าจัดส่ง</h4></div>
-                <div style="text-align: right;"><div style="font-weight: bold; color:#16a34a;">ส่งฟรี</div></div>
+                <div class="cart-item-info"><h4 style="color: #16a34a;">🚚 ค่าจัดส่ง</h4></div>
+                <div style="text-align: right;"><div style="font-weight: bold; color:#16a34a;">${isFree ? 'ส่งฟรีเนื่องจากจัดส่งล่าช้า' : '฿0.00'}</div></div>
             </div>`;
         }
         grandTotalEl.innerText = `฿${totalPrice.toLocaleString(undefined, {minimumFractionDigits: 2})}`;
@@ -1355,14 +1458,24 @@
     document.addEventListener('DOMContentLoaded', () => {
         let select = document.getElementById('checkoutDormSelect');
         if(select) {
-            select.addEventListener('change', renderCart);
+            select.addEventListener('change', () => {
+                updateDeliveryFeeFromDorm();
+                if (typeof renderCart === 'function') renderCart();
+            });
 
+            allDormsList = [];
             Array.from(select.options).forEach(opt => {
-                allDormsList.push({
-                    value: opt.value, 
-                    text: opt.text, 
-                    zone: opt.getAttribute('data-zone') || ''
-                });
+                if (opt.value !== "") {
+                    let rawText = opt.text;
+                    let zone = opt.getAttribute('data-zone') || '';
+                    let nameOnly = rawText.replace(/\[.*?\]\s*/, '').trim();
+                    allDormsList.push({
+                        value: opt.value, 
+                        text: rawText, 
+                        name: nameOnly,
+                        zone: zone
+                    });
+                }
             });
         }
     });
@@ -1372,7 +1485,8 @@
         
         document.querySelectorAll('.zone-badge').forEach(badge => {
             badge.classList.remove('active');
-            if(badge.innerText.includes(zoneKeyword) || (zoneKeyword === '' && badge.innerText === 'ทั้งหมด')) {
+            let bText = badge.innerText.trim();
+            if ((zoneKeyword !== '' && (bText === zoneKeyword || bText.includes(zoneKeyword) || zoneKeyword.includes(bText))) || (zoneKeyword === '' && bText === 'ทั้งหมด')) {
                 badge.classList.add('active');
             }
         });
@@ -1380,31 +1494,97 @@
         filterDorms(); 
     }
 
+    // 🌟 ฟังก์ชันตรวจสอบความสอดคล้องของคำค้นหา (ค้นหาตามคำเหมือนกัน / คำสำคัญ) 🌟
+    function checkDormMatch(d, cleanKeyword) {
+        if (!cleanKeyword) return true;
+
+        let dText = d.text.toLowerCase();
+        let dZone = (d.zone || '').toLowerCase();
+        let dName = (d.name || d.text.replace(/\[.*?\]\s*/, '')).toLowerCase();
+
+        // 1. ตรวจสอบว่าตรงกับคำค้นหาโดยตรง (ในชื่อ, ในข้อความทั้งหมด, หรือในโซน)
+        if (dName.includes(cleanKeyword) || dText.includes(cleanKeyword) || dZone.includes(cleanKeyword)) {
+            return true;
+        }
+
+        // 2. ตัดคำนำหน้ายอดฮิต เช่น "หอพักบุญเยี่ยม" หรือ "หอบุญเยี่ยม" -> ค้นหาคำสำคัญ "บุญเยี่ยม"
+        let coreKeyword = cleanKeyword.replace(/^(หอพัก|หอ|หอหญิง|หอชาย)\s*/g, '').trim();
+        if (coreKeyword.length >= 2 && (dName.includes(coreKeyword) || dZone.includes(coreKeyword) || dText.includes(coreKeyword))) {
+            return true;
+        }
+
+        // 3. กรณีพิมพ์แยกคำ เช่น "หอพัก บุญเยี่ยม" หรือ "บุญเยี่ยม 1"
+        let tokens = cleanKeyword.split(/\s+/).filter(t => t.length > 0);
+        if (tokens.length > 1) {
+            let allTokensMatch = tokens.every(token => {
+                let coreToken = token.replace(/^(หอพัก|หอ)\s*/g, '').trim();
+                return dText.includes(token) || (coreToken.length >= 2 && dText.includes(coreToken));
+            });
+            if (allTokensMatch) return true;
+        }
+
+        return false;
+    }
+
     function filterDorms() {
-        let searchKeyword = document.getElementById('dormSearch').value.toLowerCase();
+        let searchInput = document.getElementById('dormSearch');
+        let rawKeyword = searchInput ? searchInput.value : '';
+        let cleanKeyword = rawKeyword.trim().toLowerCase();
         let select = document.getElementById('checkoutDormSelect');
+        if (!select) return;
+
         select.innerHTML = ''; 
 
-        let count = 0;
-        allDormsList.forEach(d => {
-            let matchSearch = d.text.toLowerCase().includes(searchKeyword);
-            let matchZone = currentZoneFilter === '' || d.zone.includes(currentZoneFilter);
-            
-            if (d.value === "" || (matchSearch && matchZone)) {
-                let opt = document.createElement('option');
-                opt.value = d.value;
-                opt.text = d.text;
-                opt.setAttribute('data-zone', d.zone);
-                select.appendChild(opt);
-                count++;
+        // ตัวเลือก default แรก
+        let defaultOpt = document.createElement('option');
+        defaultOpt.value = "";
+        defaultOpt.text = "-- เลือกหอพักปลายทาง (หรือพิมพ์ค้นหาด้านบน) --";
+        defaultOpt.setAttribute('data-zone', '');
+        select.appendChild(defaultOpt);
+
+        let filteredDorms = [];
+
+        if (cleanKeyword !== '') {
+            // 🌟 เมื่อมีการพิมพ์ค้นหา 🌟
+            // ขั้นที่ 1: ค้นหาภายในโซนที่เลือกไว้ก่อน (ถ้ามีการเลือกโซนที่ไม่ใช่ทั้งหมด)
+            if (currentZoneFilter !== '') {
+                filteredDorms = allDormsList.filter(d => {
+                    let inZone = d.zone.includes(currentZoneFilter) || currentZoneFilter.includes(d.zone);
+                    return inZone && checkDormMatch(d, cleanKeyword);
+                });
             }
+
+            // ขั้นที่ 2: หากในโซนที่เลือกไม่พบคำที่ค้นหา หรือเลือก "ทั้งหมด" ไว้ ให้ค้นหาจากหอพักทั้งหมดที่มีคำเหมือนกันทันที
+            if (filteredDorms.length === 0) {
+                filteredDorms = allDormsList.filter(d => checkDormMatch(d, cleanKeyword));
+            }
+        } else {
+            // 🌟 เมื่อไม่ได้พิมพ์ค้นหา ให้กรองตามโซนที่เลือกแบบเดิม 🌟
+            filteredDorms = allDormsList.filter(d => {
+                if (currentZoneFilter === '') return true;
+                return d.zone.includes(currentZoneFilter) || currentZoneFilter.includes(d.zone);
+            });
+        }
+
+        // นำหอพักที่ผ่านการกรองใส่ใน select
+        filteredDorms.forEach(d => {
+            let opt = document.createElement('option');
+            opt.value = d.value;
+            opt.text = d.text;
+            opt.setAttribute('data-zone', d.zone);
+            select.appendChild(opt);
         });
 
-        if(count > 1 && (searchKeyword.length > 0 || currentZoneFilter !== '')) {
+        // หากมีรายการที่ตรงกับการค้นหา ให้เลือกรายการแรกทันทีเพื่อความสะดวกรวดเร็ว
+        if (filteredDorms.length > 0 && (cleanKeyword !== '' || currentZoneFilter !== '')) {
             select.selectedIndex = 1; 
         } else {
             select.selectedIndex = 0;
         }
+
+        // 🌟 อัปเดตค่าจัดส่งทันทีเมื่อมีการเปลี่ยนหอพักจากการค้นหาหรือเลือกโซน 🌟
+        updateDeliveryFeeFromDorm();
+
         if (typeof renderCart === 'function') {
             renderCart();
         }

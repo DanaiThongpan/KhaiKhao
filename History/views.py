@@ -78,12 +78,27 @@ def edit_order(request, order_id):
         prices = request.POST.getlist("item_price[]")
         qtys = request.POST.getlist("item_qty[]")
 
-        # 1. คืนสต๊อกของเก่าก่อนลบ
+        # 1. คืนสต๊อกของเก่าก่อนลบ พร้อมเก็บข้อมูลค่าจัดส่งเดิมไว้ (ถ้ามี)
         boxes_returned = 0
+        from django.db.models import Q
+        delivery_item = order.items.filter(
+            Q(product__code__in=['FEE-DELIVERY', 'FREE-DELIVERY-DELAY']) |
+            Q(product__name__icontains='ค่าจัดส่ง') |
+            Q(product__name__icontains='ส่งฟรี')
+        ).first()
+        saved_delivery_prod = delivery_item.product if delivery_item else None
+        saved_delivery_price = delivery_item.price if delivery_item else 0
+
         for item in order.items.all():
             if item.product:
-                item.product.stock_quantity += item.quantity
-                item.product.save()
+                is_delivery_or_free = (
+                    item.product.code in ['FEE-DELIVERY', 'FREE-DELIVERY-DELAY'] or
+                    'ค่าจัดส่ง' in item.product.name or
+                    'ส่งฟรี' in item.product.name
+                )
+                if not is_delivery_or_free:
+                    item.product.stock_quantity += item.quantity
+                    item.product.save()
 
                 cat_name = (
                     item.product.category.name.lower() if item.product.category else ""
@@ -160,6 +175,17 @@ def edit_order(request, order_id):
                         boxes_used += p_qty
                 except:
                     pass
+
+        # คืนค่ารายการจัดส่งเดิม (ถ้ามี)
+        if saved_delivery_prod:
+            OrderItem.objects.create(
+                order=order,
+                product=saved_delivery_prod,
+                price=saved_delivery_price,
+                quantity=1,
+                subtotal=saved_delivery_price,
+            )
+            new_total += float(saved_delivery_price)
 
         order.total_amount = new_total
         order.save()

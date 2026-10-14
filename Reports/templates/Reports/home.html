@@ -406,119 +406,120 @@
 </div>
 
 <!-- =====================================================
-     CHART SCRIPT
+     CHART SCRIPT (Stacked Bar Chart แยกตามร้านค้า)
 ====================================================== -->
 <script>
-    const labels = [
-        {% for row in chart_data %}
-            "{% if filter_type == 'year' %}{{ row.period|date:'Y' }}{% elif filter_type == 'month' %}{{ row.period|date:'M Y' }}{% elif filter_type == 'week' %}สัปดาห์ {{ row.period|date:'d M Y' }}{% else %}{{ row.period|date:'d M' }}{% endif %}",
-        {% endfor %}
-    ];
-
-    const dataValues = [
-        {% for row in chart_data %}
-            {{ row.total|default:0 }},
-        {% endfor %}
-    ];
-
-    const orderCounts = [
-        {% for row in chart_data %}
-            {{ row.order_count|default:0 }},
-        {% endfor %}
-    ];
-    
-    const itemQtys = [
-        {% for row in chart_data %}
-            {{ row.item_qty|default:0 }},
-        {% endfor %}
-    ];
+    // 🌟 ดึงข้อมูล Labels (แกน X) และ Datasets (แยกตามร้านค้า) จาก Django View
+    const chartLabels = {{ chart_labels_json|safe }};
+    const chartDatasets = {{ chart_datasets_json|safe }};
 
     const ctx = document.getElementById('salesChart').getContext('2d');
-    
-    let gradient = ctx.createLinearGradient(0, 0, 0, 400);
-    gradient.addColorStop(0, 'rgba(22, 163, 74, 0.8)');
-    gradient.addColorStop(1, 'rgba(22, 163, 74, 0.2)');
 
-    new Chart(ctx, {
+    // สร้างกราฟแท่งซ้อน (Stacked Bar Chart)
+    const salesChart = new Chart(ctx, {
+        type: 'bar',
         data: {
-            labels: labels,
-            datasets: [
-                {
-                    type: 'bar',
-                    label: 'ยอดขาย (กราฟแท่ง)',
-                    data: dataValues,
-                    backgroundColor: gradient,
-                    borderColor: '#15803d',
-                    borderWidth: 1,
-                    borderRadius: 8,
-                    hoverBackgroundColor: '#16a34a',
-                    yAxisID: 'y'
-                },
-                {
-                    type: 'line',
-                    label: 'ยอดขาย (เส้นแนวโน้ม)', 
-                    data: dataValues, 
-                    borderColor: '#f59e0b',
-                    backgroundColor: 'transparent', 
-                    borderWidth: 3, 
-                    pointBackgroundColor: '#d97706',
-                    pointBorderColor: '#ffffff', 
-                    pointBorderWidth: 2,
-                    pointRadius: 5, 
-                    pointHoverRadius: 7,
-                    tension: 0.4, 
-                    yAxisID: 'y'
-                }
-            ]
+            labels: chartLabels,
+            datasets: chartDatasets
         },
         options: {
             responsive: true,
             maintainAspectRatio: false,
             scales: {
-                x: { grid: { display: false } },
+                x: {
+                    stacked: true, // 🌟 เปิดใช้งานแกน X แบบซ้อนกัน
+                    grid: { display: false },
+                    ticks: {
+                        font: { family: "'Segoe UI', Tahoma, Geneva, Verdana, sans-serif", size: 12 },
+                        color: '#4b5563'
+                    }
+                },
                 y: {
-                    type: 'linear',
-                    display: true,
-                    position: 'left',
+                    stacked: true, // 🌟 เปิดใช้งานแกน Y แบบซ้อนกัน
                     beginAtZero: true,
                     border: { dash: [4, 4] },
                     grid: { color: '#e2e8f0', drawBorder: false },
                     ticks: {
-                        callback: function(value) { return '฿' + value.toLocaleString(); },
-                        font: { family: "'Segoe UI', Tahoma, Geneva, Verdana, sans-serif" }
+                        callback: function(value) {
+                            return '฿' + value.toLocaleString();
+                        },
+                        font: { family: "'Segoe UI', Tahoma, Geneva, Verdana, sans-serif", size: 12 },
+                        color: '#64748b'
                     }
                 }
             },
             plugins: {
-                legend: { 
-                    display: false 
+                legend: {
+                    display: true,
+                    position: 'top',
+                    align: 'end',
+                    labels: {
+                        font: { family: "'Segoe UI', sans-serif", size: 13, weight: '600' },
+                        usePointStyle: true,
+                        pointStyle: 'circle',
+                        padding: 15,
+                        boxWidth: 8
+                    }
                 },
                 tooltip: {
                     backgroundColor: 'rgba(15, 23, 42, 0.95)',
-                    titleFont: { size: 14, family: "'Segoe UI', sans-serif" },
-                    bodyFont: { size: 14, font: 'normal' },
-                    padding: 12,
-                    cornerRadius: 8,
+                    titleFont: { size: 14, family: "'Segoe UI', sans-serif", weight: 'bold' },
+                    bodyFont: { size: 13, family: "'Segoe UI', sans-serif" },
+                    padding: 14,
+                    cornerRadius: 10,
+                    boxPadding: 6,
+                    usePointStyle: true,
+                    // กรองเฉพาะร้านที่มียอดขายในวันนั้น (> 0) เพื่อความสะอาดและอ่านง่าย
                     filter: function(tooltipItem) {
-                        return tooltipItem.datasetIndex === 0;
+                        return tooltipItem.raw > 0;
                     },
                     callbacks: {
+                        // แสดงไอคอน + ชื่อร้าน + ยอดขาย (บาท)
                         label: function(context) {
-                            return ' 💰 ยอดขาย: ฿' + context.parsed.y.toLocaleString(undefined, {minimumFractionDigits: 2});
+                            const shopTitle = context.dataset.label || 'ร้านค้า';
+                            const sales = context.parsed.y || 0;
+                            return ` ${shopTitle} : ฿${sales.toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2})}`;
                         },
+                        // แสดงจำนวนออเดอร์ และจำนวนกล่องของร้านนั้นๆ
                         afterLabel: function(context) {
-                            let index = context.dataIndex;
-                            let orders = orderCounts[index];
-                            let boxes = itemQtys[index];
+                            const index = context.dataIndex;
+                            const orders = (context.dataset.order_counts && context.dataset.order_counts[index] !== undefined) 
+                                ? context.dataset.order_counts[index] 
+                                : 0;
+                            const boxes = (context.dataset.box_counts && context.dataset.box_counts[index] !== undefined) 
+                                ? context.dataset.box_counts[index] 
+                                : 0;
                             return [
-                                ' 🧾 ออเดอร์: ' + orders + ' รายการ',
-                                ' 📦 จำนวน: ' + boxes + ' กล่อง'
+                                `    🧾 ออเดอร์: ${orders} รายการ`,
+                                `    📦 จำนวน: ${boxes} กล่อง`
                             ];
+                        },
+                        // ส่วนสรุปท้าย Tooltip: คำนวณยอดขายรวมของทุกร้านในวันนั้น
+                        footer: function(tooltipItems) {
+                            if (!tooltipItems || tooltipItems.length === 0) return '';
+                            let totalDaySales = 0;
+                            let totalDayOrders = 0;
+                            let totalDayBoxes = 0;
+
+                            tooltipItems.forEach(function(item) {
+                                totalDaySales += (item.parsed.y || 0);
+                                const idx = item.dataIndex;
+                                if (item.dataset.order_counts) totalDayOrders += (item.dataset.order_counts[idx] || 0);
+                                if (item.dataset.box_counts) totalDayBoxes += (item.dataset.box_counts[idx] || 0);
+                            });
+
+                            if (tooltipItems.length > 1) {
+                                return `────────────────\n✨ รวมทุกร้าน: ฿${totalDaySales.toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2})} (${totalDayOrders} ออเดอร์, ${totalDayBoxes} กล่อง)`;
+                            }
+                            return '';
                         }
                     }
                 }
             },
-            interaction: { intersect: false, mode: 'index' },
+            interaction: {
+                intersect: false,
+                mode: 'index' // แสดงข้อมูลทุกร้านที่มียอดขายในวันเดียวกันพร้อมกัน
+            }
         }
     });
 </script>

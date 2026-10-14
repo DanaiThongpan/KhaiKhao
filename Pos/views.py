@@ -34,14 +34,26 @@ def is_point_in_polygon(lng, lat, polygon):
         p1x, p1y = p2x, p2y
     return inside
 
-def get_dorm_fee(dorm):
+def get_dorm_fee(dorm, shop_user=None):
     from DeliveryZones.models import DeliveryZone
     import json
-    zones = DeliveryZone.objects.filter(is_active=True)
-    for z in zones:
+    if not dorm or not dorm.longitude or not dorm.latitude:
+        return 0.0
+
+    # 🌟 กรองเฉพาะสโคปพื้นที่จัดส่งที่เป็นของร้านค้านี้ (แยกตามร้าน ไม่ปนกัน) 🌟
+    zones_qs = DeliveryZone.objects.filter(is_active=True)
+    if shop_user and shop_user.is_authenticated:
+        zones_qs = zones_qs.filter(created_by=shop_user)
+    else:
+        zones_qs = zones_qs.filter(created_by__isnull=True)
+
+    for z in zones_qs:
         poly_data = z.polygon_data
-        if type(poly_data) == str:
-            poly_data = json.loads(poly_data)
+        if isinstance(poly_data, str):
+            try:
+                poly_data = json.loads(poly_data)
+            except Exception:
+                continue
         if poly_data.get("geometry", {}).get("type") == "Polygon":
             coords = poly_data["geometry"]["coordinates"][0]
             if is_point_in_polygon(dorm.longitude, dorm.latitude, coords):
@@ -49,10 +61,54 @@ def get_dorm_fee(dorm):
     return 0.0
 
 
+# =========================================================
+# 🌟 การตั้งค่าโซนพื้นที่จัดส่งแยกตามร้านค้าแต่ละร้าน (Dynamic Zones per Shop) 🌟
+# คุณสามารถปรับเปลี่ยนหรือเพิ่มโซนของแต่ละร้านได้ตามต้องการที่นี่
+# =========================================================
+SHOP_ZONES_CONFIG = {
+    'P184': ['หน้ามอ', 'สวนปาย', 'ประตู 3', 'อนามัย 10', 'บุญเยี่ยม'],
+    'M053': ['หน้ามอ', 'อนามัย 10', 'ประตู 3', 'หวานเย็น', 'บุญเยี่ยม'],
+}
+
+def get_shop_zones(user):
+    """
+    ดึงรายชื่อโซนจัดส่งของร้านค้าที่กำลังใช้งาน (Dynamic Zones)
+    1. ตรวจสอบจากการตั้งค่าใน SHOP_ZONES_CONFIG ก่อน
+    2. หากเป็นร้านค้าอื่น ให้ดึงโซนจากหอพักในฐานข้อมูลของร้านนั้น หรือโซนทั้งหมดที่มี
+    """
+    username = user.username if user else ""
+    if username in SHOP_ZONES_CONFIG:
+        return SHOP_ZONES_CONFIG[username]
+
+    # กรณีร้านอื่นๆ ให้ดึงโซนทั้งหมดที่มีในฐานข้อมูล
+    distinct_zones = list(
+        Dormitory.objects.exclude(zone__isnull=True)
+        .exclude(zone="")
+        .values_list("zone", flat=True)
+        .distinct()
+    )
+    cleaned_zones = []
+    for z in distinct_zones:
+        name = z.replace("โซน", "").strip()
+        if name and name not in cleaned_zones:
+            cleaned_zones.append(name)
+    return cleaned_zones or ["หน้ามอ", "ประตู 3", "อนามัย 10", "บุญเยี่ยม"]
+
+
 @login_required
 def home(request):
     my_products = Product.objects.filter(is_active=True, created_by=request.user)
-    dorms = Dormitory.objects.all().order_by('zone', 'name')
+
+    # 🌟 ดึงข้อมูลโซนจัดส่งและสโคปหอพักตามร้านค้า (Dynamic Zones) 🌟
+    shop_zones = get_shop_zones(request.user)
+
+    # ตรวจสอบว่าร้านค้ามีการสร้างหอพักเฉพาะร้านหรือไม่ (ผ่าน created_by)
+    shop_custom_dorms = Dormitory.objects.filter(created_by=request.user)
+    if shop_custom_dorms.exists():
+        dorms = shop_custom_dorms.order_by('zone', 'name')
+    else:
+        # โหลดหอพักทั้งหมดมาเพื่อให้หน้า POS สามารถค้นหาได้ครบถ้วนทุกหอพัก (รวมถึงบุญเยี่ยม)
+        dorms = Dormitory.objects.all().order_by('zone', 'name')
 
     raw_categories = ProductCategory.objects.filter(
         is_active=True, created_by=request.user
@@ -75,7 +131,8 @@ def home(request):
         selected_date = timezone.localdate()
 
     import json
-    dorm_fees = { d.id: get_dorm_fee(d) for d in dorms }
+    # คำนวณค่าจัดส่งตามสโคปโซนของร้านค้านี้โดยเฉพาะ
+    dorm_fees = { d.id: get_dorm_fee(d, request.user) for d in dorms }
     dorm_fees_json = json.dumps(dorm_fees)
 
     daily_sales = Order.objects.filter(
@@ -120,6 +177,7 @@ def home(request):
         "total_noti_count": total_noti_count,
         "shop_promptpay": request.user.promptpay_number or "",
         'dorms': dorms, 
+        'shop_zones': shop_zones, # 🌟 ส่งรายชื่อโซนจัดส่งของร้านค้าไปแสดงที่หน้า POS
         'box_quantity': box_quantity, # ส่งจำนวนกล่องคงเหลือ
         'has_box_item': has_box_item, # ส่งสถานะว่าร้านมีของชื่อกล่องไหม
     }
@@ -196,6 +254,8 @@ def process_checkout(request):
             cart_items = data.get('cart', [])
             cart_items = [item for item in cart_items if str(item.get('id')) != 'DELIVERY']
             dormitory_id = data.get('dormitory_id', '')
+            is_free_delivery = data.get('is_free_delivery', False)
+            custom_delivery_fee = data.get('delivery_fee')
 
             if not cart_items:
                 return JsonResponse({"status": "error", "message": "ตะกร้าว่างเปล่า"}, status=400)
@@ -291,34 +351,63 @@ def process_checkout(request):
                     dorm = Dormitory.objects.get(id=dormitory_id)
                     DeliveryTask.objects.create(order=order, destination=dorm, status='PENDING')
                     
-                    # 🌟 หักค่าจัดส่งโดยเช็คพิกัด Polygon 🌟
                     from Products.models import ProductCategory
                     from decimal import Decimal
-                    fee = get_dorm_fee(dorm)
-                    fee_decimal = Decimal(str(fee))
-                    if fee_decimal > 0:
+
+                    # 🌟 จัดการค่าจัดส่ง: กรณีส่งฟรี (จัดส่งล่าช้า) หรือคิดค่าจัดส่งปกติ 🌟
+                    if is_free_delivery:
+                        # 🎁 ส่งฟรีเนื่องจากจัดส่งล่าช้า: บันทึก OrderItem รายการส่งฟรี (ราคา 0 บาท) เพื่อเป็นหลักฐานว่าบิลนี้ได้รับการยกเว้นค่าจัดส่ง
                         try:
-                            delivery_product = Product.objects.get(name='ค่าจัดส่ง')
+                            free_product = Product.objects.get(code='FREE-DELIVERY-DELAY')
                         except Product.DoesNotExist:
                             cat, _ = ProductCategory.objects.get_or_create(name='ค่าจัดส่ง', created_by=request.user)
-                            delivery_product = Product.objects.create(
-                                name='ค่าจัดส่ง',
-                                code='FEE-DELIVERY',
+                            free_product = Product.objects.create(
+                                name='ส่งฟรีเนื่องจากจัดส่งล่าช้า',
+                                code='FREE-DELIVERY-DELAY',
                                 selling_price=0,
                                 category=cat,
                                 created_by=request.user,
                                 is_active=True
                             )
-                        
                         OrderItem.objects.create(
                             order=order,
-                            product=delivery_product,
-                            price=fee_decimal,
+                            product=free_product,
+                            price=Decimal('0.00'),
                             quantity=1,
-                            subtotal=fee_decimal
+                            subtotal=Decimal('0.00')
                         )
-                        order.total_amount += fee_decimal
-                        order.save()
+                    else:
+                        # 🚚 คิดค่าจัดส่งตามจริง
+                        if custom_delivery_fee is not None and float(custom_delivery_fee) > 0:
+                            fee_decimal = Decimal(str(custom_delivery_fee))
+                        else:
+                            fee = get_dorm_fee(dorm, request.user)
+                            fee_decimal = Decimal(str(fee))
+
+                        if fee_decimal > 0:
+                            delivery_product = Product.objects.filter(
+                                Q(code='FEE-DELIVERY') | Q(name__icontains='ค่าจัดส่ง')
+                            ).first()
+                            if not delivery_product:
+                                cat, _ = ProductCategory.objects.get_or_create(name='ค่าจัดส่ง', created_by=request.user)
+                                delivery_product = Product.objects.create(
+                                    name='ค่าจัดส่งโซนห่างไกล',
+                                    code='FEE-DELIVERY',
+                                    selling_price=0,
+                                    category=cat,
+                                    created_by=request.user,
+                                    is_active=True
+                                )
+                            
+                            OrderItem.objects.create(
+                                order=order,
+                                product=delivery_product,
+                                price=fee_decimal,
+                                quantity=1,
+                                subtotal=fee_decimal
+                            )
+                            order.total_amount += fee_decimal
+                            order.save()
                         
                 except Dormitory.DoesNotExist:
                     DeliveryTask.objects.create(order=order, status='PENDING')
@@ -422,38 +511,6 @@ import json
 import re
 import requests
 from datetime import datetime, timedelta
-
-def is_point_in_polygon(lng, lat, polygon):
-    x, y = lng, lat
-    inside = False
-    n = len(polygon)
-    if n == 0: return False
-    p1x, p1y = polygon[0]
-    for i in range(1, n + 1):
-        p2x, p2y = polygon[i % n]
-        if y > min(p1y, p2y):
-            if y <= max(p1y, p2y):
-                if x <= max(p1x, p2x):
-                    if p1y != p2y:
-                        xints = (y - p1y) * (p2x - p1x) / (p2y - p1y) + p1x
-                    if p1x == p2x or x <= xints:
-                        inside = not inside
-        p1x, p1y = p2x, p2y
-    return inside
-
-def get_dorm_fee(dorm):
-    from DeliveryZones.models import DeliveryZone
-    import json
-    zones = DeliveryZone.objects.filter(is_active=True)
-    for z in zones:
-        poly_data = z.polygon_data
-        if type(poly_data) == str:
-            poly_data = json.loads(poly_data)
-        if poly_data.get("geometry", {}).get("type") == "Polygon":
-            coords = poly_data["geometry"]["coordinates"][0]
-            if is_point_in_polygon(dorm.longitude, dorm.latitude, coords):
-                return float(z.fee)
-    return 0.0
 
 from django.utils import timezone
 from django.shortcuts import render

@@ -39,3 +39,13 @@ urlpatterns = [
 urlpatterns += [
     path('delivery-zones/', include('DeliveryZones.urls')),
 ]
+
+from django.contrib.staticfiles.urls import staticfiles_urlpatterns
+
+# เสิร์ฟไฟล์ Static เมื่อรันเซิร์ฟเวอร์จำลอง (Development)
+urlpatterns += staticfiles_urlpatterns()
+
+# เสิร์ฟไฟล์ Media เมื่อรันเซิร์ฟเวอร์จำลอง (Development / DEBUG = True)
+if settings.DEBUG:
+    urlpatterns += static(settings.MEDIA_URL, document_root=settings.MEDIA_ROOT)
+

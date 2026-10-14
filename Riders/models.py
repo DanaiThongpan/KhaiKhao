@@ -29,6 +29,16 @@ class Dormitory(models.Model):
     color = models.CharField(max_length=30, default="blue")
     created_at = models.DateTimeField(auto_now_add=True)
 
+    # 🌟 [เพิ่มใหม่] ผูกกับร้านค้า (User) ผู้สร้าง/ดูแลหอพัก (โหมด Dynamic Zones)
+    created_by = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        verbose_name="ร้านค้าผู้สร้าง/ดูแล",
+        related_name="dormitories"
+    )
+
     def __str__(self):
         return f"[{self.zone}] {self.name}"
 

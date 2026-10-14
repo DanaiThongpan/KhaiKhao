@@ -178,7 +178,232 @@
             }
         </script>
 
-        <div class="table-responsive">
+        <!-- 🌟 แถบสลับมุมมอง (Slip View / Table View) 🌟 -->
+        <div style="display: flex; justify-content: space-between; align-items: center; margin: 25px 0 15px 0; flex-wrap: wrap; gap: 10px;">
+            <div style="font-size: 16px; font-weight: bold; color: #1e293b; display: flex; align-items: center; gap: 8px;">
+                <span>🧾 รายการบิลประวัติการขาย</span>
+                <span style="font-size: 13px; font-weight: normal; color: #64748b; background: #e2e8f0; padding: 2px 10px; border-radius: 20px;">{{ orders|length }} บิล</span>
+            </div>
+
+            <div style="display: inline-flex; background: #e2e8f0; padding: 4px; border-radius: 10px; gap: 4px;">
+                <button type="button" id="btnViewSlip" onclick="switchHistoryView('slip')" 
+                        style="border: none; padding: 8px 16px; border-radius: 8px; font-size: 13px; font-weight: bold; cursor: pointer; transition: 0.2s; background: #be185d; color: white; display: flex; align-items: center; gap: 6px; box-shadow: 0 1px 3px rgba(0,0,0,0.1);">
+                    🧾 มุมมองสลิป POS
+                </button>
+                <button type="button" id="btnViewTable" onclick="switchHistoryView('table')" 
+                        style="border: none; padding: 8px 16px; border-radius: 8px; font-size: 13px; font-weight: bold; cursor: pointer; transition: 0.2s; background: transparent; color: #64748b; display: flex; align-items: center; gap: 6px;">
+                    📋 มุมมองตารางสรุป
+                </button>
+            </div>
+        </div>
+
+        <!-- 🌟 1. คอนเทนเนอร์แสดงสลิปแบบการ์ด (POS Slip Grid) 🌟 -->
+        <div id="slipsContainer" style="display: grid; grid-template-columns: repeat(auto-fill, minmax(360px, 1fr)); gap: 25px; margin-top: 15px;">
+            {% for order in orders %}
+                <!-- เก็บ JSON รายการสินค้าของบิลนี้สำหรับ Modal แก้ไข -->
+                <script id="items-{{ order.id }}" type="application/json">
+                [
+                    {% for item in order.items.all %}
+                    { "id": {{ item.id }}, "product_id": {{ item.product.id|default:0 }}, "name": "{{ item.product.name|escapejs }}", "category": "{{ item.product.category.name|default:''|escapejs }}", "qty": {{ item.quantity }}, "price": {{ item.price }} }{% if not forloop.last %},{% endif %}
+                    {% endfor %}
+                ]
+                </script>
+
+                {% if order.created_by.username == 'P184' and request.user.username == 'P184' %}
+                    <!-- ================= สลิปร้านทอดเป่า P184 ================= -->
+                    <div class="pos-slip-card" style="background: linear-gradient(135deg, #fef9f2 0%, #fef3e5 100%); border-radius: 16px; box-shadow: 0 4px 15px rgba(0,0,0,0.06); border: 1px solid #fed7aa; padding: 25px 20px; font-family: 'Sarabun', 'Tahoma', sans-serif; color: #3f2b1c; display: flex; flex-direction: column; justify-content: space-between;">
+                        <div>
+                            <div style="text-align: center; margin-bottom: 10px;">
+                                <div style="font-size: 24px; margin-bottom: 5px; color: #1e293b; display: flex; align-items: center; justify-content: center; gap: 8px;">
+                                    <span style="display: inline-block; transform: scaleX(-1);"><svg width="32" height="32" viewBox="0 0 100 100" style="filter: drop-shadow(0 2px 2px rgba(0,0,0,0.1));"><path d="M 40 5 Q 10 30 20 60 Q 40 35 45 70 Q 70 50 80 60 Q 80 30 40 5 Z" fill="#ea580c"/><path d="M 40 20 Q 25 40 30 55 Q 40 40 45 60 Q 60 45 65 55 Q 65 35 40 20 Z" fill="#f59e0b"/><line x1="45" y1="75" x2="90" y2="25" stroke="#1f2937" stroke-width="7" stroke-linecap="round"/><circle cx="90" cy="25" r="3" fill="#1f2937"/><ellipse cx="40" cy="75" rx="32" ry="16" fill="#111827"/><ellipse cx="40" cy="72" rx="30" ry="14" fill="#374151"/><path d="M 22 72 Q 35 62 55 72 Q 40 82 22 72 Z" fill="#b45309"/><path d="M 28 71 Q 40 65 48 71" stroke="#f59e0b" stroke-width="2" fill="none" stroke-linecap="round"/></svg></span>
+                                    <span>POS By Danai</span>
+                                    <span><svg width="32" height="32" viewBox="0 0 100 100" style="filter: drop-shadow(0 2px 2px rgba(0,0,0,0.1));"><path d="M 40 5 Q 10 30 20 60 Q 40 35 45 70 Q 70 50 80 60 Q 80 30 40 5 Z" fill="#ea580c"/><path d="M 40 20 Q 25 40 30 55 Q 40 40 45 60 Q 60 45 65 55 Q 65 35 40 20 Z" fill="#f59e0b"/><line x1="45" y1="75" x2="90" y2="25" stroke="#1f2937" stroke-width="7" stroke-linecap="round"/><circle cx="90" cy="25" r="3" fill="#1f2937"/><ellipse cx="40" cy="75" rx="32" ry="16" fill="#111827"/><ellipse cx="40" cy="72" rx="30" ry="14" fill="#374151"/><path d="M 22 72 Q 35 62 55 72 Q 40 82 22 72 Z" fill="#b45309"/><path d="M 28 71 Q 40 65 48 71" stroke="#f59e0b" stroke-width="2" fill="none" stroke-linecap="round"/></svg></span>
+                                </div>
+                                <h2 style="margin: 0 0 4px 0; font-size: 20px; color: #b43a1f;">🔥 ร้านทอดเป่า P184 🔥</h2>
+                                <p style="margin: 0; font-size: 13px; color: #6b4c3a;">ใบรายละเอียดออเดอร์ / Order Details</p>
+                            </div>
+
+                            <div style="display: flex; align-items: center; justify-content: center; margin: 12px 0;">
+                                <div style="flex: 1; border-bottom: 2px dotted #d4a373;"></div>
+                                <div style="margin: 0 8px; color: #d4a373; font-size: 10px;">◆</div>
+                                <div style="flex: 1; border-bottom: 2px dotted #d4a373;"></div>
+                            </div>
+
+                            <div style="margin-bottom: 16px; font-size: 14px; color: #3f2b1c; line-height: 1.8;">
+                                <div style="display: flex; justify-content: space-between;"><span>📄 เลขที่บิล:</span> <span style="font-weight: 500;">{{ order.receipt_number }}</span></div>
+                                <div style="display: flex; justify-content: space-between;"><span>📅 วันที่:</span> <span>{{ order.created_at|date:"d/m/Y H:i" }}</span></div>
+                                <div style="display: flex; justify-content: space-between; margin-top: 4px;">
+                                    <span>🚚 จัดส่ง:</span> 
+                                    <span style="font-weight: 500; text-align: right; max-width: 70%;">
+                                        {% if order.delivery_info.destination %}
+                                            [{{ order.delivery_info.destination.zone }}] {{ order.delivery_info.destination.name }}
+                                        {% else %}
+                                            🏪 ทานหน้าร้าน
+                                        {% endif %}
+                                    </span>
+                                </div>
+                                {% if order.delivery_info.destination %}
+                                <div style="display: flex; justify-content: space-between; margin-top: 4px;">
+                                    {% if order.is_free_delivery %}
+                                        <span>📍 ค่าจัดส่ง:</span>
+                                        <span style="font-weight: bold; color: #16a34a;">ส่งฟรีเนื่องจากจัดส่งล่าช้า</span>
+                                    {% elif order.delivery_fee > 0 %}
+                                        <span style="color: #b45309; font-weight: 700;">📍 ค่าจัดส่งโซนห่างไกล:</span>
+                                        <span style="font-weight: bold; color: #b45309;">฿{{ order.delivery_fee|floatformat:2 }}</span>
+                                    {% else %}
+                                        <span>📍 ค่าจัดส่ง:</span>
+                                        <span style="font-weight: bold; color: #64748b;">฿0.00</span>
+                                    {% endif %}
+                                </div>
+                                {% endif %}
+                            </div>
+
+                            <div style="border-bottom: 2px dotted #d4a373; border-top: 2px dotted #d4a373; padding: 12px 0; margin-bottom: 16px;">
+                                <div style="font-weight: bold; margin-bottom: 8px; color: #b43a1f;">รายการอาหาร:</div>
+                                {% for item in order.items.all %}
+                                    {% if item.product.code != 'FEE-DELIVERY' and not 'ค่าจัดส่ง' in item.product.name and item.product.code != 'FREE-DELIVERY-DELAY' and not 'ส่งฟรี' in item.product.name %}
+                                        {% if item.is_subitem %}
+                                            <div style="display: flex; justify-content: space-between; margin-bottom: 6px; font-size: 14px; padding-left: 20px; color: #6b4c3a;">
+                                                <span style="flex: 1; padding-right: 10px;"><span style="color:#d4a373; margin-right:5px;">↳</span> {{ item.product.name }} <span style="font-size: 12px;">(x{{ item.quantity }})</span></span>
+                                                <span style="white-space: nowrap;">฿{{ item.subtotal|floatformat:2 }}</span>
+                                            </div>
+                                        {% else %}
+                                            <div style="display: flex; justify-content: space-between; margin-bottom: 8px; font-size: 15px; color: #3f2b1c;">
+                                                <span style="flex: 1; padding-right: 10px; font-weight: 500;">🍛 {{ item.product.name }} <span style="color: #8c6b5d; font-weight: normal; font-size: 13px;">(x{{ item.quantity }})</span></span>
+                                                <span style="font-weight: bold; white-space: nowrap;">฿{{ item.subtotal|floatformat:2 }}</span>
+                                            </div>
+                                        {% endif %}
+                                    {% endif %}
+                                {% endfor %}
+                            </div>
+
+                            <div style="border-radius: 12px; box-shadow: 0 3px 8px rgba(0,0,0,0.06); background: #fff; overflow: hidden; margin-bottom: 12px; border: 1px solid #fde68a;">
+                                <div style="background: linear-gradient(90deg, #c2410c 0%, #d97706 100%); padding: 10px 16px; color: white; display: flex; justify-content: space-between; align-items: center; font-size: 18px; font-weight: bold;">
+                                    <span>ยอดรวมสุทธิ:</span>
+                                    <span>฿{{ order.total_amount|floatformat:2 }}</span>
+                                </div>
+                                <div style="background: #fff; padding: 20px 15px 12px 15px; text-align: center; position: relative;">
+                                    <div class="card-qr-box" data-order-id="{{ order.id }}" data-amount="{{ order.total_amount }}" style="display: flex; justify-content: center; margin-bottom: 10px;"></div>
+                                    <p style="margin: 0; font-size: 12px; color: #43302b; font-weight: bold; line-height: 1.6;">
+                                        ⚠️ กรุณาตรวจสอบความถูกต้องของยอดเงิน<br>
+                                        ↘❗ ก่อนกดยืนยันทุกครั้ง<br>
+                                        📢 หากพบว่ายอดเงินไม่ถูกต้อง<br>
+                                        ↘❗ กรุณาแจ้งทางร้านทันที<br>
+                                        🙇🏻‍♀️ ขอบคุณที่มาอุดหนุนนะค๊าบ 🙇
+                                    </p>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- ปุ่มจัดการ -->
+                        <div style="display: flex; gap: 8px; margin-top: 14px; padding-top: 12px; border-top: 1px dotted #d4a373;">
+                            <button type="button" class="action-btn edit" style="flex: 1; padding: 9px; border-radius: 8px; font-weight: bold; cursor: pointer; display: flex; align-items: center; justify-content: center; gap: 5px; background: #fff; color: #b43a1f; border: 1px solid #fed7aa; font-size: 13px;" onclick="openEditModal({{ order.id }}, '{{ order.receipt_number }}', 'items-{{ order.id }}')">
+                                ✏️ แก้ไขบิล
+                            </button>
+                            <button type="button" class="action-btn download" style="flex: 1; padding: 9px; border-radius: 8px; font-weight: bold; cursor: pointer; display: flex; align-items: center; justify-content: center; gap: 5px; background: #c2410c; color: white; border: none; font-size: 13px;" onclick="openSlipModal('{{ order.receipt_number }}', '{{ order.created_at|date:'d/m/Y' }}', {{ order.total_amount }}, '{{ request.user.username }}', 'items-{{ order.id }}', '{% if order.delivery_info.destination %}[{{ order.delivery_info.destination.zone|escapejs }}] {{ order.delivery_info.destination.name|escapejs }}{% endif %}', {{ order.is_free_delivery|yesno:'true,false' }})">
+                                📥 บันทึกรูปสลิป
+                            </button>
+                        </div>
+                    </div>
+
+                {% else %}
+                    <!-- ================= สลิปร้านเรื่องของหมู M053 (ค่าเริ่มต้น/ตามรูป) ================= -->
+                    <div class="pos-slip-card" style="background: #ffffff; border-radius: 16px; box-shadow: 0 4px 15px rgba(0,0,0,0.06); border: 1px solid #fbcfe8; padding: 25px 20px; font-family: 'Sarabun', 'Tahoma', sans-serif; display: flex; flex-direction: column; justify-content: space-between;">
+                        <div>
+                            <!-- ข้อมูลส่วนหัว: โลโก้ / ชื่อร้าน / รายละเอียดออเดอร์ -->
+                            <div style="text-align: center; border-bottom: 2px dashed #fbcfe8; padding-bottom: 12px; margin-bottom: 14px;">
+                                <h2 style="margin: 0 0 4px 0; font-size: 22px; color: #be185d;">🐷 ร้านเรื่องของหมู M053 🐷</h2>
+                                <p style="margin: 0; font-size: 13px; color: #db2777;">รายละเอียดออเดอร์</p>
+                            </div>
+
+                            <!-- ข้อมูลบิล & ข้อมูลจัดส่ง: เลขที่บิล, วันที่, โซนจัดส่ง และ บ้านเลขที่/หอพัก, ค่าจัดส่ง -->
+                            <div style="margin-bottom: 16px; font-size: 14px; color: #4b5563; line-height: 1.6;">
+                                <div style="display: flex; justify-content: space-between;"><span>เลขที่บิล:</span> <span style="font-weight: 500;">{{ order.receipt_number }}</span></div>
+                                <div style="display: flex; justify-content: space-between;"><span>วันที่:</span> <span>{{ order.created_at|date:"d/m/Y H:i" }}</span></div>
+                                <div style="display: flex; justify-content: space-between; margin-top: 4px;">
+                                    <span>จัดส่ง:</span> 
+                                    <span style="font-weight: 500; text-align: right; max-width: 70%;">
+                                        {% if order.delivery_info.destination %}
+                                            [{{ order.delivery_info.destination.zone }}] {{ order.delivery_info.destination.name }}
+                                        {% else %}
+                                            🏪 ทานหน้าร้าน
+                                        {% endif %}
+                                    </span>
+                                </div>
+                                {% if order.delivery_info.destination %}
+                                <div style="display: flex; justify-content: space-between; margin-top: 4px;">
+                                    {% if order.is_free_delivery %}
+                                        <span>ค่าจัดส่ง:</span>
+                                        <span style="font-weight: bold; color: #16a34a;">ส่งฟรีเนื่องจากจัดส่งล่าช้า</span>
+                                    {% elif order.delivery_fee > 0 %}
+                                        <span style="color: #b45309; font-weight: 700;">ค่าจัดส่งโซนห่างไกล:</span>
+                                        <span style="font-weight: bold; color: #b45309;">฿{{ order.delivery_fee|floatformat:2 }}</span>
+                                    {% else %}
+                                        <span>ค่าจัดส่ง:</span>
+                                        <span style="font-weight: bold; color: #64748b;">฿0.00</span>
+                                    {% endif %}
+                                </div>
+                                {% endif %}
+                            </div>
+
+                            <!-- รายการอาหาร & ท็อปปิ้ง -->
+                            <div style="border-bottom: 2px dashed #fbcfe8; border-top: 2px dashed #fbcfe8; padding: 12px 0; margin-bottom: 14px;">
+                                <div style="font-weight: bold; margin-bottom: 8px; color: #be185d;">รายการอาหาร:</div>
+                                {% for item in order.items.all %}
+                                    {% if item.product.code != 'FEE-DELIVERY' and item.product.name != 'ค่าจัดส่ง' and item.product.code != 'FREE-DELIVERY-DELAY' and not 'ส่งฟรี' in item.product.name %}
+                                        {% if item.is_subitem %}
+                                            <div style="display: flex; justify-content: space-between; margin-bottom: 6px; font-size: 14px; padding-left: 20px; color: #6b7280;">
+                                                <span style="flex: 1; padding-right: 10px;"><span style="color:#d97706; margin-right:5px;">↳</span> {{ item.product.name }} <span style="font-size: 12px;">(x{{ item.quantity }})</span></span>
+                                                <span style="white-space: nowrap;">฿{{ item.subtotal|floatformat:2 }}</span>
+                                            </div>
+                                        {% else %}
+                                            <div style="display: flex; justify-content: space-between; margin-bottom: 8px; font-size: 15px; color: #1f2937;">
+                                                <span style="flex: 1; padding-right: 10px; font-weight: 500;">- {{ item.product.name }} <span style="color: #6b7280; font-weight: normal; font-size: 13px;">(x{{ item.quantity }})</span></span>
+                                                <span style="font-weight: bold; white-space: nowrap;">฿{{ item.subtotal|floatformat:2 }}</span>
+                                            </div>
+                                        {% endif %}
+                                    {% endif %}
+                                {% endfor %}
+                            </div>
+
+                            <!-- ยอดรวมสุทธิ -->
+                            <div style="display: flex; justify-content: space-between; align-items: center; font-weight: bold; font-size: 20px; color: #be185d; margin-bottom: 16px;">
+                                <span>ยอดรวมสุทธิ:</span>
+                                <span>฿{{ order.total_amount|floatformat:2 }}</span>
+                            </div>
+
+                            <!-- QR Code พร้อมเพย์ และ ข้อความขอบคุณด้านล่าง -->
+                            <div style="text-align: center; background: #fdf2f8; padding: 14px; border-radius: 12px; border: 1px solid #fce7f3;">
+                                <div class="card-qr-box" data-order-id="{{ order.id }}" data-amount="{{ order.total_amount }}" style="display: flex; justify-content: center; margin-bottom: 10px;"></div>
+                                <p style="margin: 0; font-size: 13px; color: #9d174d; font-weight: bold; line-height: 1.5;">
+                                   🐷 รบกวนตรวจสอบยอดเงินก่อนยืนยัน 🐷<br>
+                                   ⚠️ หากยอดเงินไม่ถูกต้องกรุณาแจ้งทางร้านทันที ⚠️<br>
+                                   🙏 ขอบคุณที่อุดหนุนร้านเรื่องของหมูค่ะ 🙏
+                                </p>
+                            </div>
+                        </div>
+
+                        <!-- ปุ่มจัดการ -->
+                        <div style="display: flex; gap: 8px; margin-top: 14px; padding-top: 12px; border-top: 1px dashed #fbcfe8;">
+                            <button type="button" class="action-btn edit" style="flex: 1; padding: 9px; border-radius: 8px; font-weight: bold; cursor: pointer; display: flex; align-items: center; justify-content: center; gap: 5px; background: #eff6ff; color: #2563eb; border: 1px solid #bfdbfe; font-size: 13px;" onclick="openEditModal({{ order.id }}, '{{ order.receipt_number }}', 'items-{{ order.id }}')">
+                                ✏️ แก้ไขบิล
+                            </button>
+                            <button type="button" class="action-btn download" style="flex: 1; padding: 9px; border-radius: 8px; font-weight: bold; cursor: pointer; display: flex; align-items: center; justify-content: center; gap: 5px; background: #fdf2f8; color: #be185d; border: 1px solid #fbcfe8; font-size: 13px;" onclick="openSlipModal('{{ order.receipt_number }}', '{{ order.created_at|date:'d/m/Y' }}', {{ order.total_amount }}, '{{ request.user.username }}', 'items-{{ order.id }}', '{% if order.delivery_info.destination %}[{{ order.delivery_info.destination.zone|escapejs }}] {{ order.delivery_info.destination.name|escapejs }}{% endif %}', {{ order.is_free_delivery|yesno:'true,false' }})">
+                                📥 บันทึกรูปสลิป
+                            </button>
+                        </div>
+                    </div>
+                {% endif %}
+            {% empty %}
+                <div style="grid-column: 1 / -1; text-align: center; padding: 60px 20px; background: white; border-radius: 16px; color: #9ca3af; border: 1px dashed #cbd5e1;">
+                    <div style="font-size: 45px; margin-bottom: 12px;">📜</div>
+                    <div style="font-size: 16px; font-weight: bold; color: #64748b;">ไม่พบประวัติการขายในช่วงเวลาที่เลือก</div>
+                </div>
+            {% endfor %}
+        </div>
+
+        <!-- 🌟 2. คอนเทนเนอร์แสดงตารางเดิม (Table View) 🌟 -->
+        <div id="tableContainer" class="table-responsive" style="display: none;">
             <table class="history-table">
                 <thead>
                     <tr>
@@ -192,15 +417,6 @@
                 </thead>
                 <tbody>
                     {% for order in orders %}
-
-                    <script id="items-{{ order.id }}" type="application/json">
-                    [
-                        {% for item in order.items.all %}
-                        { "id": {{ item.id }}, "product_id": {{ item.product.id|default:0 }}, "name": "{{ item.product.name|escapejs }}", "category": "{{ item.product.category.name|default:''|escapejs }}", "qty": {{ item.quantity }}, "price": {{ item.price }} }{% if not forloop.last %},{% endif %}
-                        {% endfor %}
-                    ]
-                    </script>
-
                     <tr>
                         <td style="text-align: center; color: #64748b; font-weight: bold; font-size: 16px;">{{ forloop.revcounter }}</td>
 
@@ -229,6 +445,15 @@
                                     <div style="font-size: 12px; color: #1e40af; font-weight: bold; background: #dbeafe; padding: 4px 8px; border-radius: 6px; display: inline-block; white-space: nowrap; margin-bottom: 5px; width: 100%;">
                                         📍 [{{ order.delivery_info.destination.zone }}] {{ order.delivery_info.destination.name }}
                                     </div>
+                                    {% if order.is_free_delivery %}
+                                        <div style="font-size: 11px; color: #166534; font-weight: bold; background: #dcfce7; padding: 2px 6px; border-radius: 4px; display: inline-block; margin-bottom: 4px;">
+                                            🎁 ส่งฟรีเนื่องจากจัดส่งล่าช้า
+                                        </div>
+                                    {% elif order.delivery_fee > 0 %}
+                                        <div style="font-size: 11px; color: #b45309; font-weight: bold; background: #fef3c7; padding: 2px 6px; border-radius: 4px; display: inline-block; margin-bottom: 4px;">
+                                            🚚 ค่าจัดส่งโซนห่างไกล ฿{{ order.delivery_fee|floatformat:2 }}
+                                        </div>
+                                    {% endif %}
                                 {% endif %}
 
                                 {% if order.delivery_info.status == 'DELIVERED' %}
@@ -263,7 +488,7 @@
                                 <button class="action-btn edit" onclick="openEditModal({{ order.id }}, '{{ order.receipt_number }}', 'items-{{ order.id }}')">
                                     ✏️ แก้ไข
                                 </button>
-                                <button class="action-btn download" onclick="openSlipModal('{{ order.receipt_number }}', '{{ order.created_at|date:'d/m/Y' }}', {{ order.total_amount }}, '{{ request.user.username }}', 'items-{{ order.id }}', '{% if order.delivery_info.destination %}[{{ order.delivery_info.destination.zone|escapejs }}] {{ order.delivery_info.destination.name|escapejs }}{% endif %}')">
+                                <button class="action-btn download" onclick="openSlipModal('{{ order.receipt_number }}', '{{ order.created_at|date:'d/m/Y' }}', {{ order.total_amount }}, '{{ request.user.username }}', 'items-{{ order.id }}', '{% if order.delivery_info.destination %}[{{ order.delivery_info.destination.zone|escapejs }}] {{ order.delivery_info.destination.name|escapejs }}{% endif %}', {{ order.is_free_delivery|yesno:'true,false' }})">
                                     📥 สลิป
                                 </button>
                             </div>
@@ -489,8 +714,8 @@
         alert("✅ รีเซ็ตตำแหน่งกระดาษ A4 เรียบร้อยแล้ว");
     }
 
-    function openSlipModal(receiptNo, dateStr, total, shopName, itemsScriptId, dormName = "") {
-        currentSlipData = { receiptNo, dateStr, total, shopName, itemsScriptId, dormName };
+    function openSlipModal(receiptNo, dateStr, total, shopName, itemsScriptId, dormName = "", isFreeDelivery = false) {
+        currentSlipData = { receiptNo, dateStr, total, shopName, itemsScriptId, dormName, isFreeDelivery };
         updatePrintSlotStatus();
         document.getElementById('slipModalTotal').innerText = '฿' + parseFloat(total).toFixed(2);
 
@@ -509,7 +734,7 @@
 
     function confirmReprint() {
         const type = document.querySelector('input[name="reprintType"]:checked').value;
-        const { receiptNo, dateStr, total, shopName, itemsScriptId, dormName } = currentSlipData;
+        const { receiptNo, dateStr, total, shopName, itemsScriptId, dormName, isFreeDelivery } = currentSlipData;
 
         let qrContainer = document.getElementById('slipQrcode');
         let qrImg = qrContainer.querySelector('img') || qrContainer.querySelector('canvas');
@@ -518,14 +743,15 @@
         closeSlipModal();
 
         if (type === 'print') {
-            triggerPrintReceipt(receiptNo, itemsScriptId, parseFloat(total), qrDataUrl, shopName, dormName, dateStr);
+            triggerPrintReceipt(receiptNo, itemsScriptId, parseFloat(total), qrDataUrl, shopName, dormName, dateStr, isFreeDelivery);
         } else {
-            downloadSlipImage(receiptNo, dateStr, parseFloat(total), qrDataUrl, shopName, itemsScriptId, dormName);
+            downloadSlipImage(receiptNo, dateStr, parseFloat(total), qrDataUrl, shopName, itemsScriptId, dormName, isFreeDelivery);
         }
     }
 
-    function triggerPrintReceipt(receiptNo, itemsScriptId, total, qrDataUrl, shopName, dormName, dateStr) {
-        const items = JSON.parse(document.getElementById(itemsScriptId).textContent);
+    function triggerPrintReceipt(receiptNo, itemsScriptId, total, qrDataUrl, shopName, dormName, dateStr, isFreeDelivery = false) {
+        let items = JSON.parse(document.getElementById(itemsScriptId).textContent);
+        items = items.filter(i => i.name !== 'ค่าจัดส่ง' && !i.name.includes('ค่าจัดส่ง') && !i.name.includes('ส่งฟรี') && !(i.category && i.category.includes('ค่าจัดส่ง')));
         
         let fullShopName = shopName;
         if (shopName === 'P184') fullShopName = "🔥 ร้านทอดเป่า P184 🔥";
@@ -542,8 +768,18 @@
         let leftOffset = 15 + (col * 95);
         let topOffset = 10 + (row * 95);
 
-        let dormText = (dormName && dormName.trim() !== "") ? dormName : "อยู่ระหว่างรวบรวมข้อมูลหอพัก";
-        let dormHtml = `<div class="info-text">จุดส่ง: <strong>${dormText}</strong></div>`;
+        let itemsTotal = items.reduce((sum, item) => sum + (item.price * item.qty), 0);
+        let printFee = total - itemsTotal;
+        let dormText = (dormName && dormName.trim() !== "") ? dormName : "";
+        let dormHtml = "";
+        if (dormText) {
+            dormHtml = `<div class="info-text">จุดส่ง: <strong>${dormText}</strong></div>`;
+            if (isFreeDelivery) {
+                dormHtml += `<div class="info-text" style="color: #16a34a; font-weight: bold;">ค่าจัดส่ง: <strong>ส่งฟรีเนื่องจากจัดส่งล่าช้า</strong></div>`;
+            } else if (printFee > 0) {
+                dormHtml += `<div class="info-text" style="color: #b45309; font-weight: bold;">ค่าจัดส่งโซนห่างไกล: <strong>฿${printFee.toFixed(2)}</strong></div>`;
+            }
+        }
 
         let qrFooterDesc = (fullShopName.includes("M053") || fullShopName.includes("เรื่องของหมู")) ? 
             `🐷 โอนแล้วรอสักครู่นะคะ 🐷<br>
@@ -631,9 +867,9 @@
         printWindow.document.close();
     }
 
-    function downloadSlipImage(receiptNo, dateStr, total, qrDataUrl, shopName, itemsScriptId, dormName) {
+    function downloadSlipImage(receiptNo, dateStr, total, qrDataUrl, shopName, itemsScriptId, dormName, isFreeDelivery = false) {
         let items = JSON.parse(document.getElementById(itemsScriptId).textContent);
-        items = items.filter(i => i.name !== 'ค่าจัดส่ง' && !(i.category && i.category.includes('ค่าจัดส่ง')));
+        items = items.filter(i => i.name !== 'ค่าจัดส่ง' && !i.name.includes('ส่งฟรี') && !(i.category && i.category.includes('ค่าจัดส่ง')));
 
         let fullShopName = shopName;
         if (shopName === 'P184') fullShopName = "🔥 ร้านทอดเป่า P184 🔥";
@@ -655,17 +891,29 @@
         
         let itemsTotal = items.reduce((sum, item) => sum + (item.price * item.qty), 0);
         let slipFee = total - itemsTotal;
-        let dormText = (dormName && dormName.trim() !== "") ? dormName : "อยู่ระหว่างรวบรวมข้อมูลหอพัก";
+        let dormText = (dormName && dormName.trim() !== "") ? dormName : "";
+        let dormHtml = "";
+        if (dormText) {
+            dormHtml = `<div style="display: flex; justify-content: space-between; margin-top: 4px;"><span>จัดส่ง:</span> <span style="font-weight: 500; text-align: right; max-width: 70%;">${dormText}</span></div>`;
+            if (isFreeDelivery) {
+                dormHtml += `<div style="display: flex; justify-content: space-between; margin-top: 4px;"><span style="color: #16a34a; font-weight: 700;">ค่าจัดส่ง:</span> <span style="font-weight: 700; color: #16a34a;">ส่งฟรีเนื่องจากจัดส่งล่าช้า</span></div>`;
+            } else if (slipFee > 0) {
+                dormHtml += `<div style="display: flex; justify-content: space-between; margin-top: 4px; color: #b45309; font-weight: 700;"><span>ค่าจัดส่งโซนห่างไกล:</span> <span>฿${slipFee.toFixed(2)}</span></div>`;
+            }
+        }
 
         if (fullShopName.includes("P184") || shopName === "P184") {
             slipContainer.style.background = 'linear-gradient(135deg, #fef9f2 0%, #fef3e5 100%)';
             slipContainer.style.color = '#3f2b1c';
 
-            let p184_dormHtml = `<div style="display: flex; justify-content: space-between; margin-top: 6px;"><span>🚚 จัดส่ง:</span> <span style="font-weight: 500; text-align: right; max-width: 70%;">${dormText}</span></div>`;
-            if (slipFee > 0) {
-                p184_dormHtml += `<div style="display: flex; justify-content: space-between; margin-top: 6px; color: #b45309; font-weight: 700;"><span>📍 ค่าจัดส่ง:</span> <span>฿${slipFee.toFixed(2)}</span></div>`;
-            } else if (dormName && dormName.trim() !== "") {
-                p184_dormHtml += `<div style="display: flex; justify-content: space-between; margin-top: 6px;"><span>📍 ค่าจัดส่ง:</span> <span style="font-weight: 700; color: #16a34a;">ส่งฟรี</span></div>`;
+            let p184_dormHtml = "";
+            if (dormText) {
+                p184_dormHtml = `<div style="display: flex; justify-content: space-between; margin-top: 6px;"><span>🚚 จัดส่ง:</span> <span style="font-weight: 500; text-align: right; max-width: 70%;">${dormText}</span></div>`;
+                if (isFreeDelivery) {
+                    p184_dormHtml += `<div style="display: flex; justify-content: space-between; margin-top: 6px;"><span style="color: #16a34a; font-weight: 700;">📍 ค่าจัดส่ง:</span> <span style="font-weight: 700; color: #16a34a;">ส่งฟรีเนื่องจากจัดส่งล่าช้า</span></div>`;
+                } else if (slipFee > 0) {
+                    p184_dormHtml += `<div style="display: flex; justify-content: space-between; margin-top: 6px; color: #b45309; font-weight: 700;"><span>📍 ค่าจัดส่ง:</span> <span>฿${slipFee.toFixed(2)}</span></div>`;
+                }
             }
 
             let p184_itemsIndex = 1;
@@ -744,13 +992,6 @@
                 </div>
             `;
         } else if (fullShopName.includes("M053") || fullShopName.includes("เรื่องของหมู")) {
-            let dormHtml = `<div style="display: flex; justify-content: space-between; margin-top: 4px;"><span>จัดส่ง:</span> <span style="font-weight: 500; text-align: right; max-width: 70%;">${dormText}</span></div>`;
-            if (slipFee > 0) {
-                dormHtml += `<div style="display: flex; justify-content: space-between; margin-top: 4px; color: #000; font-weight: 700;"><span>ค่าจัดส่ง:</span> <span>฿${slipFee.toFixed(2)}</span></div>`;
-            } else if (dormName && dormName.trim() !== "") {
-                dormHtml += `<div style="display: flex; justify-content: space-between; margin-top: 4px;"><span>ค่าจัดส่ง:</span> <span style="font-weight: 500; color: #16a34a;">ส่งฟรี</span></div>`;
-            }
-            
             let mainIndex = 1;
             let itemsHtml = items.map(item => {
                 const catName = (item.category || "").toLowerCase();
@@ -807,13 +1048,6 @@
                 </div>
             `;
         } else {
-            let dormHtml = `<div style="display: flex; justify-content: space-between; margin-top: 4px;"><span>จัดส่ง:</span> <span style="font-weight: 500; text-align: right; max-width: 70%;">${dormText}</span></div>`;
-            if (slipFee > 0) {
-                dormHtml += `<div style="display: flex; justify-content: space-between; margin-top: 4px; color: #000; font-weight: 700;"><span>ค่าจัดส่ง:</span> <span>฿${slipFee.toFixed(2)}</span></div>`;
-            } else if (dormName && dormName.trim() !== "") {
-                dormHtml += `<div style="display: flex; justify-content: space-between; margin-top: 4px;"><span>ค่าจัดส่ง:</span> <span style="font-weight: 500; color: #16a34a;">ส่งฟรี</span></div>`;
-            }
-            
             let mainIndex = 1;
             let itemsHtml = items.map(item => {
                 const catName = (item.category || "").toLowerCase();
@@ -889,6 +1123,70 @@
             alert("ไม่สามารถสร้างรูปภาพบิลได้ กรุณาลองใหม่");
         });
     }
+
+    // 🌟 ฟังก์ชันสลับมุมมองประวัติการขาย (มุมมองสลิป POS / มุมมองตารางสรุป) 🌟
+    function switchHistoryView(mode) {
+        const slipsContainer = document.getElementById('slipsContainer');
+        const tableContainer = document.getElementById('tableContainer');
+        const btnSlip = document.getElementById('btnViewSlip');
+        const btnTable = document.getElementById('btnViewTable');
+
+        if (mode === 'table') {
+            if (slipsContainer) slipsContainer.style.display = 'none';
+            if (tableContainer) tableContainer.style.display = 'block';
+            if (btnTable) {
+                btnTable.style.background = '#be185d';
+                btnTable.style.color = '#ffffff';
+                btnTable.style.boxShadow = '0 1px 3px rgba(0,0,0,0.1)';
+            }
+            if (btnSlip) {
+                btnSlip.style.background = 'transparent';
+                btnSlip.style.color = '#64748b';
+                btnSlip.style.boxShadow = 'none';
+            }
+            localStorage.setItem('history_view_mode', 'table');
+        } else {
+            if (slipsContainer) slipsContainer.style.display = 'grid';
+            if (tableContainer) tableContainer.style.display = 'none';
+            if (btnSlip) {
+                btnSlip.style.background = '#be185d';
+                btnSlip.style.color = '#ffffff';
+                btnSlip.style.boxShadow = '0 1px 3px rgba(0,0,0,0.1)';
+            }
+            if (btnTable) {
+                btnTable.style.background = 'transparent';
+                btnTable.style.color = '#64748b';
+                btnTable.style.boxShadow = 'none';
+            }
+            localStorage.setItem('history_view_mode', 'slip');
+        }
+    }
+
+    // 🌟 สร้าง QR Code พร้อมเพย์บนการ์ดสลิปทุกใบในหน้า History อัตโนมัติเมื่อโหลดหน้า 🌟
+    document.addEventListener('DOMContentLoaded', () => {
+        // กู้คืนมุมมองที่ผู้ใช้เลือกไว้ล่าสุด
+        const savedMode = localStorage.getItem('history_view_mode');
+        if (savedMode === 'table') {
+            switchHistoryView('table');
+        }
+
+        // สร้าง QR พร้อมเพย์สำหรับบิลในหน้า History
+        document.querySelectorAll('.card-qr-box').forEach(box => {
+            const amount = parseFloat(box.getAttribute('data-amount')) || 0;
+            if (PROMPTPAY_ID && amount > 0) {
+                box.innerHTML = '';
+                const payload = generatePromptPayPayload(PROMPTPAY_ID, amount);
+                new QRCode(box, {
+                    text: payload,
+                    width: 140,
+                    height: 140,
+                    colorDark: "#000000",
+                    colorLight: "#ffffff",
+                    correctLevel: QRCode.CorrectLevel.M
+                });
+            }
+        });
+    });
 </script>
 </body>
 </html>

@@ -85,20 +85,46 @@
 </head>
 <body>
 
+<div style="display: none;">
+    {% csrf_token %}
+</div>
+
 <div class="app">
     <aside class="sidebar">
         <div class="logo"><h2>KhaiKhao</h2><span>POS</span></div>
         <nav class="menu">
             <a href="{% url 'pos:home' %}" class="menu-item"><span>🏠</span><span>หน้าหลัก</span></a>
+            <a href="{% url 'history:home' %}" class="menu-item"><span>📜</span><span>ประวัติการขาย</span></a>
+            <a href="{% url 'riders:home' %}" class="menu-item"><span>🛵</span><span>ติดตามไรเดอร์</span></a>
             <a href="{% url 'heatmap:home' %}" class="menu-item"><span>🔥</span><span>แผนที่ยอดขาย</span></a>
             <a href="{% url 'delivery_zones:home' %}" class="menu-item active"><span>📍</span><span>พื้นที่จัดส่ง</span></a>
+            <a href="{% url 'reports:home' %}" class="menu-item"><span>📊</span><span>รายงาน</span></a>
         </nav>
+        <div style="margin-top: auto; padding: 15px; border-top: 1px solid rgba(255,255,255,0.05);">
+            <div style="font-size: 11px; color: #9ca3af;">เข้าสู่ระบบโดย:</div>
+            <div style="font-weight: bold; color: #4ade80; font-size: 13px; margin-top: 3px;">
+                👤 {% if request.user.username == 'P184' %}ทอดเป่า (P184)
+                   {% elif request.user.username == 'M053' %}เรื่องของหมู (M053)
+                   {% else %}{{ request.user.username }}{% endif %}
+            </div>
+            <a href="{% url 'logout' %}" class="menu-item" style="padding: 8px 0; margin-top: 8px; color: #f87171;"><span>🚪</span><span>ออกจากระบบ</span></a>
+        </div>
     </aside>
 
     <main class="main">
         <header class="page-header">
-            <h1>📍 สโคปพื้นที่จัดส่ง (Delivery Zones)</h1>
-            <p>วาดขอบเขตพื้นที่บนแผนที่ เพื่อกำหนดค่าจัดส่งสำหรับแต่ละโซน</p>
+            <div style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 10px;">
+                <div>
+                    <h1>📍 สโคปพื้นที่จัดส่ง (Delivery Zones)</h1>
+                    <p>วาดขอบเขตพื้นที่บนแผนที่ เพื่อกำหนดค่าจัดส่งสำหรับแต่ละโซน (แยกเฉพาะร้านค้านี้ ไม่ปนกับร้านอื่น)</p>
+                </div>
+                <div style="background: #e0f2fe; border: 1px solid #bfdbfe; padding: 8px 16px; border-radius: 20px; font-weight: bold; color: #0369a1; font-size: 14px; box-shadow: 0 2px 4px rgba(0,0,0,0.04);">
+                    🏪 ร้านค้า: 
+                    {% if request.user.username == 'P184' %}🔥 ร้านทอดเป่า P184
+                    {% elif request.user.username == 'M053' %}🐷 ร้านเรื่องของหมู M053
+                    {% else %}🛒 ร้าน {{ request.user.username }}{% endif %}
+                </div>
+            </div>
         </header>
 
         <div class="content-layout">
@@ -278,10 +304,15 @@
 
         if (!name || !polygon_data) return alert('กรุณากรอกชื่อและวาดโซนบนแผนที่');
 
+        let csrfToken = document.querySelector('[name=csrfmiddlewaretoken]')?.value || '';
+
         try {
             let res = await fetch('/delivery-zones/api/save/', {
                 method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
+                headers: { 
+                    'Content-Type': 'application/json',
+                    'X-CSRFToken': csrfToken
+                },
                 body: JSON.stringify({ id, name, fee, color, polygon_data: JSON.parse(polygon_data) })
             });
             let data = await res.json();
@@ -301,8 +332,14 @@
 
     async function deleteZone(id) {
         if(!confirm('ยืนยันการลบโซนจัดส่งนี้?')) return;
+        let csrfToken = document.querySelector('[name=csrfmiddlewaretoken]')?.value || '';
         try {
-            let res = await fetch(`/delivery-zones/api/delete/${id}/`, { method: 'POST' });
+            let res = await fetch(`/delivery-zones/api/delete/${id}/`, { 
+                method: 'POST',
+                headers: {
+                    'X-CSRFToken': csrfToken
+                }
+            });
             let data = await res.json();
             if(data.status === 'success') {
                 const index = zonesData.findIndex(z => z.id === id);
