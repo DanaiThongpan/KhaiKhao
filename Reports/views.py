@@ -1,5 +1,6 @@
 from datetime import datetime, timedelta
 import json
+import zoneinfo
 
 from django.contrib.auth.decorators import login_required
 from django.db.models import Count, F, Q, Sum
@@ -340,13 +341,14 @@ def reports_home(request):
         )
 
     # =========================================================
-    # 🌟 9. วิเคราะห์ช่วงเวลาพีคของการขาย (Peak Sales Hours: 00:00 - 23:00 น.) 🌟
-    # ใช้ ExtractHour จัดกลุ่มตามชั่วโมงที่บันทึกออเดอร์จริง (created_at)
-    # สอดคล้องกับระบบ Filter (User, Month, Year, Date, Realtime, All) ทั้งหมด
+    # 🌟 9. วิเคราะห์ช่วงเวลาพีคของการขาย (Peak Sales Hours) 🌟
+    # แปลงเวลาเฉพาะกราฟนี้เป็นเวลาประเทศไทย (Asia/Bangkok: UTC+7) ตามคำสั่งพิเศษ
+    # นำช่วงเวลาเที่ยงคืน (00:00 น.) ไว้ตรงกลางของแกน X (เรียงลำดับ: 12:00 -> 23:00 -> 00:00 -> 11:00)
     # =========================================================
+    thai_tz = zoneinfo.ZoneInfo("Asia/Bangkok")
     hourly_stats = (
         orders_qs.annotate(
-            hour=ExtractHour("created_at", tzinfo=timezone.get_current_timezone())
+            hour=ExtractHour("created_at", tzinfo=thai_tz)
         )
         .values("hour")
         .annotate(
@@ -358,15 +360,16 @@ def reports_home(request):
 
     hour_map = {row["hour"]: row for row in hourly_stats if row["hour"] is not None}
 
-    # เตรียมข้อมูลครบทั้ง 24 ชั่วโมง (00:00 - 23:00 น.)
-    peak_hours_labels = [f"{h:02d}:00 น." for h in range(24)]
+    # จัดเรียงลำดับ 24 ชั่วโมงโดยให้เที่ยงคืน (00:00 น.) อยู่ตรงกลาง (12:00 ถึง 11:00 น.)
+    ordered_hours = [(h % 24) for h in range(12, 36)]
+    peak_hours_labels = [f"{h:02d}:00 น." for h in ordered_hours]
     peak_hours_sales = [
         float(hour_map[h]["total_sales"] or 0) if h in hour_map else 0.0
-        for h in range(24)
+        for h in ordered_hours
     ]
     peak_hours_orders = [
         int(hour_map[h]["order_count"] or 0) if h in hour_map else 0
-        for h in range(24)
+        for h in ordered_hours
     ]
 
     # สรุปช่วงเวลาที่ขายดีที่สุด (Peak Rush Hour)

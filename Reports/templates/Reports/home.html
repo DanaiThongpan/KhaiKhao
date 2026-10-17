@@ -353,14 +353,14 @@
                             <span>📈 กราฟยอดขายตามวัน</span>
                         </button>
                         <button type="button" id="tabPeak" class="chart-tab-btn" onclick="switchChartMode('peak')">
-                            <span>⏰ กราฟช่วงเวลาพีค (00:00 - 23:00 น.)</span>
+                            <span>⏰ กราฟช่วงเวลาพีค (เวลาไทย)</span>
                         </button>
                     </div>
 
                     <!-- กล่องข้อมูลไฮไลต์ช่วงเวลาพีคสูงสุด (Quick Insight Badge) -->
                     {% if peak_summary.sales > 0 %}
                     <div id="peakInsightBadge" style="display: none; align-items: center; gap: 8px; background: linear-gradient(135deg, #ede9fe 0%, #ddd6fe 100%); border: 1px solid #c4b5fd; padding: 6px 14px; border-radius: 20px; font-size: 13px; color: #5b21b6; font-weight: 700;">
-                        <span>🔥 ช่วงขายดีที่สุด:</span>
+                        <span>🔥 ช่วงขายดีที่สุด (เวลาไทย):</span>
                         <span style="background: #7c3aed; color: white; padding: 2px 8px; border-radius: 12px; font-size: 12px;">{{ peak_summary.hour }}</span>
                         <span style="color: #6d28d9;">(฿{{ peak_summary.sales|floatformat:2 }} / {{ peak_summary.orders }} บิล)</span>
                     </div>
@@ -392,15 +392,15 @@
                     </div>
                 </div>
 
-                <!-- 2. กราฟวิเคราะห์ช่วงเวลาพีคของการขาย (Peak Sales Hours) 00:00 - 23:00 น. -->
+                <!-- 2. กราฟวิเคราะห์ช่วงเวลาพีคของการขาย (Peak Sales Hours: แปลงเป็นเวลาไทย โดยเที่ยงคืนอยู่ตรงกลาง) -->
                 <div id="peakChartWrapper" style="display: none;">
                     <div class="chart-header">
                         <div>
                             <h3 style="color: #4338ca; display: flex; align-items: center; gap: 8px;">
-                                <span>⏰ วิเคราะห์ช่วงเวลาพีคของการขาย (Peak Sales Hours)</span>
+                                <span>⏰ วิเคราะห์ช่วงเวลาพีคของการขาย (เวลาประเทศไทย - เที่ยงคืนอยู่ตรงกลาง)</span>
                             </h3>
                             <p style="margin: 4px 0 0; font-size: 13px; color: #64748b;">
-                                สถิติยอดขายและจำนวนออเดอร์แยกตามชั่วโมง (00:00 - 23:00 น.) เพื่อช่วยวางแผนสต๊อกและช่วงเวลาทำครัว
+                                สถิติยอดขายและจำนวนออเดอร์แปลงเป็นเวลาไทย (12:00 น. ถึง 11:00 น. โดยมีเที่ยงคืน 00:00 น. อยู่ตรงกลาง) เพื่อช่วยวางแผนสต๊อกและช่วงเวลาทำครัว
                                 {% if filter_type == 'realtime' %}(สถิติวันนี้){% elif filter_type == 'all' %}(สถิติรวมทั้งหมด){% elif selected_month %}(ประจำเดือน {{ selected_month }}){% endif %}
                             </p>
                         </div>
@@ -527,7 +527,13 @@
             scales: {
                 x: {
                     stacked: true, // 🌟 เปิดใช้งานแกน X แบบซ้อนกัน
-                    grid: { display: false },
+                    grid: {
+                        display: true, // 🌟 แสดงเส้นโครงแนวตั้ง
+                        color: 'rgba(226, 232, 240, 0.85)',
+                        borderDash: [3, 3],
+                        drawBorder: true,
+                        borderColor: '#cbd5e1'
+                    },
                     ticks: {
                         font: { family: "'Segoe UI', Tahoma, Geneva, Verdana, sans-serif", size: 12 },
                         color: '#4b5563'
@@ -536,8 +542,13 @@
                 y: {
                     stacked: true, // 🌟 เปิดใช้งานแกน Y แบบซ้อนกัน
                     beginAtZero: true,
-                    border: { dash: [4, 4] },
-                    grid: { color: '#e2e8f0', drawBorder: false },
+                    border: { dash: [3, 3], color: '#cbd5e1' },
+                    grid: {
+                        display: true, // 🌟 แสดงเส้นโครงแนวนอน
+                        color: 'rgba(226, 232, 240, 0.85)',
+                        borderDash: [3, 3],
+                        drawBorder: true
+                    },
                     ticks: {
                         callback: function(value) {
                             return '฿' + value.toLocaleString();
@@ -668,18 +679,46 @@
                 maintainAspectRatio: false,
                 scales: {
                     x: {
-                        grid: { display: false },
+                        grid: {
+                            display: true, // 🌟 แสดงเส้นโครงแนวตั้ง
+                            color: function(context) {
+                                // ไฮไลต์เส้นโครงตรงเที่ยงคืน (00:00 น.) ให้ชัดเจนขึ้น
+                                if (context.tick && context.tick.label === '00:00 น.') {
+                                    return 'rgba(124, 58, 237, 0.4)';
+                                }
+                                return 'rgba(226, 232, 240, 0.85)';
+                            },
+                            borderDash: [3, 3],
+                            drawBorder: true,
+                            borderColor: '#cbd5e1'
+                        },
                         ticks: {
-                            font: { family: "'Segoe UI', Tahoma, Geneva, Verdana, sans-serif", size: 11, weight: '600' },
-                            color: '#64748b',
+                            font: function(context) {
+                                if (context.tick && context.tick.label === '00:00 น.') {
+                                    return { family: "'Segoe UI', Tahoma, Geneva, Verdana, sans-serif", size: 12, weight: 'bold' };
+                                }
+                                return { family: "'Segoe UI', Tahoma, Geneva, Verdana, sans-serif", size: 11, weight: '600' };
+                            },
+                            color: function(context) {
+                                // ไฮไลต์ตัวอักษร 00:00 น. (เที่ยงคืนตรงกลาง)
+                                if (context.tick && context.tick.label === '00:00 น.') {
+                                    return '#7c3aed';
+                                }
+                                return '#64748b';
+                            },
                             maxRotation: 45,
                             minRotation: 45
                         }
                     },
                     y: {
                         beginAtZero: true,
-                        border: { dash: [4, 4] },
-                        grid: { color: '#e2e8f0', drawBorder: false },
+                        border: { dash: [3, 3], color: '#cbd5e1' },
+                        grid: {
+                            display: true, // 🌟 แสดงเส้นโครงแนวนอน
+                            color: 'rgba(226, 232, 240, 0.85)',
+                            borderDash: [3, 3],
+                            drawBorder: true
+                        },
                         ticks: {
                             callback: function(value) {
                                 return '฿' + value.toLocaleString();

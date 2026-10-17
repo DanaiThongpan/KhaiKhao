@@ -135,8 +135,8 @@ AUTH_PASSWORD_VALIDATORS = [
 
 LANGUAGE_CODE = 'en-us'
 
-# ตั้งค่าเขตเวลาประเทศไทย (Asia/Bangkok: UTC+7)
-TIME_ZONE = 'Asia/Bangkok'
+# ตั้งเวลาเป็น UTC -7 (เช่น อเมริกา/เดนเวอร์)
+TIME_ZONE = 'America/Denver'
 
 USE_I18N = True
 USE_TZ = True
