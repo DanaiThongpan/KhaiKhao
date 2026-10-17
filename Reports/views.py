@@ -142,30 +142,32 @@ def reports_home(request):
         except ValueError:
             pass
 
+    tz = timezone.get_current_timezone()
+
     # ตารางสรุปสถิติ 4 รูปแบบ (Daily 10 วันล่าสุด, Weekly, Monthly, Yearly)
     daily_sales = (
-        base_orders_qs.annotate(period=TruncDay("created_at"))
+        base_orders_qs.annotate(period=TruncDay("created_at", tzinfo=tz))
         .values("period")
         .annotate(total=Sum("total_amount"), order_count=Count("id", distinct=True))
         .order_by("-period")[:10]
     )
 
     weekly_sales = (
-        base_orders_qs.annotate(period=TruncWeek("created_at"))
+        base_orders_qs.annotate(period=TruncWeek("created_at", tzinfo=tz))
         .values("period")
         .annotate(total=Sum("total_amount"), order_count=Count("id", distinct=True))
         .order_by("-period")[:10]
     )
 
     monthly_sales = (
-        base_orders_qs.annotate(period=TruncMonth("created_at"))
+        base_orders_qs.annotate(period=TruncMonth("created_at", tzinfo=tz))
         .values("period")
         .annotate(total=Sum("total_amount"), order_count=Count("id", distinct=True))
         .order_by("-period")[:12]
     )
 
     yearly_sales = (
-        base_orders_qs.annotate(period=TruncYear("created_at"))
+        base_orders_qs.annotate(period=TruncYear("created_at", tzinfo=tz))
         .values("period")
         .annotate(total=Sum("total_amount"), order_count=Count("id", distinct=True))
         .order_by("-period")[:5]
@@ -201,7 +203,7 @@ def reports_home(request):
     if filter_type in ["realtime", "today"]:
         orders_qs = orders_qs.filter(created_at__date=today)
         items_qs = items_qs.filter(order__created_at__date=today)
-        trunc_fn = TruncHour("order__created_at", tzinfo=timezone.get_current_timezone())
+        trunc_fn = TruncHour("order__created_at", tzinfo=tz)
         chart_title = "⚡ สถิติยอดขายวันนี้ (เรียลไทม์)"
         summary_label = "ยอดขายสะสมวันนี้ (เรียลไทม์)"
     elif filter_type == "week":
@@ -212,7 +214,7 @@ def reports_home(request):
                 items_qs = items_qs.filter(order__created_at__year=year, order__created_at__month=month)
             except ValueError:
                 pass
-        trunc_fn = TruncWeek("order__created_at")
+        trunc_fn = TruncWeek("order__created_at", tzinfo=tz)
         chart_title = "📆 สถิติยอดขายรายสัปดาห์ (แยกตามร้านค้า)"
         summary_label = "ยอดขายสะสมตามช่วงเวลาที่กรอง"
     elif filter_type == "month":
@@ -223,15 +225,15 @@ def reports_home(request):
                 items_qs = items_qs.filter(order__created_at__year=year, order__created_at__month=month)
             except ValueError:
                 pass
-        trunc_fn = TruncMonth("order__created_at")
+        trunc_fn = TruncMonth("order__created_at", tzinfo=tz)
         chart_title = "📈 สถิติยอดขายรายเดือน (แยกตามร้านค้า)"
         summary_label = "ยอดขายสะสมตามช่วงเวลาที่กรอง"
     elif filter_type == "year":
-        trunc_fn = TruncYear("order__created_at")
+        trunc_fn = TruncYear("order__created_at", tzinfo=tz)
         chart_title = "🏆 สถิติยอดขายรายปี (แยกตามร้านค้า)"
         summary_label = "ยอดขายสะสมตามช่วงเวลาที่กรอง"
     elif filter_type == "all":
-        trunc_fn = TruncDate("order__created_at")
+        trunc_fn = TruncDate("order__created_at", tzinfo=tz)
         chart_title = "🌐 สถิติยอดขายทั้งหมดทุกออเดอร์ (แยกตามร้านค้า)"
         summary_label = "ยอดขายสะสมทั้งหมดทุกออเดอร์ (All-Time)"
     else:  # day
@@ -243,7 +245,7 @@ def reports_home(request):
                 items_qs = items_qs.filter(order__created_at__year=year, order__created_at__month=month)
             except ValueError:
                 pass
-        trunc_fn = TruncDate("order__created_at")
+        trunc_fn = TruncDate("order__created_at", tzinfo=tz)
         chart_title = "📅 สถิติยอดขายรายวัน (แยกตามร้านค้า)"
         summary_label = "ยอดขายสะสมตามช่วงเวลาที่กรอง"
 
