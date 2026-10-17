@@ -4,13 +4,16 @@ import json
 from django.contrib.auth.decorators import login_required
 from django.db.models import Count, F, Q, Sum
 from django.db.models.functions import (
+    ExtractHour,
     TruncDate,
     TruncDay,
+    TruncHour,
     TruncMonth,
     TruncWeek,
     TruncYear,
 )
 from django.shortcuts import render
+from django.utils import timezone
 
 from Accounts.models import User
 from Pos.models import Order, OrderItem
@@ -63,10 +66,27 @@ def format_period_label(period_val, filter_type):
     """ฟังก์ชันจัดรูปแบบแกน X ของกราฟเป็นภาษาไทยตามประเภทการกรอง"""
     if not period_val:
         return ""
+
+    if filter_type in ["realtime", "today"]:
+        if hasattr(period_val, "hour"):
+            return f"{period_val.hour:02d}:00 น."
+        elif isinstance(period_val, str) and len(period_val) >= 13:
+            try:
+                hour = int(period_val[11:13])
+                return f"{hour:02d}:00 น."
+            except ValueError:
+                return str(period_val)
+        return str(period_val)
+
     if hasattr(period_val, "date"):
         d = period_val.date()
     elif isinstance(period_val, datetime):
         d = period_val.date()
+    elif isinstance(period_val, str):
+        try:
+            d = datetime.strptime(period_val[:10], "%Y-%m-%d").date()
+        except ValueError:
+            return str(period_val)
     else:
         d = period_val
 
@@ -76,6 +96,8 @@ def format_period_label(period_val, filter_type):
         return f"{THAI_MONTHS_SHORT[d.month]} {d.year}"
     elif filter_type == "week":
         return f"สัปดาห์ {d.day} {THAI_MONTHS_SHORT[d.month]}"
+    elif filter_type == "all":
+        return f"{d.day} {THAI_MONTHS_SHORT[d.month]} {str(d.year)[2:]}"
     else:  # day
         return f"{d.day} {THAI_MONTHS_SHORT[d.month]}"
 
@@ -84,52 +106,66 @@ def format_period_label(period_val, filter_type):
 def reports_home(request):
     """
     หน้าแสดงรายงานยอดขายและสถิติกราฟแยกตามร้านค้า (Stacked Bar Chart)
-    ดึงข้อมูลทั้งหมดด้วย Django ORM Query เพียงครั้งเดียว ไม่เกิดปัญหา N+1 Query
+    รองรับตัวกรอง 6 รูปแบบ:
+    1. เรียลไทม์ (realtime / วันนี้)
+    2. รายวัน (day)
+    3. รายสัปดาห์ (week)
+    4. รายเดือน (month)
+    5. รายปี (year)
+    6. ทั้งหมดทุกออเดอร์ (all)
+    พร้อมการวิเคราะห์ช่วงเวลาพีค (Peak Sales Hours: 00:00 - 23:00 น.)
     """
     # 1. รับค่าตัวกรองจาก Request
     selected_user_id = request.GET.get("user", "")
     filter_type = request.GET.get("filter", "day")
     selected_month = request.GET.get("month_picker", "")  # รูปแบบ: YYYY-MM
 
-    # 2. ตั้งค่า QuerySet สำหรับสรุปตารางสถิติด้านล่าง
-    orders_qs = Order.objects.all()
+    # หากผู้ใช้เลือก month_picker ขณะอยู่ใน realtime หรือ all ให้เปลี่ยน filter_type เป็น day
+    if selected_month and filter_type in ["realtime", "all"]:
+        filter_type = "day"
+
+    # ถ้าเลือก realtime หรือ all ให้เคลียร์ selected_month ออก
+    if filter_type in ["realtime", "all"]:
+        selected_month = ""
+
+    today = timezone.localdate()
+
+    # 2. ตั้งค่า QuerySet พื้นฐานสำหรับสรุปตารางสถิติด้านล่าง (Historical Tables)
+    base_orders_qs = Order.objects.all()
     if selected_user_id:
-        orders_qs = orders_qs.filter(created_by_id=selected_user_id)
+        base_orders_qs = base_orders_qs.filter(created_by_id=selected_user_id)
 
     if selected_month:
         try:
             year, month = map(int, selected_month.split("-"))
-            orders_qs = orders_qs.filter(created_at__year=year, created_at__month=month)
+            base_orders_qs = base_orders_qs.filter(created_at__year=year, created_at__month=month)
         except ValueError:
             pass
 
-    # ยอดขายสะสมรวมทั้งหมด (Grand Total)
-    grand_total = orders_qs.aggregate(total=Sum("total_amount"))["total"] or 0
-
-    # ตารางสรุปสถิติ 4 รูปแบบ
+    # ตารางสรุปสถิติ 4 รูปแบบ (Daily 10 วันล่าสุด, Weekly, Monthly, Yearly)
     daily_sales = (
-        orders_qs.annotate(period=TruncDay("created_at"))
+        base_orders_qs.annotate(period=TruncDay("created_at"))
         .values("period")
         .annotate(total=Sum("total_amount"), order_count=Count("id", distinct=True))
         .order_by("-period")[:10]
     )
 
     weekly_sales = (
-        orders_qs.annotate(period=TruncWeek("created_at"))
+        base_orders_qs.annotate(period=TruncWeek("created_at"))
         .values("period")
         .annotate(total=Sum("total_amount"), order_count=Count("id", distinct=True))
         .order_by("-period")[:10]
     )
 
     monthly_sales = (
-        orders_qs.annotate(period=TruncMonth("created_at"))
+        base_orders_qs.annotate(period=TruncMonth("created_at"))
         .values("period")
         .annotate(total=Sum("total_amount"), order_count=Count("id", distinct=True))
         .order_by("-period")[:12]
     )
 
     yearly_sales = (
-        orders_qs.annotate(period=TruncYear("created_at"))
+        base_orders_qs.annotate(period=TruncYear("created_at"))
         .values("period")
         .annotate(total=Sum("total_amount"), order_count=Count("id", distinct=True))
         .order_by("-period")[:5]
@@ -154,40 +190,75 @@ def reports_home(request):
             product__category__name__icontains=kw
         )
 
-    # 4. ฟังก์ชันช่วงเวลาสำหรับจัดกลุ่มกราฟ
-    if filter_type == "year":
-        trunc_fn = TruncYear("order__created_at")
-        chart_title = "สถิติยอดขายรายปี (แยกตามร้านค้า)"
-    elif filter_type == "month":
-        trunc_fn = TruncMonth("order__created_at")
-        chart_title = "สถิติยอดขายรายเดือน (แยกตามร้านค้า)"
-    elif filter_type == "week":
-        trunc_fn = TruncWeek("order__created_at")
-        chart_title = "สถิติยอดขายรายสัปดาห์ (แยกตามร้านค้า)"
-    else:
-        trunc_fn = TruncDate("order__created_at")
-        chart_title = "สถิติยอดขายรายวัน (แยกตามร้านค้า)"
+    # 4. กำหนด QuerySet ตามช่วงเวลาที่ผู้ใช้เลือกกรอง (Filter Scope)
+    orders_qs = Order.objects.all()
+    items_qs = OrderItem.objects.all()
 
-    if selected_month:
+    if selected_user_id:
+        orders_qs = orders_qs.filter(created_by_id=selected_user_id)
+        items_qs = items_qs.filter(order__created_by_id=selected_user_id)
+
+    if filter_type in ["realtime", "today"]:
+        orders_qs = orders_qs.filter(created_at__date=today)
+        items_qs = items_qs.filter(order__created_at__date=today)
+        trunc_fn = TruncHour("order__created_at", tzinfo=timezone.get_current_timezone())
+        chart_title = "⚡ สถิติยอดขายวันนี้ (เรียลไทม์)"
+        summary_label = "ยอดขายสะสมวันนี้ (เรียลไทม์)"
+    elif filter_type == "week":
+        if selected_month:
+            try:
+                year, month = map(int, selected_month.split("-"))
+                orders_qs = orders_qs.filter(created_at__year=year, created_at__month=month)
+                items_qs = items_qs.filter(order__created_at__year=year, order__created_at__month=month)
+            except ValueError:
+                pass
+        trunc_fn = TruncWeek("order__created_at")
+        chart_title = "📆 สถิติยอดขายรายสัปดาห์ (แยกตามร้านค้า)"
+        summary_label = "ยอดขายสะสมตามช่วงเวลาที่กรอง"
+    elif filter_type == "month":
+        if selected_month:
+            try:
+                year, month = map(int, selected_month.split("-"))
+                orders_qs = orders_qs.filter(created_at__year=year, created_at__month=month)
+                items_qs = items_qs.filter(order__created_at__year=year, order__created_at__month=month)
+            except ValueError:
+                pass
+        trunc_fn = TruncMonth("order__created_at")
+        chart_title = "📈 สถิติยอดขายรายเดือน (แยกตามร้านค้า)"
+        summary_label = "ยอดขายสะสมตามช่วงเวลาที่กรอง"
+    elif filter_type == "year":
+        trunc_fn = TruncYear("order__created_at")
+        chart_title = "🏆 สถิติยอดขายรายปี (แยกตามร้านค้า)"
+        summary_label = "ยอดขายสะสมตามช่วงเวลาที่กรอง"
+    elif filter_type == "all":
+        trunc_fn = TruncDate("order__created_at")
+        chart_title = "🌐 สถิติยอดขายทั้งหมดทุกออเดอร์ (แยกตามร้านค้า)"
+        summary_label = "ยอดขายสะสมทั้งหมดทุกออเดอร์ (All-Time)"
+    else:  # day
+        filter_type = "day"
+        if selected_month:
+            try:
+                year, month = map(int, selected_month.split("-"))
+                orders_qs = orders_qs.filter(created_at__year=year, created_at__month=month)
+                items_qs = items_qs.filter(order__created_at__year=year, order__created_at__month=month)
+            except ValueError:
+                pass
+        trunc_fn = TruncDate("order__created_at")
+        chart_title = "📅 สถิติยอดขายรายวัน (แยกตามร้านค้า)"
+        summary_label = "ยอดขายสะสมตามช่วงเวลาที่กรอง"
+
+    if selected_month and filter_type in ["day", "week", "month"]:
         try:
             m_dt = datetime.strptime(selected_month, "%Y-%m")
             chart_title += f" (ประจำเดือน {THAI_MONTHS_SHORT[m_dt.month]} {m_dt.year})"
+            summary_label = f"ยอดขายสะสมประจำเดือน {THAI_MONTHS_SHORT[m_dt.month]} {m_dt.year}"
         except ValueError:
             pass
+
+    # ยอดขายสะสมตามเงื่อนไขการกรอง (Grand Total)
+    grand_total = orders_qs.aggregate(total=Sum("total_amount"))["total"] or 0
 
     # 5. Query ข้อมูลกราฟทั้งหมดเพียงครั้งเดียว (Single Query via OrderItem ORM)
-    items_qs = OrderItem.objects.all()
-    if selected_user_id:
-        items_qs = items_qs.filter(order__created_by_id=selected_user_id)
-    if selected_month:
-        try:
-            year, month = map(int, selected_month.split("-"))
-            items_qs = items_qs.filter(
-                order__created_at__year=year, order__created_at__month=month
-            )
-        except ValueError:
-            pass
-
     sales_by_shop = (
         items_qs.annotate(
             period=trunc_fn,
@@ -266,6 +337,45 @@ def reports_home(request):
             }
         )
 
+    # =========================================================
+    # 🌟 9. วิเคราะห์ช่วงเวลาพีคของการขาย (Peak Sales Hours: 00:00 - 23:00 น.) 🌟
+    # ใช้ ExtractHour จัดกลุ่มตามชั่วโมงที่บันทึกออเดอร์จริง (created_at)
+    # สอดคล้องกับระบบ Filter (User, Month, Year, Date, Realtime, All) ทั้งหมด
+    # =========================================================
+    hourly_stats = (
+        orders_qs.annotate(
+            hour=ExtractHour("created_at", tzinfo=timezone.get_current_timezone())
+        )
+        .values("hour")
+        .annotate(
+            total_sales=Sum("total_amount"),
+            order_count=Count("id")
+        )
+        .order_by("hour")
+    )
+
+    hour_map = {row["hour"]: row for row in hourly_stats if row["hour"] is not None}
+
+    # เตรียมข้อมูลครบทั้ง 24 ชั่วโมง (00:00 - 23:00 น.)
+    peak_hours_labels = [f"{h:02d}:00 น." for h in range(24)]
+    peak_hours_sales = [
+        float(hour_map[h]["total_sales"] or 0) if h in hour_map else 0.0
+        for h in range(24)
+    ]
+    peak_hours_orders = [
+        int(hour_map[h]["order_count"] or 0) if h in hour_map else 0
+        for h in range(24)
+    ]
+
+    # สรุปช่วงเวลาที่ขายดีที่สุด (Peak Rush Hour)
+    max_peak_sales = max(peak_hours_sales) if peak_hours_sales else 0.0
+    max_hour_idx = peak_hours_sales.index(max_peak_sales) if max_peak_sales > 0 else 0
+    peak_summary = {
+        "hour": peak_hours_labels[max_hour_idx],
+        "sales": max_peak_sales,
+        "orders": peak_hours_orders[max_hour_idx],
+    }
+
     all_users = User.objects.filter(is_active=True)
 
     context = {
@@ -277,10 +387,16 @@ def reports_home(request):
         "chart_labels_json": json.dumps(chart_labels, ensure_ascii=False),
         "chart_datasets_json": json.dumps(chart_datasets, ensure_ascii=False),
         "chart_label": chart_title,
+        "summary_label": summary_label,
         "filter_type": filter_type,
         "selected_month": selected_month,
         "all_users": all_users,
         "selected_user_id": selected_user_id,
+        # 🌟 ตัวแปรช่วงเวลาพีคส่งให้ Chart.js 🌟
+        "peak_hours_labels_json": json.dumps(peak_hours_labels, ensure_ascii=False),
+        "peak_hours_sales_json": json.dumps(peak_hours_sales),
+        "peak_hours_orders_json": json.dumps(peak_hours_orders),
+        "peak_summary": peak_summary,
     }
 
     return render(request, "Reports/home.html", context)

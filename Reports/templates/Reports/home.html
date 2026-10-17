@@ -96,23 +96,63 @@
             background: #f3f4f6;
             padding: 4px;
             border-radius: 30px;
-            gap: 2px;
+            gap: 3px;
             flex-wrap: wrap;
+            align-items: center;
         }
         .filter-btn {
-            padding: 8px 20px;
+            padding: 7px 14px;
             border-radius: 25px;
             text-decoration: none;
             color: #4b5563;
             font-weight: 600;
-            font-size: 14px;
-            transition: all 0.3s ease;
+            font-size: 13px;
+            transition: all 0.25s ease;
+            white-space: nowrap;
+            display: inline-flex;
+            align-items: center;
+            gap: 4px;
         }
-        .filter-btn:hover { color: #16a34a; }
+        .filter-btn:hover {
+            color: #16a34a;
+            background: rgba(255, 255, 255, 0.6);
+        }
         .filter-btn.active {
             background: #ffffff;
             color: #16a34a;
-            box-shadow: 0 2px 5px rgba(0,0,0,0.1);
+            box-shadow: 0 2px 6px rgba(0,0,0,0.1);
+        }
+
+        /* =====================================================
+           CHART VIEW SWITCH TABS (สลับกราฟยอดขาย / กราฟช่วงเวลาพีค)
+        ===================================================== */
+        .chart-tab-btn {
+            border: none;
+            background: transparent;
+            padding: 8px 18px;
+            border-radius: 25px;
+            font-size: 14px;
+            font-weight: 700;
+            color: #64748b;
+            cursor: pointer;
+            transition: all 0.25s ease;
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+            font-family: inherit;
+        }
+        .chart-tab-btn:hover {
+            color: #1e293b;
+            background: rgba(255, 255, 255, 0.6);
+        }
+        .chart-tab-btn.active {
+            background: #ffffff;
+            color: #16a34a;
+            box-shadow: 0 2px 6px rgba(0,0,0,0.08);
+        }
+        #tabPeak.active {
+            color: #7c3aed;
+            box-shadow: 0 2px 8px rgba(124, 58, 237, 0.15);
         }
 
         /* =====================================================
@@ -289,16 +329,16 @@
 
                 <input type="hidden" name="filter" value="{{ filter_type }}">
                 
-                {% if selected_user_id or selected_month %}
+                {% if selected_user_id or selected_month or filter_type != 'day' %}
                 <div style="align-self: flex-end;">
-                    <a href="{% url 'reports:home' %}?filter={{ filter_type }}" class="btn-reset">🔄 ล้างการกรอง</a>
+                    <a href="{% url 'reports:home' %}" class="btn-reset">🔄 ล้างการกรอง</a>
                 </div>
                 {% endif %}
             </form>
 
             <div class="total-summary-card">
                 <div class="details">
-                    <span>ยอดขายสะสมตามช่วงเวลาที่กรอง</span>
+                    <span>{{ summary_label|default:"ยอดขายสะสมตามช่วงเวลาที่กรอง" }}</span>
                     <strong>฿{{ grand_total|floatformat:2 }}</strong>
                 </div>
                 <div class="icon">💰</div>
@@ -306,18 +346,77 @@
 
             <!-- CHART SECTION -->
             <div class="chart-section">
-                <div class="chart-header">
-                    <h3>📈 {{ chart_label }}</h3>
-                    <div class="filter-tabs">
-                        <!-- 🌟 ส่ง parameter ทั้งหมดกลับไปด้วยเพื่อคงค่าการกรองร้านและเดือน 🌟 -->
-                        <a href="?filter=day{% if selected_user_id %}&user={{ selected_user_id }}{% endif %}{% if selected_month %}&month_picker={{ selected_month }}{% endif %}" class="filter-btn {% if filter_type == 'day' %}active{% endif %}">รายวัน</a>
-                        <a href="?filter=week{% if selected_user_id %}&user={{ selected_user_id }}{% endif %}{% if selected_month %}&month_picker={{ selected_month }}{% endif %}" class="filter-btn {% if filter_type == 'week' %}active{% endif %}">รายสัปดาห์</a>
-                        <a href="?filter=month{% if selected_user_id %}&user={{ selected_user_id }}{% endif %}{% if selected_month %}&month_picker={{ selected_month }}{% endif %}" class="filter-btn {% if filter_type == 'month' %}active{% endif %}">รายเดือน</a>
-                        <a href="?filter=year{% if selected_user_id %}&user={{ selected_user_id }}{% endif %}{% if selected_month %}&month_picker={{ selected_month }}{% endif %}" class="filter-btn {% if filter_type == 'year' %}active{% endif %}">รายปี</a>
+                <!-- 🌟 แถบปุ่มสลับประเภทกราฟ (โมเดิร์น สไตล์ Tailwind / Segmented Tabs) 🌟 -->
+                <div style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 12px; margin-bottom: 20px; padding-bottom: 15px; border-bottom: 1px solid #f1f5f9;">
+                    <div style="display: inline-flex; background: #f1f5f9; padding: 4px; border-radius: 30px; gap: 4px;">
+                        <button type="button" id="tabSales" class="chart-tab-btn active" onclick="switchChartMode('sales')">
+                            <span>📈 กราฟยอดขายตามวัน</span>
+                        </button>
+                        <button type="button" id="tabPeak" class="chart-tab-btn" onclick="switchChartMode('peak')">
+                            <span>⏰ กราฟช่วงเวลาพีค (00:00 - 23:00 น.)</span>
+                        </button>
+                    </div>
+
+                    <!-- กล่องข้อมูลไฮไลต์ช่วงเวลาพีคสูงสุด (Quick Insight Badge) -->
+                    {% if peak_summary.sales > 0 %}
+                    <div id="peakInsightBadge" style="display: none; align-items: center; gap: 8px; background: linear-gradient(135deg, #ede9fe 0%, #ddd6fe 100%); border: 1px solid #c4b5fd; padding: 6px 14px; border-radius: 20px; font-size: 13px; color: #5b21b6; font-weight: 700;">
+                        <span>🔥 ช่วงขายดีที่สุด:</span>
+                        <span style="background: #7c3aed; color: white; padding: 2px 8px; border-radius: 12px; font-size: 12px;">{{ peak_summary.hour }}</span>
+                        <span style="color: #6d28d9;">(฿{{ peak_summary.sales|floatformat:2 }} / {{ peak_summary.orders }} บิล)</span>
+                    </div>
+                    {% endif %}
+                </div>
+
+                <!-- 1. กราฟยอดขายตามช่วงเวลา -->
+                <div id="salesChartWrapper">
+                    <div class="chart-header">
+                        <h3>📈 {{ chart_label }}</h3>
+                        <div class="filter-tabs">
+                            <!-- 🌟 ตัวกรอง 6 รูปแบบ: เรียลไทม์, รายวัน, รายสัปดาห์, รายเดือน, รายปี, ทั้งหมดทุกออเดอร์ 🌟 -->
+                            <a href="?filter=realtime{% if selected_user_id %}&user={{ selected_user_id }}{% endif %}" class="filter-btn {% if filter_type == 'realtime' %}active{% endif %}">⚡ เรียลไทม์</a>
+                            <a href="?filter=day{% if selected_user_id %}&user={{ selected_user_id }}{% endif %}{% if selected_month %}&month_picker={{ selected_month }}{% endif %}" class="filter-btn {% if filter_type == 'day' %}active{% endif %}">📅 รายวัน</a>
+                            <a href="?filter=week{% if selected_user_id %}&user={{ selected_user_id }}{% endif %}{% if selected_month %}&month_picker={{ selected_month }}{% endif %}" class="filter-btn {% if filter_type == 'week' %}active{% endif %}">📆 รายสัปดาห์</a>
+                            <a href="?filter=month{% if selected_user_id %}&user={{ selected_user_id }}{% endif %}{% if selected_month %}&month_picker={{ selected_month }}{% endif %}" class="filter-btn {% if filter_type == 'month' %}active{% endif %}">📈 รายเดือน</a>
+                            <a href="?filter=year{% if selected_user_id %}&user={{ selected_user_id }}{% endif %}{% if selected_month %}&month_picker={{ selected_month }}{% endif %}" class="filter-btn {% if filter_type == 'year' %}active{% endif %}">🏆 รายปี</a>
+                            <a href="?filter=all{% if selected_user_id %}&user={{ selected_user_id }}{% endif %}" class="filter-btn {% if filter_type == 'all' %}active{% endif %}">🌐 ทั้งหมดทุกออเดอร์</a>
+                        </div>
+                    </div>
+                    {% if filter_type == 'realtime' and grand_total == 0 %}
+                    <div style="background: #f0fdf4; border: 1px solid #bbf7d0; color: #166534; padding: 10px 16px; border-radius: 8px; margin-bottom: 15px; font-size: 13px; display: flex; align-items: center; gap: 8px;">
+                        <span>ℹ️</span>
+                        <span>ยังไม่มีรายการสั่งซื้อใหม่ในวันนี้ (เรียลไทม์) หากมีออเดอร์เข้ามา กราฟและยอดขายจะแสดงผลทันที</span>
+                    </div>
+                    {% endif %}
+                    <div style="position: relative; height: 350px; width: 100%;">
+                        <canvas id="salesChart"></canvas>
                     </div>
                 </div>
-                <div style="position: relative; height: 350px; width: 100%;">
-                    <canvas id="salesChart"></canvas>
+
+                <!-- 2. กราฟวิเคราะห์ช่วงเวลาพีคของการขาย (Peak Sales Hours) 00:00 - 23:00 น. -->
+                <div id="peakChartWrapper" style="display: none;">
+                    <div class="chart-header">
+                        <div>
+                            <h3 style="color: #4338ca; display: flex; align-items: center; gap: 8px;">
+                                <span>⏰ วิเคราะห์ช่วงเวลาพีคของการขาย (Peak Sales Hours)</span>
+                            </h3>
+                            <p style="margin: 4px 0 0; font-size: 13px; color: #64748b;">
+                                สถิติยอดขายและจำนวนออเดอร์แยกตามชั่วโมง (00:00 - 23:00 น.) เพื่อช่วยวางแผนสต๊อกและช่วงเวลาทำครัว
+                                {% if filter_type == 'realtime' %}(สถิติวันนี้){% elif filter_type == 'all' %}(สถิติรวมทั้งหมด){% elif selected_month %}(ประจำเดือน {{ selected_month }}){% endif %}
+                            </p>
+                        </div>
+                        <div class="filter-tabs">
+                            <!-- 🌟 ตัวกรอง 6 รูปแบบในหน้ากราฟพีค 🌟 -->
+                            <a href="?filter=realtime{% if selected_user_id %}&user={{ selected_user_id }}{% endif %}" class="filter-btn {% if filter_type == 'realtime' %}active{% endif %}">⚡ เรียลไทม์</a>
+                            <a href="?filter=day{% if selected_user_id %}&user={{ selected_user_id }}{% endif %}{% if selected_month %}&month_picker={{ selected_month }}{% endif %}" class="filter-btn {% if filter_type == 'day' %}active{% endif %}">📅 รายวัน</a>
+                            <a href="?filter=week{% if selected_user_id %}&user={{ selected_user_id }}{% endif %}{% if selected_month %}&month_picker={{ selected_month }}{% endif %}" class="filter-btn {% if filter_type == 'week' %}active{% endif %}">📆 รายสัปดาห์</a>
+                            <a href="?filter=month{% if selected_user_id %}&user={{ selected_user_id }}{% endif %}{% if selected_month %}&month_picker={{ selected_month }}{% endif %}" class="filter-btn {% if filter_type == 'month' %}active{% endif %}">📈 รายเดือน</a>
+                            <a href="?filter=year{% if selected_user_id %}&user={{ selected_user_id }}{% endif %}{% if selected_month %}&month_picker={{ selected_month }}{% endif %}" class="filter-btn {% if filter_type == 'year' %}active{% endif %}">🏆 รายปี</a>
+                            <a href="?filter=all{% if selected_user_id %}&user={{ selected_user_id }}{% endif %}" class="filter-btn {% if filter_type == 'all' %}active{% endif %}">🌐 ทั้งหมดทุกออเดอร์</a>
+                        </div>
+                    </div>
+                    <div style="position: relative; height: 350px; width: 100%;">
+                        <canvas id="peakChart"></canvas>
+                    </div>
                 </div>
             </div>
 
@@ -520,6 +619,156 @@
                 intersect: false,
                 mode: 'index' // แสดงข้อมูลทุกร้านที่มียอดขายในวันเดียวกันพร้อมกัน
             }
+        }
+    });
+
+    // =========================================================
+    // 🌟 PEAK SALES HOURS CHART (กราฟวิเคราะห์ช่วงเวลาพีค 00:00 - 23:00 น.) 🌟
+    // =========================================================
+    const peakHoursLabels = {{ peak_hours_labels_json|safe }};
+    const peakHoursSales = {{ peak_hours_sales_json|safe }};
+    const peakHoursOrders = {{ peak_hours_orders_json|safe }};
+
+    let peakChart = null;
+
+    function initPeakChart() {
+        if (peakChart) return;
+        const peakCanvas = document.getElementById('peakChart');
+        if (!peakCanvas) return;
+        const peakCtx = peakCanvas.getContext('2d');
+
+        // สร้างสี Gradient สวยงามไล่เฉดสีม่วงไวโอเล็ต-น้ำเงิน (Purple / Indigo / Violet Gradient)
+        const gradient = peakCtx.createLinearGradient(0, 0, 0, 350);
+        gradient.addColorStop(0, 'rgba(124, 58, 237, 0.95)');   // #7c3aed ม่วงสด
+        gradient.addColorStop(0.5, 'rgba(99, 102, 241, 0.85)'); // #6366f1 คราม-น้ำเงิน
+        gradient.addColorStop(1, 'rgba(147, 51, 234, 0.45)');   // #9333ea ม่วงโปร่ง
+
+        // ไฮไลต์ชั่วโมงที่มียอดขายสูงสุดด้วยสีส้มทอง
+        const maxVal = Math.max(...peakHoursSales);
+        const backgroundColors = peakHoursSales.map(val => (val > 0 && val === maxVal) ? 'rgba(249, 115, 22, 0.95)' : gradient);
+        const borderColors = peakHoursSales.map(val => (val > 0 && val === maxVal) ? '#ea580c' : '#7c3aed');
+
+        peakChart = new Chart(peakCtx, {
+            type: 'bar',
+            data: {
+                labels: peakHoursLabels,
+                datasets: [{
+                    label: 'ยอดขายตามช่วงเวลา (บาท)',
+                    data: peakHoursSales,
+                    order_counts: peakHoursOrders,
+                    backgroundColor: backgroundColors,
+                    borderColor: borderColors,
+                    borderWidth: 1.5,
+                    borderRadius: 6,
+                    hoverBackgroundColor: '#6366f1'
+                }]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                scales: {
+                    x: {
+                        grid: { display: false },
+                        ticks: {
+                            font: { family: "'Segoe UI', Tahoma, Geneva, Verdana, sans-serif", size: 11, weight: '600' },
+                            color: '#64748b',
+                            maxRotation: 45,
+                            minRotation: 45
+                        }
+                    },
+                    y: {
+                        beginAtZero: true,
+                        border: { dash: [4, 4] },
+                        grid: { color: '#e2e8f0', drawBorder: false },
+                        ticks: {
+                            callback: function(value) {
+                                return '฿' + value.toLocaleString();
+                            },
+                            font: { family: "'Segoe UI', Tahoma, Geneva, Verdana, sans-serif", size: 12 },
+                            color: '#64748b'
+                        }
+                    }
+                },
+                plugins: {
+                    legend: {
+                        display: false
+                    },
+                    tooltip: {
+                        backgroundColor: 'rgba(15, 23, 42, 0.95)',
+                        titleFont: { size: 14, family: "'Segoe UI', sans-serif", weight: 'bold' },
+                        bodyFont: { size: 13, family: "'Segoe UI', sans-serif" },
+                        padding: 14,
+                        cornerRadius: 10,
+                        callbacks: {
+                            title: function(tooltipItems) {
+                                const h = tooltipItems[0].label;
+                                return `⏰ ช่วงเวลา ${h}`;
+                            },
+                            label: function(context) {
+                                const sales = context.parsed.y || 0;
+                                return ` 💰 ยอดขายรวม : ฿${sales.toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2})}`;
+                            },
+                            afterLabel: function(context) {
+                                const index = context.dataIndex;
+                                const orders = (context.dataset.order_counts && context.dataset.order_counts[index] !== undefined)
+                                    ? context.dataset.order_counts[index]
+                                    : 0;
+                                const sales = context.parsed.y || 0;
+                                const avg = orders > 0 ? (sales / orders).toFixed(2) : '0.00';
+                                return [
+                                    ` 🧾 จำนวนออเดอร์ : ${orders} รายการ`,
+                                    ` 📊 ค่าเฉลี่ยต่อบิล : ฿${parseFloat(avg).toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2})}`
+                                ];
+                            }
+                        }
+                    }
+                }
+            }
+        });
+    }
+
+    // ฟังก์ชันสลับการดูกราฟ (Tab Switching)
+    function switchChartMode(mode) {
+        const tabSales = document.getElementById('tabSales');
+        const tabPeak = document.getElementById('tabPeak');
+        const salesWrapper = document.getElementById('salesChartWrapper');
+        const peakWrapper = document.getElementById('peakChartWrapper');
+        const peakBadge = document.getElementById('peakInsightBadge');
+
+        if (mode === 'peak') {
+            tabSales.classList.remove('active');
+            tabPeak.classList.add('active');
+            salesWrapper.style.display = 'none';
+            peakWrapper.style.display = 'block';
+            if (peakBadge) peakBadge.style.display = 'inline-flex';
+
+            // เริ่มต้นสร้างกราฟช่วงเวลาพีค (Lazy initialization)
+            initPeakChart();
+            if (peakChart) {
+                peakChart.resize();
+                peakChart.update();
+            }
+            sessionStorage.setItem('khaikhao_report_chart_mode', 'peak');
+        } else {
+            tabPeak.classList.remove('active');
+            tabSales.classList.add('active');
+            peakWrapper.style.display = 'none';
+            salesWrapper.style.display = 'block';
+            if (peakBadge) peakBadge.style.display = 'none';
+
+            if (salesChart) {
+                salesChart.resize();
+                salesChart.update();
+            }
+            sessionStorage.setItem('khaikhao_report_chart_mode', 'sales');
+        }
+    }
+
+    // จดจำการสลับแท็บของผู้ใช้เมื่อโหลดหน้าเว็บใหม่
+    document.addEventListener('DOMContentLoaded', () => {
+        const savedMode = sessionStorage.getItem('khaikhao_report_chart_mode');
+        if (savedMode === 'peak') {
+            switchChartMode('peak');
         }
     });
 </script>
